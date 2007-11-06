@@ -1,4 +1,15 @@
-namespace eval hv3 { set {version($Id: hv3_icons.tcl,v 1.5 2007/09/17 14:22:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_icons.tcl,v 1.6 2007/11/06 17:22:48 danielk1977 Exp $)} 1 }
+
+# Define the icons used for tool-buttons:
+#
+#     ::hv3::back_icon
+#     ::hv3::forward_icon
+#     ::hv3::stop_icon
+#     ::hv3::new_icon
+#     ::hv3::home_icon
+#     ::hv3::reload_icon
+#     ::hv3::bug_icon
+#
 
 set ::hv3::back_icon {
 R0lGODlhHgAeANUzAOHh4eLi4uTk5PDw8N3d3dDQ0NfX1+Dg4Ofn5/Hx8fT0
@@ -123,4 +134,6 @@ Fg0XI3jOJfgjyZUyB8zIbSCBQR4qF9DScXoEqcMKeP8weEizqFsBSRJqXfTH
 EMTGbLIgoiv4apm7BgtHmDRRYktHQxU4laLGb0NGKBA0T8hr4cKFHW8ggYkj
 d6GkhxInUKDARrGq1atWUa7YyrWr169fgwAAOw==
 }
+
+
 

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.171 2007/10/30 10:55:32 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.172 2007/11/06 17:22:48 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -16,6 +16,7 @@ source [sourcefile hv3_profile.tcl]
 ::hv3::profile::init $argv
 
 package require Tk
+tk scaling 1.33333
 package require Tkhtml 3.0
 
 # option add *TButton.compound left
@@ -682,13 +683,18 @@ snit::widget ::hv3::browser_toplevel {
   method pendingcmd {isPending} {
     if {$options(-stopbutton) ne "" && $myIsPending != $isPending} {
       if {$isPending} { 
-        $options(-stopbutton) configure -state normal
         $hull configure -cursor watch
+        $options(-stopbutton) configure        \
+            -command [list $myMainFrame stop]  \
+            -image hv3_stopimg                 \
+            -tooltip "Stop Current Download"
       } else {
-        $options(-stopbutton) configure -state disabled
         $hull configure -cursor ""
+        $options(-stopbutton) configure        \
+            -command [list gui_current reload] \
+            -image hv3_reloadimg               \
+            -tooltip "Reload Current Document"
       }
-      $options(-stopbutton) configure -command [list $myMainFrame stop]
     }
     set myIsPending $isPending
   }
@@ -1376,12 +1382,10 @@ proc gui_build {widget_array} {
   ::hv3::toolbutton .toolbar.b.home -text Home -command [list \
       gui_current goto $::hv3::homeuri
   ]
-  ::hv3::toolbutton .toolbar.b.reload -text Reload -command {gui_current reload}
   ::hv3::toolbutton .toolbar.bug -text {Report Bug} -command gui_report_bug
 
   .toolbar.b.new configure -tooltip "Open New Tab"
   .toolbar.b.home configure -tooltip "Go to Bookmarks Manager"
-  .toolbar.b.reload configure -tooltip "Reload Current Document"
 
   .toolbar.bug configure -tooltip "Bug Report"
 
@@ -1390,14 +1394,14 @@ proc gui_build {widget_array} {
     .toolbar.b.back configure -image $backimg
     set forwardimg [image create photo -data $::hv3::forward_icon]
     .toolbar.b.forward configure -image $forwardimg
-    set stopimg [image create photo -data $::hv3::stop_icon]
-    .toolbar.b.stop configure -image $stopimg
+    image create photo hv3_reloadimg -data $::hv3::reload_icon]
+    image create photo hv3_stopimg -data $::hv3::stop_icon
+    .toolbar.b.stop configure -image hv3_stopimg
+
     set newimg [image create photo -data $::hv3::new_icon]
     .toolbar.b.new configure -image $newimg
     set homeimg [image create photo -data $::hv3::home_icon]
     .toolbar.b.home configure -image $homeimg
-    set reloadimg [image create photo -data $::hv3::reload_icon]
-    .toolbar.b.reload configure -image $reloadimg
     set bugimg [image create photo -data $::hv3::bug_icon]
     .toolbar.bug configure -image $bugimg
   }
@@ -1422,7 +1426,6 @@ proc gui_build {widget_array} {
   set G(back_button)    .toolbar.b.back
   set G(forward_button) .toolbar.b.forward
   set G(home_button)    .toolbar.b.home
-  set G(reload_button)  .toolbar.b.reload
   set G(location_entry) .toolbar.entry
   set G(notebook)       .notebook
   set G(status_label)   .status
@@ -1444,7 +1447,6 @@ proc gui_build {widget_array} {
   pack .toolbar.b.new -side left
   pack .toolbar.b.back -side left
   pack .toolbar.b.forward -side left
-  pack .toolbar.b.reload -side left
   pack .toolbar.b.stop -side left
   pack .toolbar.b.home -side left
   pack [frame .toolbar.b.spacer -width 2 -height 1] -side left

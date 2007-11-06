@@ -130,10 +130,7 @@ SUPPORTTABLE {Text Properties} \
 		Value 'blink' is not supported. Also, multiple decorations
 		(e.g. an underline and an overline) are not supported.
 	} \
-	[CSSREF text vertical-align] {
-		No support for the following values: 'top', 'bottom'.
-		All other symbolic values, percentages and lengths work.
-        } \
+	[CSSREF text vertical-align] {} \
 	[CSSREF text text-transform nosupport] {No support.} \
 	[CSSREF text text-align] {} \
 	[CSSREF text text-indent] {} \
