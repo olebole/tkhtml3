@@ -32,6 +32,8 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
+static const char rcsid[] = "$Id: htmlinline.c,v 1.51 2007/11/06 06:41:40 danielk1977 Exp $";
+
 #include "htmllayout.h"
 #include <stdio.h>
 #include <stdarg.h>
@@ -65,8 +67,8 @@
  * QUERY:
  * 
  *     HtmlInlineContextIsEmpty()
+ *     HtmlInlineContextCreator()
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.50 2007/11/05 11:12:49 danielk1977 Exp $";
 
 /* The InlineBox and InlineMetrics types are only used within this file.
  * The InlineContext type is only used within this file, but opaque handles
@@ -108,6 +110,9 @@ struct InlineBorder {
    * this case iVerticalAlign is not meaningful.
    */
   int iVerticalAlign;
+
+  int iTop;
+  int iBottom;
   int eLineboxAlign;          /* One of the LINEBOX_ALIGN_XXX values below */
 
   int iStartBox;              /* Leftmost inline-box */
@@ -166,8 +171,6 @@ struct InlineContext {
     int nInline;            /* Number of inline boxes in aInline */
     int nInlineAlloc;       /* Number of slots allocated in aInline */
     InlineBox *aInline;     /* Array of inline boxes. */
-
-    int iVAlign;               /* Current vertical box offset */
 
     InlineBorder *pBorders;    /* Linked list of active inline-borders. */
     InlineBorder *pBoxBorders; /* Borders list for next box to be added */
@@ -453,9 +456,11 @@ int HtmlInlineContextPushBorder(pContext, pBorder)
                     break;
 
                 /* These two are unhandled as of yet. Treat as "baseline". */
-                case CSS_CONST_TOP:               /* Todo. */
-                case CSS_CONST_BOTTOM:            /* Todo. */
-                    iVert = pPM->iBaseline - pM->iBaseline;
+                case CSS_CONST_TOP:
+                    pBorder->eLineboxAlign = LINEBOX_ALIGN_TOP;
+                    break;
+                case CSS_CONST_BOTTOM:
+                    pBorder->eLineboxAlign = LINEBOX_ALIGN_BOTTOM;
                     break;
             }
 
@@ -535,7 +540,6 @@ HtmlInlineContextPopBorder(p, pBorder)
             pBorder = p->pBorders;
             assert(pBorder);
             p->pBorders = pBorder->pNext;
-            p->iVAlign -= pBorder->iVerticalAlign;
             HtmlFree(pBorder);
         }
     }
@@ -802,7 +806,6 @@ calculateLineBoxHeight(pContext, nBox, hasText, piTop, piBottom)
     int iTop;
     int iBottom;
     int ii;
-    int iVerticalOffset = 0;
     int doLineHeightQuirk = 0;
 
     iTop = 0;
@@ -812,31 +815,81 @@ calculateLineBoxHeight(pContext, nBox, hasText, piTop, piBottom)
         doLineHeightQuirk = 1;
     }
 
-    /* Inline boxes that flow over from previous lines. */
-    for (p = pContext->pBorders; p; p = p->pNext) {
-        assert(p->eLineboxAlign == 0);
-        assert(p->isReplaced == 0);
-        if (!doLineHeightQuirk) {
-            iVerticalOffset += p->iVerticalAlign;
-            iTop = MIN(iTop, iVerticalOffset);
-            iBottom = MAX(iBottom, p->iVerticalAlign + p->metrics.iLogical);
+    for (ii = -1; ii < nBox; ii++) {
+        if (ii >= 0) {
+            /* Inline boxes that start on this line. */
+            p = pContext->aInline[ii].pBorderStart;
+        } else {
+            /* Inline boxes that flow over from the previous line. */
+            p = pContext->pBorders;
+        }
+        for ( ; p; p = p->pNext) {
+
+            if (p->eLineboxAlign != LINEBOX_ALIGN_PARENT) {
+                p->iTop = 0;
+                p->iBottom = 0;
+            }
+
+            if (!doLineHeightQuirk) {
+                InlineBorder *p2;
+                int iVerticalOffset = 0;
+                int iBottomOffset = 0;
+                for (p2 = p; p2; p2 = p2->pParent) {
+                    iVerticalOffset += p2->iVerticalAlign;
+                    if (p2->eLineboxAlign != LINEBOX_ALIGN_PARENT) break;
+                }
+
+                iBottomOffset = iVerticalOffset + p->metrics.iLogical;
+                if (p2) {
+                    p2->iTop = MIN(p2->iTop, iVerticalOffset);
+                    p2->iBottom = MAX(p2->iBottom, iBottomOffset);
+                } else {
+                    iTop = MIN(iTop, iVerticalOffset);
+                    iBottom = MAX(iBottom, iBottomOffset);
+                }
+            } else if (p->isReplaced) {
+                iBottom = MAX(iBottom, p->metrics.iLogical);
+            }
         }
     }
 
-    /* Inline boxes that start on this line. */
-    for (ii = 0; ii < nBox; ii++) {
-        for (p = pContext->aInline[ii].pBorderStart; p; p = p->pNext) {
-            assert(p->eLineboxAlign == 0);
-            if (!doLineHeightQuirk) {
+    for (ii = -1; ii < nBox; ii++) {
+        if (ii >= 0) {
+            /* Inline boxes that start on this line. */
+            p = pContext->aInline[ii].pBorderStart;
+        } else {
+            /* Inline boxes that flow over from the previous line. */
+            p = pContext->pBorders;
+        }
+        for ( ; p; p = p->pNext) {
+            if (p->eLineboxAlign != LINEBOX_ALIGN_PARENT) {
+                int iHeight = p->iBottom - p->iTop;
+                iBottom = MAX(iBottom, iTop + iHeight);
+            }
+        }
+    }
+
+    for (ii = -1; ii < nBox; ii++) {
+        if (ii >= 0) {
+            /* Inline boxes that start on this line. */
+            p = pContext->aInline[ii].pBorderStart;
+        } else {
+            /* Inline boxes that flow over from the previous line. */
+            p = pContext->pBorders;
+        }
+        for ( ; p; p = p->pNext) {
+            if (p->eLineboxAlign != LINEBOX_ALIGN_PARENT) {
                 InlineBorder *p2;
-                iVerticalOffset = 0;
+                int iVerticalOffset = 0;
                 for (p2 = p; p2; p2 = p2->pParent) {
                     iVerticalOffset += p2->iVerticalAlign;
                 }
-                iTop = MIN(iTop, iVerticalOffset);
-                iBottom = MAX(iBottom, iVerticalOffset + p->metrics.iLogical);
-            } else if (p->isReplaced) {
-                iBottom = MAX(iBottom, p->metrics.iLogical);
+                if (p->eLineboxAlign == LINEBOX_ALIGN_TOP) {
+                    p->iVerticalAlign = -1 * iVerticalOffset;
+                } else {
+                    int iHeight = p->iBottom - p->iTop;
+                    p->iVerticalAlign = iBottom - iHeight - iVerticalOffset;
+                }
             }
         }
     }
@@ -1029,6 +1082,8 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
     int *aReplacedX = 0;     /* List of x-coords - borders of replaced objs. */
     int nReplacedX = 0;      /* Size of aReplacedX divided by 2 */
 
+    int iVAlign = 0;
+
     /* True if this line-box contains one or more INLINE_NEWLINE or
      * INLINE_TEXT elements. This is used to activate a line-box height quirk
      * in both "quirks" and "almost standards" mode. This variable is set
@@ -1103,6 +1158,10 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
     }
     iLeft += p->iTextIndent;
     x += iLeft;
+
+    for (pBorder=p->pBorders; pBorder; pBorder=pBorder->pNext) {
+        iVAlign += pBorder->iVerticalAlign;
+    }
 
     /* Draw nBox boxes side by side in pCanvas to create the line-box. */
     for(i = 0; i < nBox; i++) {
@@ -1184,7 +1243,7 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
             x1 -= pBorder->box.iLeft;
             pBorder->iStartBox = i;
             pBorder->iStartPixel = x1;
-            p->iVAlign += pBorder->iVerticalAlign;
+            iVAlign += pBorder->iVerticalAlign;
             if (!pBorder->pNext) {
                 pBorder->pNext = p->pBorders;
                 p->pBorders = pBox->pBorderStart;
@@ -1208,7 +1267,7 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
             aReplacedX[(nReplacedX-1)*2+1] = x1 + boxwidth;
         }
         if (hasText || pContext->pTree->options.mode == HTML_MODE_STANDARDS) {
-            DRAW_CANVAS(&content, &pBox->canvas, x1, p->iVAlign, pBox->pNode);
+            DRAW_CANVAS(&content, &pBox->canvas, x1, iVAlign, pBox->pNode);
         } else {
             assert(pBox->eType == INLINE_REPLACED);
             assert(pBox->pBorderStart);
@@ -1285,9 +1344,9 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
             if (!pBorder) {
                 pBorder = p->pBoxBorders;
                 assert(pBorder);
-                p->pBoxBorders = pBorder->pNext;;
+                p->pBoxBorders = pBorder->pNext;
             } else {
-                p->iVAlign -= pBorder->iVerticalAlign;
+                iVAlign -= pBorder->iVerticalAlign;
                 p->pBorders = pBorder->pNext;
                 HtmlFree(pBorder);
             }
@@ -1677,14 +1736,6 @@ HtmlInlineContextAddBox(pContext, pNode, pCanvas, iWidth, iHeight, iOffset)
     pBox->eWhitespace = pComputed->eWhitespace;
     DRAW_CANVAS(pInline, pCanvas, 0, 0, pNode);
     HtmlInlineContextPopBorder(pContext, pBorder);
-}
-
-void 
-HtmlInlineContextSetTextIndent(pContext, iTextIndent)
-    InlineContext *pContext;
-    int iTextIndent;
-{
-    pContext->iTextIndent = iTextIndent;
 }
 
 HtmlNode *
