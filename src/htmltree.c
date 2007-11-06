@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.155 2007/11/05 11:12:49 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.156 2007/11/06 11:07:41 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -1887,12 +1887,17 @@ nodeViewCmd(pNode, isVertical, objv, objc)
         pElem->pScrollbar->iHorizontal = iNew;
     }
 
+    /* Invoke the scrollbar callbacks (i.e. [$scrollbar set]) to update
+     * the scrollbar widgets with their new positions.
+     */
     HtmlNodeScrollbarDoCallback(pNode->pNodeCmd->pTree, pNode);
-    HtmlWidgetNodeBox(pTree, pNode, &x, &y, &w, &h);
-    HtmlCallbackDamage(pTree, x - pTree->iScrollX, y - pTree->iScrollY, w, h);
-    pTree->cb.flags |= HTML_NODESCROLL;
-    HtmlWalkTree(pTree, pNode, markWindowAsClipped, 0);
 
+    HtmlWidgetOverflowBox(pTree, pNode, &x, &y, &w, &h);
+    HtmlCallbackDamage(pTree, x - pTree->iScrollX, y - pTree->iScrollY, w, h);
+    if (pTree->cb.flags) {
+        pTree->cb.flags |= HTML_NODESCROLL;
+    }
+    HtmlWalkTree(pTree, pNode, markWindowAsClipped, 0);
     return TCL_OK;
 }
 

@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.53 2007/11/06 08:16:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.54 2007/11/06 11:07:41 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <stdio.h>
@@ -488,9 +488,11 @@ int HtmlInlineContextPushBorder(pContext, pBorder)
          *         +--------------+
          */ 
         if (pContext->nInline > 0 && !pBorder->isReplaced) {
+            InlineBox *pPrev = &pContext->aInline[pContext->nInline-1];
             HtmlComputedValues *pV = HtmlNodeComputedValues(pBorder->pNode);
+
             int isPre = (pV->eWhitespace == CSS_CONST_PRE);
-            if (isPre || pContext->aInline[pContext->nInline-1].nSpace == 0) {
+            if (isPre || pPrev->nSpace == 0) {
                 inlineContextAddInlineCanvas(pContext, INLINE_SPACER, 0);
             }
         }
@@ -1099,6 +1101,7 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
     int nReplacedX = 0;      /* Size of aReplacedX divided by 2 */
 
     int iVAlign = 0;
+    int ignoreSpace = 1;
 
     /* True if this line-box contains one or more INLINE_NEWLINE or
      * INLINE_TEXT elements. This is used to activate a line-box height quirk
@@ -1178,6 +1181,20 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
     for (pBorder=p->pBorders; pBorder; pBorder=pBorder->pNext) {
         iVAlign += pBorder->iVerticalAlign;
     }
+
+    START_LOG(pContext->pNode);
+        oprintf(pLog, "<p>Creating line box with %d boxes</p><p>", nBox);
+        for(i = 0; i < nBox; i++) {
+          int eType = p->aInline[i].eType;
+          oprintf(pLog, "%s ", 
+              eType == INLINE_TEXT ? "TEXT" :
+              eType == INLINE_NEWLINE ? "NEWLINE" :
+              eType == INLINE_SPACER ? "SPACER" :
+              eType == INLINE_REPLACED ? "REPLACED" : "unknown"
+          );
+        }
+        oprintf(pLog, "</p>");
+    END_LOG("HtmlInlineContextGetLineBox");
 
     /* Draw nBox boxes side by side in pCanvas to create the line-box. */
     for(i = 0; i < nBox; i++) {
@@ -1371,7 +1388,15 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
             }
         }
 
-        x += pBox->nSpace;
+        if (
+            pBox->eType != INLINE_SPACER || 
+            pBox->eWhitespace == CSS_CONST_PRE
+        ) {
+            ignoreSpace = 0;
+        }
+        if (!ignoreSpace) {
+            x += pBox->nSpace;
+        }
     }
 
     /* If any borders are still in the InlineContext.pBorders list, then

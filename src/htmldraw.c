@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.201 2007/10/06 10:11:51 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.202 2007/11/06 11:07:41 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -4230,6 +4230,57 @@ layoutBboxCb(pItem, origin_x, origin_y, pOverflow, clientData)
     return 0;
 }
 
+typedef struct OverflowBox OverflowBox;
+struct OverflowBox {
+    HtmlNode *pNode;
+    int *pX;
+    int *pY;
+    int *pW;
+    int *pH;
+    int isFound;
+};
+
+static int
+overflowBoxCb(pItem, origin_x, origin_y, pOverflow, clientData)
+    HtmlCanvasItem *pItem;
+    int origin_x;
+    int origin_y;
+    Overflow *pOverflow;
+    ClientData clientData;
+{
+    OverflowBox *p = (OverflowBox *)clientData;
+    if (p->isFound) return 0;
+
+    if (pOverflow && p->pNode == pOverflow->pItem->pNode) {
+        *p->pX = pOverflow->x;
+        *p->pY = pOverflow->y;
+        *p->pW = pOverflow->w;
+        *p->pH = pOverflow->h;
+        p->isFound = 1;
+    }
+    return 0;
+}
+
+void 
+HtmlWidgetOverflowBox(pTree, pNode, pX, pY, pW, pH)
+    HtmlTree *pTree;
+    HtmlNode *pNode;
+    int *pX;
+    int *pY;
+    int *pW;
+    int *pH;
+{
+    OverflowBox sOverflowBox;
+    memset(&sOverflowBox, 0, sizeof(OverflowBox));
+    sOverflowBox.pX = pX;
+    sOverflowBox.pY = pY;
+    sOverflowBox.pW = pW;
+    sOverflowBox.pH = pH;
+    sOverflowBox.pNode = pNode;
+    searchCanvas(pTree, -1, -1, overflowBoxCb, &sOverflowBox, 1);
+    return;
+}
+
 void 
 HtmlWidgetNodeBox(pTree, pNode, pX, pY, pW, pH)
     HtmlTree *pTree;
@@ -4265,8 +4316,8 @@ HtmlWidgetNodeBox(pTree, pNode, pX, pY, pW, pH)
                 CanvasOverflow *pO = &pItem->x.overflow;
                 sQuery.left = MIN(sQuery.left, pO->x + origin_x);
                 sQuery.top = MIN(sQuery.top, pO->y + origin_y);
-                sQuery.right = MAX(sQuery.right, sQuery.left + pO->w);
-                sQuery.bottom = MAX(sQuery.bottom, sQuery.bottom + pO->h);
+                sQuery.right = MAX(sQuery.right, pO->x + origin_x + pO->w);
+                sQuery.bottom = MAX(sQuery.bottom, pO->y + origin_y + pO->h);
             }
             pSkip = pO->pEnd;
         } else if (pItem->type == CANVAS_ORIGIN) {
