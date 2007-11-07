@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.54 2007/11/06 11:07:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.55 2007/11/07 11:57:32 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <stdio.h>
@@ -347,6 +347,18 @@ inlineContextAddInlineCanvas(p, eType, pNode)
     return &pBox->canvas;
 }
 
+static void
+inlineContextAddSpacer(p, eWhitespace)
+    InlineContext *p;
+    int eWhitespace;
+{
+    InlineBox *pBox;
+
+    inlineContextAddInlineCanvas(p, INLINE_SPACER, 0);
+    pBox = &p->aInline[p->nInline-1];
+    pBox->eWhitespace = eWhitespace;
+}
+
 
 /*
  *---------------------------------------------------------------------------
@@ -493,7 +505,7 @@ int HtmlInlineContextPushBorder(pContext, pBorder)
 
             int isPre = (pV->eWhitespace == CSS_CONST_PRE);
             if (isPre || pPrev->nSpace == 0) {
-                inlineContextAddInlineCanvas(pContext, INLINE_SPACER, 0);
+                inlineContextAddSpacer(pContext, pV->eWhitespace);
             }
         }
     }
@@ -522,7 +534,7 @@ HtmlInlineContextPopBorder(p, pBorder)
     InlineContext *p;
     InlineBorder *pBorder;
 {
-    int isPreserveWhitespace = 0;
+    int eWhitespace = CSS_CONST_NORMAL;
 
     if (!pBorder) return;
 
@@ -569,12 +581,12 @@ HtmlInlineContextPopBorder(p, pBorder)
      */
     if (p->pBorders) {
         HtmlComputedValues *pV = HtmlNodeComputedValues(p->pBorders->pNode);
-        isPreserveWhitespace = (pV->eWhitespace == CSS_CONST_PRE);
+        eWhitespace = pV->eWhitespace;
     }
     if (p->nInline > 0 && (
-        p->aInline[p->nInline-1].nSpace == 0 || isPreserveWhitespace
+        p->aInline[p->nInline-1].nSpace == 0 || eWhitespace == CSS_CONST_PRE
     )) {
-        inlineContextAddInlineCanvas(p, INLINE_SPACER, 0);
+        inlineContextAddSpacer(p, eWhitespace);
     }
 }
 
@@ -690,7 +702,7 @@ inlineContextAddNewLine(p, nHeight, isLast)
      * after the new line box.
      */
     if (!isLast) {
-        inlineContextAddInlineCanvas(p, INLINE_SPACER, 0);
+        inlineContextAddSpacer(p, CSS_CONST_PRE);
     }
 }
 
