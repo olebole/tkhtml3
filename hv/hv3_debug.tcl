@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.4 2007/11/01 08:56:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.5 2007/11/07 11:04:53 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -186,7 +186,59 @@ namespace eval ::hv3 {
         }
 
         Search {
+          set ignore_case 0
+          if {$cmd eq [string tolower $cmd]} {
+            set ignore_case 1
+          }
           $myOutputWindow insert end "/ $cmd\n" search
+
+          # Search through all the javascript files for the string $cmd.
+          set dom [[gui_current hv3] dom]
+          set ii 0
+          foreach logscript [$dom GetLog] {
+            if {[$logscript cget -isevent]} continue
+
+            set iLine 1
+            foreach zLine [split [$logscript cget -script] "\n"] {
+              set zLine [string trim $zLine]
+              set zSearch $zLine
+              if {$ignore_case} {set zSearch [string tolower $zSearch]}
+              if {[set i [string first $cmd $zSearch]] >= 0} {
+                set c [list $self DisplayJavascriptError 0 $logscript $iLine]
+
+                set nLine [string length $zLine]
+
+                set iStart [expr $i-20]
+                set iEnd   [expr $i+20]
+                if {$iEnd > $nLine} {
+                  incr iStart [expr $nLine - $iEnd]
+                  set iEnd $nLine
+                }
+                if {$iStart < 0} {
+                  incr iEnd [expr 0 - $iStart]
+                  set iStart 0
+                }
+                set match [string range $zLine $iStart $iEnd]
+
+                if {$iStart > 0} {
+                   $myOutputWindow insert end "..."
+                } else {
+                   $myOutputWindow insert end "   "
+                }
+                $myOutputWindow insert end [format %-40s $match]
+                if {$iEnd < $nLine } {
+                   $myOutputWindow insert end "...  "
+                } else {
+                   $myOutputWindow insert end "     "
+                }
+
+                set z "Line $iLine, [$logscript cget -heading]"
+                $self OutputWindowLink $z $c
+                $myOutputWindow insert end "\n"
+              }
+              incr iLine
+            }
+          }
         }
       }
 

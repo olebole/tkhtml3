@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.202 2007/11/06 11:07:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.203 2007/11/07 11:04:53 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2152,7 +2152,7 @@ drawBox(pQuery, pItem, pBox, drawable, x, y, w, h, xview, yview, flags)
                     iPosX, iPosY
                 );
             } else {
-
+#if 0
                 /* Create a pixmap of the image */
                 ipix = Tk_GetPixmap(
                     display, Tk_WindowId(win), iWidth, iHeight, dep
@@ -2190,6 +2190,7 @@ drawBox(pQuery, pItem, pBox, drawable, x, y, w, h, xview, yview, flags)
                 Tk_FreePixmap(display, ipix);
                 clearClippingRegion(display, gc);
                 Tk_FreeGC(display, gc);
+#endif
             }
         }
     }
