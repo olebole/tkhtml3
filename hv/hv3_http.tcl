@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.56 2007/10/20 23:20:32 hkoba Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.57 2007/11/07 17:38:33 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -62,6 +62,9 @@ snit::type ::hv3::protocol {
   # Both built-in ("http" and "file") and any configured scheme handlers 
   # (i.e. "home:") are stored in this array.
   variable mySchemeHandlers -array [list]
+
+  variable myBytesExpected 0
+  variable myBytesReceived 0
 
   constructor {args} {
     $self configurelist $args
@@ -349,6 +352,10 @@ snit::type ::hv3::protocol {
       ::http::reset $myTokenMap($downloadHandle);
       unset myTokenMap($downloadHandle)
     }
+    if {[llength $myWaitingHandles]==0 && [llength $myInProgressHandles]==0} {
+      set myBytesExpected 0
+      set myBytesReceived 0
+    }
     $self Updatestatusvar
   }
 
@@ -356,8 +363,18 @@ snit::type ::hv3::protocol {
   # option is not set to an empty string.
   method Updatestatusvar {} {
     if {$options(-statusvar) ne ""} {
-      set    value "[llength $myWaitingHandles] waiting, "
-      append value "[llength $myInProgressHandles] in progress"
+      set nWait [llength $myWaitingHandles]
+      set nProgress [llength $myInProgressHandles]
+      if {$nWait > 0 || $nProgress > 0} {
+        set f ?
+        if {$myBytesExpected > 0} {
+          set f [expr {$myBytesReceived*100/$myBytesExpected}]
+        }
+        set value [list $nWait $nProgress $f]
+      } else {
+        set value [list]
+      }
+
       uplevel #0 [list set $options(-statusvar) $value]
     }
     catch {$myGui populate}
@@ -392,13 +409,24 @@ snit::type ::hv3::protocol {
       # Add the handle to the myInProgressHandles list and update the
       # status report variable.
       lappend myInProgressHandles $downloadHandle 
-      $self Updatestatusvar
+
+      set nExpected [$downloadHandle cget -expectedsize]
+      if {$nExpected ne ""} {
+        incr myBytesExpected $nExpected
+      }
     }
 
     set data [read $socket 2048]
     set rc [catch [list $downloadHandle append $data] msg]
     if {$rc} { puts "Error: $msg $::errorInfo" }
     set nbytes [string length $data]
+
+    set nExpected [$downloadHandle cget -expectedsize]
+    if {$nExpected ne ""} {
+      incr myBytesReceived $nbytes
+    }
+
+    $self Updatestatusvar
     return $nbytes
   }
 

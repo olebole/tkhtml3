@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.42 2007/10/27 11:26:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.43 2007/11/07 17:38:33 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -468,7 +468,7 @@ namespace eval ::hv3::DOM {
     ### }
 
     # Insert the new descendants, created by parsing $newHtml.
-    set htmlwidget [[$dom node_to_hv3 $node] html]
+    set htmlwidget [$node html]
     set children [$htmlwidget fragment $newHtml]
     $node insert $children
     return ""

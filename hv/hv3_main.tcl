@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.172 2007/11/06 17:22:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.173 2007/11/07 17:38:33 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -655,13 +655,16 @@ snit::widget ::hv3::browser_toplevel {
   # This method is called by a [trace variable ... write] hook attached
   # to the myProtocolStatus variable. Set myStatusVar.
   method Writestatus {args} {
-    set myStatusVar "$myProtocolStatus    $myFrameStatus"
+    set protocolstatus Done
+    if {[llength $myProtocolStatus] > 0} {
+      foreach {nWaiting nProgress nPercent} $myProtocolStatus break
+      set protocolstatus "$nWaiting waiting, $nProgress progress  ($nPercent%)"
+    }
+    set myStatusVar "$protocolstatus    $myFrameStatus"
   }
 
   method ProtocolStatusChanged {args} {
-    $self pendingcmd [expr {
-        ([lindex $myProtocolStatus 0] + [lindex $myProtocolStatus 2])>0
-    }]
+    $self pendingcmd [llength $myProtocolStatus]
     $self Writestatus
   }
 

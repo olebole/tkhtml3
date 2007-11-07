@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.36 2007/11/03 09:47:12 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.37 2007/11/07 17:38:33 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -478,9 +478,9 @@ set ::hv3::dom::code::ELEMENT {
   dom_call_todo removeAttributeNode
 
   dom_call -string getElementsByTagName {THIS tagname} {
-    set hv3 [$myDom node_to_hv3 $myNode]
+    set htmlwidget [$myNode html]
     set nl [list ::hv3::DOM::NodeListS $myDom [
-      list [$hv3 html] search $tagname -root $myNode
+      list $htmlwidget search $tagname -root $myNode
     ]]
     list transient $nl
   }
