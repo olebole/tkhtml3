@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.5 2007/11/07 11:04:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.6 2007/11/10 07:24:58 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -30,10 +30,18 @@ namespace eval ::hv3 {
     # it is next cleared.
     variable myOutputWindowLinks [list]
 
+    # Font size currently used in the two text widgets ($myOutputWindow and
+    # $myCodeViewer).
     variable myFontSize 10
 
+    # Command line history state.
     variable myHistory [list]
     variable myHistoryIdx 0
+
+    variable myBreakpoints -array [list]
+
+    variable myPage ""
+    variable myPageId ""
 
     constructor {args} {
       set f [frame ${win}.f]
@@ -96,6 +104,7 @@ namespace eval ::hv3 {
       $myCodeViewer tag configure linenumber -background #BBBBBB
       $myCodeViewer tag configure wheat -background wheat
       $myCodeViewer tag configure english -wrap word
+      $myCodeViewer tag configure breakpoint -background red
 
       bind $myEntryField <Control-j> [list set [myvar myLanguage] Javascript]
       bind $myEntryField <Control-t> [list set [myvar myLanguage] Tcl]
@@ -103,6 +112,9 @@ namespace eval ::hv3 {
 
       bind $myEntryField <Up>   [list $self History -1]
       bind $myEntryField <Down> [list $self History +1]
+
+      $myCodeViewer tag bind linenumber <1> [list $self ClickLineNumber %x %y]
+      $myCodeViewer tag bind breakpoint <1> [list $self ClickLineNumber %x %y]
 
       $myOutputWindow configure -state disabled
       $myCodeViewer configure -state disabled
@@ -279,6 +291,9 @@ namespace eval ::hv3 {
         default {error "Internal error - bad page \"$page\""}
       }
       $myCodeViewer configure -state disabled
+
+      set myPage $page
+      set myPageId $pageid
     }
 
     method CreateCodeViewerLink {text command} {
@@ -348,7 +363,7 @@ namespace eval ::hv3 {
             $myOutputWindow insert end "    "
 
             set nLine [llength [split [string range $data 0 $i] "\n"]]
-            $self OutputWindowLink "Line $nLine ($i $n)" [
+            $self OutputWindowLink "Line $nLine (skipped $n characters)" [
               list $self DisplayCssError $pageid $nLine
             ]
             $myOutputWindow insert end "\n"
@@ -387,13 +402,40 @@ namespace eval ::hv3 {
       $myOutputWindow configure -state disabled
     }
 
-    method AddLineNumbers {} {
+    method AddLineNumbers {{name ""}} {
       set line 1
       set nLine [lindex [split [$myCodeViewer index end] .] 0]
       for {set line 1} {$line < $nLine} {incr line} {
-        set num [format "% 5d " $line]
+        set nDigit 7
+        if {[info exists myBreakpoints($name,$line)]} {
+          set nDigit 5
+        }
+        set num [format "% ${nDigit}d " $line]
         $myCodeViewer insert "${line}.0" $num linenumber
+
+        if {$nDigit == 5} {
+          $myCodeViewer insert "${line}.0" "  " breakpoint
+        }
       }
+    }
+
+    method ClickLineNumber {x y} {
+      if {$myPage ne "javascript"} return
+      foreach {idx logscript} $myPageId break;
+      set iLine [lindex [split [$myCodeViewer index @$x,$y] .] 0]
+
+      set var myBreakpoints($logscript,$iLine)
+
+      $myCodeViewer configure -state normal
+      $myCodeViewer delete ${iLine}.0 ${iLine}.2
+      if {[info exists $var]} {
+        unset $var
+        $myCodeViewer insert ${iLine}.0 "  " linenumber
+      } else {
+        set $var 1
+        $myCodeViewer insert ${iLine}.0 "  " breakpoint
+      }
+      $myCodeViewer configure -state disabled
     }
 
     method DisplayCss {frame styleid} {
@@ -431,13 +473,18 @@ namespace eval ::hv3 {
       set heading [$logscript cget -heading]
       $myLabel configure -text "Javascript Code: [expr {$idx+1}] $heading"
 
-      $self AddLineNumbers
+      $self AddLineNumbers $logscript
     }
 
     method DisplayIndex {} {
       set top [gui_current top_frame]
       if {"" eq [[$top hv3] log get html]} {
-        $myCodeViewer insert end "Source logging was not enabled when this document was loaded. To browse the document source code, select a different option from the \"Debug->Application Source Logging\" menu and reload the document." english
+        $myCodeViewer insert end [join {
+            {Source logging was not enabled when this document was loaded.}
+	    {To browse the document source code, select a different option}
+            {from the "Debug->Application Source Logging" menu and reload}
+            {the document.}
+        }
         return
       }
       $self DisplayResources $top 2
@@ -461,7 +508,8 @@ namespace eval ::hv3 {
           $myCodeViewer insert end "(Ok)  "
         }
         $self CreateCodeViewerLink "View Source" $cmd
-        $myCodeViewer insert end "\n"
+        set nLine [llength [split [$logscript cget -script] "\n"]]
+        $myCodeViewer insert end " ($nLine lines)\n"
       }
     }
 
@@ -527,7 +575,14 @@ namespace eval ::hv3 {
   }
 }
 
+# This [namespace eval] block adds the special commands designed for
+# interactive use from the debugging console:
+#
+#     primitives
+#     breakpoints
+#
 namespace eval ::hv3::console_commands {
+
   proc primitives {} {
     set zRet ""
     set iIndent 0
@@ -546,12 +601,18 @@ namespace eval ::hv3::console_commands {
   
     set zRet
   }
+
+  proc breakpoints {} {
+  }
   
   proc hv3 {args} {
     set hv3 [gui_current hv3]
     eval $hv3 $args
   }
 
+  proc console {args} {
+    eval .console.console $args
+  }
 }
 
 
