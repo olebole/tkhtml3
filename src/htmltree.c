@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.157 2007/11/11 11:00:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.158 2007/11/11 17:02:17 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -743,6 +743,7 @@ HtmlNodeAddChild(pElem, eTag, zTag, pAttributes)
     if (!zTag) {
         zTag = HtmlTypeToName(0, eTag);
     }
+    assert(zTag);
 
     pNew = HtmlNew(HtmlElementNode);
     pNew->pAttributes = pAttributes;
@@ -1089,6 +1090,10 @@ treeAddFosterElement(pTree, eTag, zTag, pAttr)
         pNew = (HtmlNode *)HtmlNew(HtmlElementNode);
         ((HtmlElementNode *)pNew)->pAttributes = pAttr;
         pNew->eTag = eTag;
+        if (!zTag) {
+            zTag = HtmlTypeToName(0, eTag);
+        }
+        pNew->zTag = zTag;
         nodeInsertChild(pTree, (HtmlElementNode *)pFosterParent,pBefore,0,pNew);
     }
 
@@ -3164,6 +3169,9 @@ fragmentAddElement(pTree, eType, zType, pAttributes, iOffset)
     pElem = HtmlNew(HtmlElementNode);
     pElem->pAttributes = pAttributes;
     pElem->node.eTag = eType;
+    if (!zType) {
+        zType = HtmlTypeToName(0, eType);
+    }
     pElem->node.zTag = zType;
 
     if (pFragment->pCurrent) {

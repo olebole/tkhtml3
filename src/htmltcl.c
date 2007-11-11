@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.196 2007/11/11 11:00:48 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.197 2007/11/11 17:02:17 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -573,8 +573,8 @@ INSTRUMENTED(callbackHandler, HTML_INSTRUMENT_CALLBACK)
     /* If the HTML_SCROLL flag is set, scroll the viewport. */
     if (pTree->cb.flags & HTML_SCROLL) {
         clock_t scrollClock = 0;              
-        HtmlLog(pTree, "ACTION", "SetViewport: x=%d y=%d force=%d nFixed=%d", 
-            p->iScrollX, p->iScrollY, force_redraw, pTree->nFixedBackground
+        HtmlLog(pTree, "ACTION", "SetViewport: x=%d y=%d force=%d isFixed=%d", 
+            p->iScrollX, p->iScrollY, force_redraw, pTree->isFixed
         );
         scrollClock = clock();
         HtmlWidgetSetViewport(pTree, p->iScrollX, p->iScrollY, 0);

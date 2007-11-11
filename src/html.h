@@ -583,7 +583,6 @@ struct HtmlTree {
      */
     HtmlFragmentContext *pFragment;
 
-    int nFixedBackground;           /* Number of nodes with fixed backgrounds */
     int isFixed;                    /* True if any "fixed" graphics */
 
     /*
