@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.55 2007/11/07 11:57:32 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.56 2007/11/11 11:00:48 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <stdio.h>
@@ -973,6 +973,12 @@ calculateLineBoxWidth(p, flags, iReqWidth, piWidth, pnBox, pHasText)
         int eType = pBox->eType;
         int iBoxW;                            /* Box width */
 
+        if (pBox->eType == INLINE_NEWLINE) {
+            hasText = 1;
+            nBox = ii + 1;
+            break;
+        }
+
         /* Determine the extra width required to add pBox to the line box. */
         iBoxW = pBox->nContentPixels + pBox->nRightPixels + pBox->nLeftPixels;
         if (pPrevBox) {
@@ -985,13 +991,8 @@ calculateLineBoxWidth(p, flags, iReqWidth, piWidth, pnBox, pHasText)
         }
         iWidth += iBoxW;
 
-        if (eType == INLINE_TEXT || eType == INLINE_NEWLINE) {
+        if (eType == INLINE_TEXT) {
             hasText = 1;
-        }
-
-        if (pBox->eType == INLINE_NEWLINE) {
-            nBox = ii + 1;
-            break;
         }
 
         if (
@@ -1036,7 +1037,9 @@ calculateLineBoxWidth(p, flags, iReqWidth, piWidth, pnBox, pHasText)
     *pnBox = nBox;
     *pHasText = hasText;
 
+#if 0
     assert(nBox > 0 || iWidth > 0 || p->nInline == 0 || !isForceLine);
+#endif
     return ((nBox == 0) ? 0 : 1);
 }
 

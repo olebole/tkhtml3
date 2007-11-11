@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.203 2007/11/07 11:04:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.204 2007/11/11 11:00:48 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -2068,14 +2068,18 @@ drawBox(pQuery, pItem, pBox, drawable, x, y, w, h, xview, yview, flags)
     /* Image background, if required. */
     if (0 == (flags & DRAWBOX_NOBACKGROUND) && pV->imZoomedBackgroundImage) {
         Tk_Image img;
+#if 0
         Pixmap ipix;
         GC gc;
         XGCValues gc_values;
+#endif
         int iWidth;
         int iHeight;
+#if 0
         Tk_Window win = pTree->tkwin;
         Display *display = Tk_Display(win);
         int dep = Tk_Depth(win);
+#endif
         int eR = pV->eBackgroundRepeat;
 
  
@@ -2085,7 +2089,7 @@ drawBox(pQuery, pItem, pBox, drawable, x, y, w, h, xview, yview, flags)
         if (iWidth > 0 && iHeight > 0) {
             int iPosX;
             int iPosY;
-            HtmlNode *pBgNode = pBox->pNode;
+            /* HtmlNode *pBgNode = pBox->pNode; */
 
 #ifdef WIN32
             /*
@@ -4428,13 +4432,12 @@ HtmlWidgetSetViewport(pTree, scroll_x, scroll_y, force_redraw)
     pTree->iScrollY = scroll_y;
     pTree->iScrollX = scroll_x;
 
-    if (pTree->nFixedBackground) {
-        /* Variable HtmlTree.nFixedBackground contains the number of 
-         * fixed background images or boxes contained in this document. If
-         * this is not zero, then we need to redraw the entire viewport
-         * each time the user scrolls the window. In other words, we need
-         * to do something generate an expose event that covers the whole
-         * viewport.
+    if (pTree->isFixed) {
+        /* Variable HtmlTree.isFixed is true if the document contains
+         * fixed background images or boxes. If this is not zero, then we need
+         * to redraw the entire viewport each time the user scrolls the window.
+         * In other words, we need to do something generate an expose event
+         * that covers the whole viewport.
          *
          * Moving the docwin between coords (0,0) and (-10000,0) each time
          * the window is scrolled seems to achieve this.

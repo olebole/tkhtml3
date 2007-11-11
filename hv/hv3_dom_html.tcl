@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.43 2007/11/07 17:38:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.44 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -898,7 +898,24 @@ namespace eval ::hv3::DOM {
     $myNode attr label $v
   }
 
-  dom_todo selected
+  dom_get selected {
+    set select [HTMLOptionElement_getSelect $myNode]
+    set idx [lsearch [HTMLSelectElement_getOptions $select] $myNode]
+    if {$idx == [[$select replace] dom_selectionIndex]} {
+      list boolean true
+    } else {
+      list boolean false
+    }
+  }
+  dom_put -string selected v {
+    set select [HTMLOptionElement_getSelect $myNode]
+    set idx [lsearch [HTMLSelectElement_getOptions $select] $myNode]
+    if {$v} {
+      [$select replace] dom_setSelectionIndex $idx
+    } else {
+      [$select replace] dom_setSelectionIndex -1
+    }
+  }
 
   dom_get value {
     list string [HTMLOptionElement_getLabelOrValue $myNode value]

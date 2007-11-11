@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.58 2007/11/03 09:47:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.59 2007/11/11 11:00:48 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -560,6 +560,9 @@ struct StyleApply {
   int nCounter;
   int nCounterAlloc;
   int nCounterStartScope;
+
+  /* True if we have seen one or more "fixed" items */
+  int isFixed;
 };
 typedef struct StyleApply StyleApply;
 
@@ -671,6 +674,13 @@ styleApply(pTree, pNode, p)
         )
     ) {
         HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
+    }
+
+    if (pElem->pPropertyValues->eDisplay != CSS_CONST_NONE && (
+        pElem->pPropertyValues->ePosition == CSS_CONST_FIXED ||
+        pElem->pPropertyValues->eBackgroundAttachment == CSS_CONST_FIXED
+    )) {
+        p->isFixed = 1;
     }
 }
 
@@ -830,6 +840,7 @@ HtmlStyleApply(pTree, pNode)
     pTree->pStyleApply = (void *)&sApply;
     styleApply(pTree, pTree->pRoot, &sApply);
     pTree->pStyleApply = 0;
+    pTree->isFixed = sApply.isFixed;
     HtmlFree(sApply.apCounter);
     return TCL_OK;
 }

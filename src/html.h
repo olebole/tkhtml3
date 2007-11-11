@@ -295,7 +295,9 @@ struct HtmlNode {
     ClientData clientData;
     HtmlNode *pParent;             /* Parent of this node */
     int iNode;                     /* Node index */
-    Html_u8 eTag;                  /* Tag type */
+
+    Html_u8 eTag;                  /* Tag type (or 0) */
+    const char *zTag;              /* Atom string for tag type */
 
     int iSnapshot;                 /* Last changed snapshot */
     HtmlNodeCmd *pNodeCmd;         /* Tcl command for this node */
@@ -412,8 +414,9 @@ struct HtmlOptions {
     int      imagecache;
     int      mode;                      /* One of the HTML_MODE_XXX values */
     int      shrink;                    /* Boolean */
-    int      xhtml;                     /* Boolean. True -> parse as XHTML */
     double   zoom;                      /* Universal scaling factor. */
+
+    int      parsemode;                 /* One of the HTML_PARSEMODE values */
 
     /* Debugging options. Not part of the official interface. */
     int      layoutcache;
@@ -424,6 +427,10 @@ struct HtmlOptions {
 #define HTML_MODE_QUIRKS    0
 #define HTML_MODE_ALMOST    1
 #define HTML_MODE_STANDARDS 2
+
+#define HTML_PARSEMODE_HTML    0
+#define HTML_PARSEMODE_XHTML   1
+#define HTML_PARSEMODE_XML     2
 
 void HtmlLog(HtmlTree *, CONST char *, CONST char *, ...);
 void HtmlTimer(HtmlTree *, CONST char *, CONST char *, ...);
@@ -558,6 +565,8 @@ struct HtmlTree {
 
     HtmlNode *pRoot;                /* The root-node of the document. */
 
+    Tcl_HashTable aAtom;            /* String atoms for this widget */
+
     HtmlTreeState state;
 
     /* Sub-trees that are not currently linked into the tree rooted at 
@@ -575,6 +584,7 @@ struct HtmlTree {
     HtmlFragmentContext *pFragment;
 
     int nFixedBackground;           /* Number of nodes with fixed backgrounds */
+    int isFixed;                    /* True if any "fixed" graphics */
 
     /*
      * Handler callbacks configured by the [$widget handler] command.
@@ -732,7 +742,7 @@ char *      HtmlNodeToString(HtmlNode *);
 HtmlNode *  HtmlNodeGetPointer(HtmlTree *, char CONST *);
 int         HtmlNodeIsOrphan(HtmlNode *);
 
-int HtmlNodeAddChild(HtmlElementNode *, int, HtmlAttributes *);
+int HtmlNodeAddChild(HtmlElementNode *, int, const char *, HtmlAttributes *);
 int HtmlNodeAddTextChild(HtmlNode *, HtmlTextNode *);
 
 Html_u8     HtmlNodeTagType(HtmlNode *);
@@ -874,8 +884,8 @@ void HtmlFontRelease(HtmlTree *, HtmlFont *);
 /* HTML Tokenizer function. */
 int HtmlTokenize(HtmlTree *, char const *, int,
     void (*)(HtmlTree *, HtmlTextNode *, int),
-    void (*)(HtmlTree *, int, HtmlAttributes *, int),
-    void (*)(HtmlTree *, int, int)
+    void (*)(HtmlTree *, int, const char *, HtmlAttributes *, int),
+    void (*)(HtmlTree *, int, const char *, int)
 );
 
 /* The following three HtmlTreeAddXXX() functions - defined in htmltree.c - 
@@ -891,12 +901,14 @@ int HtmlTokenize(HtmlTree *, char const *, int,
  *
  * These are also in htmltree.c but are not defined with external linkage.
  */
-void HtmlTreeAddElement(HtmlTree *, int, HtmlAttributes *, int);
+void HtmlTreeAddElement(HtmlTree *, int, const char *, HtmlAttributes *, int);
 void HtmlTreeAddText(HtmlTree *, HtmlTextNode *, int);
-void HtmlTreeAddClosingTag(HtmlTree *, int, int);
+void HtmlTreeAddClosingTag(HtmlTree *, int, const char *, int);
 
 void HtmlInitTree(HtmlTree *);
 
+void HtmlHashInit(void *, int);
+HtmlTokenMap * HtmlHashLookup(void *, const char *zType);
 
 /*******************************************************************
  * Interface to code in htmltext.c

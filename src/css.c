@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.136 2007/11/03 13:45:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.137 2007/11/11 11:00:48 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -3079,7 +3079,8 @@ HtmlCssSelectorTest(pSelector, pNode, dynamic_true)
                 break;
 
             case CSS_SELECTOR_TYPE:
-                if( strcmp(N_TYPE(x), p->zValue) ) return 0;
+                assert(x->zTag || HtmlNodeIsText(x));
+                if( HtmlNodeIsText(x) || strcmp(x->zTag, p->zValue) ) return 0;
                 break;
 
             case CSS_SELECTOR_CLASS: {
@@ -3480,7 +3481,6 @@ HtmlCssStyleSheetApply(pTree, pNode)
      */
     int aPropDone[CSS_PROPERTY_MAX_PROPERTY + 1];
 
-    const char *zTag;
     Tcl_HashEntry *pEntry;
     char const *zClassAttr;            /* Value of node "class" attribute */
     char const *zIdAttr;               /* Value of node "id" attribute */
@@ -3499,8 +3499,7 @@ HtmlCssStyleSheetApply(pTree, pNode)
     npRule = 1;
 
     /* Find the applicable "by-tag" rules list, if any. */
-    zTag = HtmlNodeTagName(pNode);
-    pEntry = Tcl_FindHashEntry(&pStyle->aByTag, zTag);
+    pEntry = Tcl_FindHashEntry(&pStyle->aByTag, pNode->zTag);
     if (pEntry) {
         apRule[npRule++] = Tcl_GetHashValue(pEntry);
     }

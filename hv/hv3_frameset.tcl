@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.16 2007/10/14 07:40:04 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.17 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
 
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
@@ -106,6 +106,12 @@ namespace eval hv3 {
     set scrolling [$node attr -default auto scrolling]
     if {![string is boolean $scrolling]} { set scrolling auto }
     $hv3 configure -scrollbarpolicy $scrolling
+  }
+  proc iframe_attr_handler {browser_frame node attr value} {
+    if {$attr eq "src"} {
+      set uri [[$browser_frame hv3] resolve_uri $value]
+      [$node replace] goto $uri
+    }
   }
 
   # get_markup --

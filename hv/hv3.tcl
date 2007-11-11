@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.215 2007/11/01 07:36:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.216 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -1666,7 +1666,8 @@ snit::widget ::hv3::hv3 {
             set q [::hv3::configure_doctype_mode $myHtml $data isXHTML]
             $self reset $savestate
             set myQuirksmode $q
-            $myHtml configure -xhtml $isXHTML
+            if {$isXHTML} { $myHtml configure -parsemode xhtml } \
+            else          { $myHtml configure -parsemode html }
             set myMimetype html
 	    set myEncoding [$handle suggestedEncoding]
           }

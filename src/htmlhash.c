@@ -43,7 +43,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  * COPYRIGHT:
  */
-static const char rcsid[] = "$Id: htmlhash.c,v 1.22 2006/10/27 06:40:33 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlhash.c,v 1.23 2007/11/11 11:00:48 danielk1977 Exp $";
 
 #include <tcl.h>
 /* #include <strings.h> */
@@ -133,7 +133,8 @@ allocCaseInsensitiveEntry(tablePtr, keyPtr)
     Tcl_HashTable *tablePtr;    /* Hash table. */
     VOID *keyPtr;               /* Key to store in the hash table entry. */
 {
-    CONST char *string = (CONST char *) keyPtr;
+    const char *string = (CONST char *) keyPtr;
+    char *pCsr;
     Tcl_HashEntry *hPtr;
     unsigned int size;
 
@@ -143,6 +144,10 @@ allocCaseInsensitiveEntry(tablePtr, keyPtr)
     }
     hPtr = (Tcl_HashEntry *) HtmlAlloc("allocCaseInsensitiveEntry()", size);
     strcpy(hPtr->key.string, string);
+
+    for (pCsr = hPtr->key.string; *pCsr; pCsr++) {
+        if( *pCsr > 0 ) *pCsr = tolower(*pCsr);
+    }
 
     return hPtr;
 }

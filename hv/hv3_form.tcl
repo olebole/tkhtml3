@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.89 2007/10/29 16:22:36 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.90 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -445,9 +445,9 @@ proc ::hv3::control_to_form {node} {
   method dom_checked {args} {
     if {[llength $args] == 1} {
       if {[lindex $args 0]} {
-        set $myVarName $myNode
+        set $myVarname $myNode
       } else {
-        set $myVarName ""
+        set $myVarname ""
       }
     }
     return [expr {[set $myVarname] eq $myNode}]
@@ -1375,6 +1375,7 @@ snit::type ::hv3::form {
 
     foreach controlnode $Controls {
       set control [$controlnode replace]
+      if {$control eq ""} continue
       set success [$control success]
       set name    [$control name]
       if {$success} {
@@ -1400,6 +1401,7 @@ snit::type ::hv3::form {
       set CR "\r\n"
       foreach controlnode $Controls {
         set control [$controlnode replace]
+        if {$control eq ""} continue
         if {[$control success]} {
 
           set name  [$control name]

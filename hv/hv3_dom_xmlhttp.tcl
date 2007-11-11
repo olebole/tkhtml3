@@ -1,4 +1,10 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.15 2007/10/18 11:29:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.16 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
+
+::hv3::dom2::stateless Document {
+  %NODE%
+  %NODE_PROTOTYPE%
+  %DOCUMENT%
+}
 
 #-------------------------------------------------------------------------
 # ::hv3::dom::XMLHttpRequest
@@ -24,6 +30,10 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.15 2007/10/18 11:
       $state(downloadHandle) destroy
     }
 
+    if {$state(xml) ne ""} {
+      destroy $state(xml)
+    }
+
     # Clean up the Tcl state for this XMLHttpRequest.
     array unset state 
   }
@@ -45,7 +55,18 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.15 2007/10/18 11:
   # created by parsing the retrieved data. But hv3 doesn't support
   # script creation of Document objects at this time, so leave
   # this as [dom_todo].
-  dom_todo      responseXML
+  dom_get responseXML {
+    if {$state(xml) eq "" && $state(readyState) eq "Loaded"} {
+      set state(xml) [html .xml_[string map {: _} $myStateArray]]
+
+      $state(xml) configure -parsemode xml -defaultstyle ""
+      $state(xml) parse -final $state(responseText)
+    }
+    if {$state(xml) ne ""} {
+      return [list object [list ::hv3::DOM::Document $myDom $state(xml)]]
+    }
+    return null
+  }
 
   dom_get responseText {list string $state(responseText)}
   dom_get status       {list number $state(status)}
@@ -225,7 +246,16 @@ namespace eval ::hv3::DOM {
       timestamp       {number 0}                \
     ]
 
-    [$dom see] dispatch $this $event
+    set rc [catch {[$dom see] dispatch $this $event} msg]
+
+    # If an error occured, log it in the debugging window.
+    #
+    if {$rc} {
+      puts $msg
+      set objtype [lindex $js_obj 0]
+      set name [string map {blob error} [$myDom NewFilename]]
+      $myDom Log "XMLHttpRequest readystatechange" $name "event" $rc $msg
+    }
   }
 }
 
@@ -246,6 +276,8 @@ proc ::hv3::dom::newXMLHttpRequest {dom hv3} {
   set state(status)         0
   set state(statusText)     ""
   set state(hv3)            $hv3
+
+  set state(xml)            ""
 
   list object [list ::hv3::DOM::XMLHttpRequest $dom $statevar]
 }

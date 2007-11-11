@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.63 2007/10/09 16:59:29 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.64 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -880,6 +880,7 @@ proc prop_nodeToLabel {node} {
     }
     set d "<[$node tag]"
     foreach {a v} [$node attr] {
+        set v [string map [list "\n" " "] $v]
         append d " $a=\"$v\""
     }
     append d ">"

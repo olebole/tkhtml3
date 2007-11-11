@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.195 2007/11/03 09:47:12 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.196 2007/11/11 11:00:48 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1078,6 +1078,9 @@ deleteWidget(clientData)
         HtmlFree(pDamage);
     }
 
+    /* Atoms table */
+    Tcl_DeleteHashTable(&pTree->aAtom);
+
     /* Delete the structure itself */
     HtmlFree(pTree);
 }
@@ -1276,6 +1279,8 @@ configureCmd(clientData, interp, objc, objv)
     Tcl_Obj *const *objv;              /* List of all arguments */
 {
     static const char *azModes[] = {"quirks","almost standards","standards",0};
+    static const char *azParseModes[] = {"html","xhtml","xml",0};
+
     /*
      * Mask bits for options declared in htmlOptionSpec.
      */
@@ -1324,8 +1329,6 @@ BOOLEAN(layoutcache, "layoutCache", "LayoutCache", "1", S_MASK),
 BOOLEAN(forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", F_MASK),
 BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", L_MASK),
 
-        BOOLEAN(xhtml, "xhtml", "xhtml", "0", 0),
-
         DOUBLE(fontscale, "fontScale", "FontScale", "1.0", F_MASK),
         DOUBLE(zoom, "zoom", "Zoom", "1.0", F_MASK),
 
@@ -1349,6 +1352,10 @@ BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", L_MASK),
 
         {TK_OPTION_STRING_TABLE, "-mode", "mode", "Mode", "standards", 
              -1, Tk_Offset(HtmlOptions, mode), 0, (ClientData)azModes, 0
+        },
+        {TK_OPTION_STRING_TABLE, "-parsemode", "parsemode", "Parsemode", 
+             "html", -1, Tk_Offset(HtmlOptions, parsemode), 0, 
+             (ClientData)azParseModes, 0
         },
     
         {TK_OPTION_END, 0, 0, 0, 0, 0, 0, 0, 0}
@@ -2597,6 +2604,7 @@ newWidget(clientData, interp, objc, objv)
     CONST char *zCmd;
     int rc;
     Tk_Window mainwin;           /* Main window of application */
+    Tcl_HashKeyType *pType;
 
     if (objc<2) {
         Tcl_WrongNumArgs(interp, 1, objv, "WINDOW-PATH ?OPTIONS?");
@@ -2634,6 +2642,9 @@ newWidget(clientData, interp, objc, objv)
     Tcl_InitHashTable(&pTree->aOrphan, TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(&pTree->aTag, TCL_STRING_KEYS);
     pTree->cmd = Tcl_CreateObjCommand(interp,zCmd,widgetCmd,pTree,widgetCmdDel);
+
+    pType = HtmlCaseInsenstiveHashType();
+    Tcl_InitCustomHashTable(&pTree->aAtom, TCL_CUSTOM_TYPE_KEYS, pType);
 
     HtmlCssSearchInit(pTree);
 

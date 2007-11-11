@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.118 2007/10/27 15:08:36 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.119 2007/11/11 11:00:48 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -501,52 +501,6 @@ HtmlLiContent(pTree, pNode, tag)
  */
 #include "htmltokens.c"
 
-static HtmlTokenMap *HtmlHashLookup(void *htmlPtr, CONST char *zType);
-
-/******************* Begin HTML tokenizer code *******************/
-
-/*
-** The following variable becomes TRUE when the markup hash table
-** (stored in HtmlMarkupMap[]) is initialized.
-*/
-static int isInit = 0;
-
-/* The hash table for HTML markup names.
-**
-** If an HTML markup name hashes to H, then apMap[H] will point to
-** a linked list of sgMap structure, one of which will describe the
-** the particular markup (if it exists.)
-*/
-static HtmlTokenMap *apMap[HTML_MARKUP_HASH_SIZE];
-
-/* Hash a markup name
-**
-** HTML markup is case insensitive, so this function will give the
-** same hash regardless of the case of the markup name.
-**
-** The value returned is an integer between 0 and HTML_MARKUP_HASH_SIZE-1,
-** inclusive.
-*/
-static int
-HtmlHash(htmlPtr, zName)
-    void *htmlPtr;
-    const char *zName;
-{
-    int h = 0;
-    char c;
-    while ((c = *zName) != 0) {
-        if (isupper(c)) {
-            c = tolower(c);
-        }
-        h = h << 5 ^ h ^ c;
-        zName++;
-    }
-    if (h < 0) {
-        h = -h;
-    }
-    return h % HTML_MARKUP_HASH_SIZE;
-}
-
 #ifdef TEST
 
 /* 
@@ -583,41 +537,6 @@ HtmlHashStats(void * htmlPtr)
 }
 #endif
 
-/* Initialize the escape sequence hash table
-*/
-static void
-HtmlHashInit(htmlPtr, start)
-    void *htmlPtr;
-    int start;
-{
-    int i;                             /* For looping thru the list of markup 
-                                        * names */
-    int h;                             /* The hash on a markup name */
-
-    for (i = start; i < HTML_MARKUP_COUNT; i++) {
-        h = HtmlHash(htmlPtr, HtmlMarkupMap[i].zName);
-        HtmlMarkupMap[i].pCollide = apMap[h];
-        apMap[h] = &HtmlMarkupMap[i];
-    }
-#ifdef TEST
-    HtmlHashStats(htmlPtr);
-#endif
-}
-
-/*
-** Convert a string to all lower-case letters.
-*/
-static void
-ToLower(z)
-    char *z;
-{
-    while (*z) {
-        if (isupper(*z))
-            *z = tolower(*z);
-        z++;
-    }
-}
-
 /*
  *---------------------------------------------------------------------------
  *
@@ -645,55 +564,6 @@ getScriptHandler(pTree, tag)
         return (Tcl_Obj *)Tcl_GetHashValue(pEntry);
     }
     return 0;
-}
-
-HtmlAttributes *
-HtmlAttributesNew(argc, argv, arglen, doEscape)
-    int argc;
-    char const **argv;
-    int *arglen;
-    int doEscape;
-{
-    HtmlAttributes *pMarkup = 0;
-
-    if (argc > 1) {
-        int nByte;
-        int j;
-        char *zBuf;
-
-        int nAttr = argc / 2;
-
-        nByte = sizeof(HtmlAttributes);
-        for (j = 0; j < argc; j++) {
-            nByte += arglen[j] + 1;
-        }
-        nByte += sizeof(struct HtmlAttribute) * (argc - 1);
-
-        pMarkup = (HtmlAttributes *)HtmlAlloc("HtmlAttributes", nByte);
-        pMarkup->nAttr = nAttr;
-        zBuf = (char *)(&pMarkup->a[nAttr]);
-
-        for (j=0; j < nAttr; j++) {
-            int idx = (j * 2);
-
-            pMarkup->a[j].zName = zBuf;
-            memcpy(zBuf, argv[idx], arglen[idx]);
-            zBuf[arglen[idx]] = '\0';
-            if (doEscape) {
-                HtmlTranslateEscapes(zBuf);
-                ToLower(zBuf);
-            }
-            zBuf += (arglen[idx] + 1);
-
-            pMarkup->a[j].zValue = zBuf;
-            memcpy(zBuf, argv[idx+1], arglen[idx+1]);
-            zBuf[arglen[idx+1]] = '\0';
-            if (doEscape) HtmlTranslateEscapes(zBuf);
-            zBuf += (arglen[idx+1] + 1);
-        }
-    }
-
-    return pMarkup;
 }
 
 /*
@@ -834,8 +704,8 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
     char const *zText;
     int isFinal;
     void (*xAddText)(HtmlTree *, HtmlTextNode *, int);
-    void (*xAddElement)(HtmlTree *, int, HtmlAttributes *, int);
-    void (*xAddClosing)(HtmlTree *, int, int);
+    void (*xAddElement)(HtmlTree *, int, const char *, HtmlAttributes *, int);
+    void (*xAddClosing)(HtmlTree *, int, const char *, int);
 {
     char *z;                     /* The input HTML text */
     int c;                       /* The next character of input */
@@ -922,6 +792,28 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
             isTrimStart = 0;
         }
 
+        else if (
+            pTree->options.parsemode == HTML_PARSEMODE_XML && 
+            0 == strncmp(&z[n], "<![CDATA[", 9)
+        ) {
+            const char *zData = &z[n+9];
+            int nData;
+            for (i = 9; z[n + i]; i++) {
+                if (z[n + i] == ']' && strncmp(&z[n + i], "]]>", 3) == 0) {
+                    break;
+                }
+            }
+            if (z[n + i] == 0) {
+                goto incomplete;
+            }
+            n += i + 3;
+
+            nData = i - 9;
+            xAddText(pTree, HtmlTextNew(nData, zData, 0, 0), 0);
+
+            isTrimStart = 0;
+        }
+
         /* A markup tag (i.e "<p>" or <p color="red"> or </p>). We parse 
          * this into a vector of strings stored in the argv[] array. The
          * length of each string is stored in the corresponding element
@@ -945,6 +837,9 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
             argc = 1;
             argv[0] = &z[n + 1];
             assert( c=='<' );
+
+            const char *zAtom = 0;
+            int eType = 0;
 
             /* Check if we are dealing with a closing tag. */
             if (*argv[0] == '/' && argv[0][1]) {
@@ -1070,7 +965,7 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
             assert(c == '>');
             n += i + 1;
 
-            if (pTree->options.xhtml) {
+            if (pTree->options.parsemode > HTML_PARSEMODE_HTML) {
                 for (i = n - 2; i>=0 && z[i] == ' '; i--);
                 if (z[i] == '/') isSelfClosing = 1;
             }
@@ -1083,21 +978,29 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
              * HtmlHashLookup(). It would be easy enough to fix 
              * HtmlHashLookup() to understand a length argument.
              */
-            if (!isInit) {
-                HtmlHashInit(0, 0);
-                isInit = 1;
-            }
+            HtmlHashInit(0, 0);
             c = argv[0][arglen[0]];
             argv[0][arglen[0]] = 0;
             pMap = HtmlHashLookup(0, argv[0]);
-            argv[0][arglen[0]] = c;
             if (pMap == 0) {
-                continue;
+                Tcl_HashEntry *pEntry;
+                int dummy;
+                if (pTree->options.parsemode != HTML_PARSEMODE_XML){
+                    argv[0][arglen[0]] = c;
+                    continue;
+                }
+                pEntry = Tcl_CreateHashEntry(&pTree->aAtom, argv[0], &dummy);
+                zAtom = Tcl_GetHashKey(&pTree->aAtom, pEntry);
+                eType = 0;
+            } else {
+                zAtom = pMap->zName;
+                eType = pMap->type;
             }
+            argv[0][arglen[0]] = c;
 
             if (isClosingTag) {
                 /* Closing tag (i.e. "</p>"). */
-                xAddClosing(pTree, pMap->type, nStartScript);
+                xAddClosing(pTree, eType, zAtom, nStartScript);
             } else {
 
                 char *zScript = 0;
@@ -1114,12 +1017,12 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                  * never fired from within [$html fragment] commands.
                  */
                 if (!zText) {
-                    pScript = getScriptHandler(pTree, pMap->type);
+                    pScript = getScriptHandler(pTree, eType);
                 }
 
-                if (pScript || pMap->flags & HTMLTAG_PCDATA) {
+                if (pScript || (pMap && pMap->flags & HTMLTAG_PCDATA)) {
                     zScript = &z[n];
-                    nScript = findEndOfScript(pMap->type, z, &n);
+                    nScript = findEndOfScript(eType, z, &n);
                     if (nScript < 0) {
                         n = nStartScript;
                         HtmlFree(pAttr);
@@ -1133,7 +1036,7 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                      * it to the list of all tokens. 
                      */
                     assert(nStartScript >= 0);
-                    xAddElement(pTree, pMap->type, pAttr, nStartScript);
+                    xAddElement(pTree, eType, zAtom, pAttr, nStartScript);
                     if( pTree->eWriteState==HTML_WRITE_INHANDLERRESET ){
                         goto incomplete;
                     }
@@ -1141,13 +1044,13 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
                         HtmlTextNode *pTextNode;
                         pTextNode = HtmlTextNew(nScript, zScript, 1, 1);
                         xAddText(pTree, pTextNode, n);
-                        xAddClosing(pTree, pMap->type, n);
+                        xAddClosing(pTree, eType, zAtom, n);
                     } else {
-                        if (pMap->type == Html_PRE) {
+                        if (eType == Html_PRE) {
                             isTrimStart = 1;
                         }
                         if (isSelfClosing) {
-                            xAddClosing(pTree, pMap->type, n);
+                            xAddClosing(pTree, eType, zAtom, n);
                         }
                     }
 
@@ -1211,8 +1114,8 @@ tokenizeWrapper(pTree, isFin, xAddText, xAddElement, xAddClosing)
     HtmlTree *pTree;             /* The HTML widget doing the parsing */
     int isFin;
     void (*xAddText)(HtmlTree *, HtmlTextNode *, int);
-    void (*xAddElement)(HtmlTree *, int, HtmlAttributes *, int);
-    void (*xAddClosing)(HtmlTree *, int, int);
+    void (*xAddElement)(HtmlTree *, int, const char *, HtmlAttributes *, int);
+    void (*xAddClosing)(HtmlTree *, int, const char *, int);
 {
     int rc;
     HtmlNode *pCurrent = pTree->state.pCurrent;
@@ -1291,76 +1194,6 @@ HtmlTokenizerAppend(pTree, zText, nText, isFinal)
             HtmlTreeAddElement,
             HtmlTreeAddClosingTag
         );
-    }
-}
-
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlHashLookup --
- *
- *     Look up an HTML tag name in the hash-table.
- *
- * Results: 
- *     Return the corresponding HtmlTokenMap if the tag name is recognized,
- *     or NULL otherwise.
- *
- * Side effects:
- *     May initialise the hash table from the autogenerated array
- *     in htmltokens.c (generated from tokenlist.txt).
- *
- *---------------------------------------------------------------------------
- */
-static HtmlTokenMap * 
-HtmlHashLookup(htmlPtr, zType)
-    void *htmlPtr;
-    const char *zType;          /* Null terminated tag name. eg. "br" */
-{
-    HtmlTokenMap *pMap;         /* For searching the markup name hash table */
-    int h;                      /* The hash on zType */
-    char buf[256];
-    if (!isInit) {
-        HtmlHashInit(htmlPtr, 0);
-        isInit = 1;
-    }
-    h = HtmlHash(htmlPtr, zType);
-    for (pMap = apMap[h]; pMap; pMap = pMap->pCollide) {
-        if (stricmp(pMap->zName, zType) == 0) {
-            return pMap;
-        }
-    }
-    strncpy(buf, zType, 255);
-    buf[255] = 0;
-
-    return NULL;
-}
-
-/*
-** Convert a markup name into a type integer
-*/
-int
-HtmlNameToType(htmlPtr, zType)
-    void *htmlPtr;
-    char *zType;
-{
-    HtmlTokenMap *pMap = HtmlHashLookup(htmlPtr, zType);
-    return pMap ? pMap->type : Html_Unknown;
-}
-
-/*
-** Convert a type into a symbolic name
-*/
-const char *
-HtmlTypeToName(htmlPtr, eTag)
-    void *htmlPtr;
-    int eTag;
-{
-    if (eTag >= Html_A && eTag < Html_TypeCount) {
-        HtmlTokenMap *pMap = apMap[eTag - Html_A];
-        return pMap->zName;
-    }
-    else {
-        return "???";
     }
 }
 

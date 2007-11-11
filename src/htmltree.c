@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.156 2007/11/06 11:07:41 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.157 2007/11/11 11:00:48 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -88,9 +88,10 @@ struct HtmlFragmentContext {
  *---------------------------------------------------------------------------
  */
 static void 
-explicitCloseCount(pCurrent, eTag, pNClose)
+explicitCloseCount(pCurrent, eTag, zTag, pNClose)
     HtmlNode *pCurrent;     /* Node currently being constructed */
     int eTag;               /* Id of closing tag (i.e. "</p>" -> Html_P) */
+    const char *zTag;       /* Atom of closing tag */
     int *pNClose;           /* OUT: Number of elements to close */
 {
     *pNClose = 0;
@@ -101,7 +102,8 @@ explicitCloseCount(pCurrent, eTag, pNClose)
         for (p = pCurrent; p;  p = HtmlNodeParent(p)) {
             nLevel++;
 
-            if (eTag == p->eTag) {
+            assert(zTag == p->zTag || stricmp(zTag, p->zTag));
+            if (zTag == p->zTag) {
                 *pNClose = nLevel;
                 break;
             }
@@ -720,9 +722,10 @@ nodeInsertChild(pTree, pElem, pBefore, pAfter, pChild)
  *---------------------------------------------------------------------------
  */
 int 
-HtmlNodeAddChild(pElem, eTag, pAttributes)
+HtmlNodeAddChild(pElem, eTag, zTag, pAttributes)
     HtmlElementNode *pElem;
     int eTag;
+    const char *zTag;               /* Atom for tag name */
     HtmlAttributes *pAttributes;
 {
     int n;                  /* Number of bytes to alloc for pNode->apChildren */
@@ -737,10 +740,15 @@ HtmlNodeAddChild(pElem, eTag, pAttributes)
         "HtmlNode.apChildren", (char *)pElem->apChildren, n
     );
 
+    if (!zTag) {
+        zTag = HtmlTypeToName(0, eTag);
+    }
+
     pNew = HtmlNew(HtmlElementNode);
     pNew->pAttributes = pAttributes;
     pNew->node.pParent = (HtmlNode *)pElem;
     pNew->node.eTag = eTag;
+    pNew->node.zTag = zTag;
     pElem->apChildren[r] = (HtmlNode *)pNew;
 
     assert(r < pElem->nChild);
@@ -968,10 +976,12 @@ HtmlInitTree(pTree)
 
         pRoot = HtmlNew(HtmlElementNode);
         pRoot->node.eTag = Html_HTML;
+        pRoot->node.zTag = HtmlTypeToName(pTree, Html_HTML);
         pTree->pRoot = (HtmlNode *)pRoot;
 
-        HtmlNodeAddChild(pRoot, Html_HEAD, 0);
-        HtmlNodeAddChild(pRoot, Html_BODY, 0);
+
+        HtmlNodeAddChild(pRoot, Html_HEAD, HtmlTypeToName(pTree, Html_HEAD), 0);
+        HtmlNodeAddChild(pRoot, Html_BODY, HtmlTypeToName(pTree, Html_BODY), 0);
         HtmlCallbackRestyle(pTree, (HtmlNode *)pRoot);
     }
 
@@ -1043,9 +1053,10 @@ treeAddFosterText(pTree, pTextNode)
 }
 
 HtmlNode * 
-treeAddFosterElement(pTree, eTag, pAttr)
+treeAddFosterElement(pTree, eTag, zTag, pAttr)
     HtmlTree *pTree;
     int eTag;
+    const char *zTag;                /* Atom for tag */
     HtmlAttributes *pAttr;
 {
     HtmlNode *pFosterParent;
@@ -1072,7 +1083,7 @@ treeAddFosterElement(pTree, eTag, pAttr)
     }
 
     if (pFoster) {
-        int n = HtmlNodeAddChild((HtmlElementNode *)pFoster, eTag, pAttr);
+        int n = HtmlNodeAddChild((HtmlElementNode *)pFoster, eTag, zTag, pAttr);
         pNew = HtmlNodeChild(pFoster, n);
     } else {
         pNew = (HtmlNode *)HtmlNew(HtmlElementNode);
@@ -1095,9 +1106,10 @@ treeAddFosterElement(pTree, eTag, pAttr)
 }
 
 static void
-treeAddFosterClosingTag(pTree, eTag)
+treeAddFosterClosingTag(pTree, eTag, zTag)
     HtmlTree *pTree;
     int eTag;
+    const char *zTag;
 {
     HtmlNode *pFosterParent;
     HtmlNode *pFoster;
@@ -1108,7 +1120,7 @@ treeAddFosterClosingTag(pTree, eTag)
     pFosterParent = findFosterParent(pTree, 0);
     assert(pFosterParent);
 
-    explicitCloseCount(pTree->state.pFoster, eTag, &nClose);
+    explicitCloseCount(pTree->state.pFoster, eTag, zTag, &nClose);
     pFoster = pTree->state.pFoster;
     for (ii = 0; ii < nClose && pFoster != pFosterParent; ii++) {
         nodeHandlerCallbacks(pTree, pFoster);
@@ -1169,7 +1181,7 @@ treeAddTableComponent(pTree, eTag, pAttr)
         eParentTag == Html_TABLE && 
         (eTag == Html_TR || eTag == Html_TD || eTag == Html_TH)
     ) {
-        int n2 = HtmlNodeAddChild((HtmlElementNode *)pParent, Html_TBODY, 0);
+        int n2 = HtmlNodeAddChild((HtmlElementNode *)pParent, Html_TBODY, 0, 0);
         pParent = HtmlNodeChild(pParent, n2);
         pParent->iNode = pTree->iNextNode++;
         eParentTag = Html_TBODY;
@@ -1177,14 +1189,14 @@ treeAddTableComponent(pTree, eTag, pAttr)
 
     /* See if we need to add an implicit <TR> node */
     if (eParentTag != Html_TR && (eTag == Html_TD || eTag == Html_TH)) {
-        int n2 = HtmlNodeAddChild((HtmlElementNode *)pParent, Html_TR, 0);
+        int n2 = HtmlNodeAddChild((HtmlElementNode *)pParent, Html_TR, 0, 0);
         pParent = HtmlNodeChild(pParent, n2);
         pParent->iNode = pTree->iNextNode++;
         eParentTag = Html_TR;
     }
     
     /* Add the new node to pParent */
-    n = HtmlNodeAddChild((HtmlElementNode *)pParent, eTag, pAttr);
+    n = HtmlNodeAddChild((HtmlElementNode *)pParent, eTag, 0, pAttr);
     pNew = HtmlNodeChild(pParent, n);
     pNew->iNode = pTree->iNextNode++;
     pTree->state.pCurrent = pNew;
@@ -1211,9 +1223,10 @@ treeAddTableComponent(pTree, eTag, pAttr)
  *---------------------------------------------------------------------------
  */
 void 
-HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
+HtmlTreeAddElement(pTree, eType, zType, pAttr, iOffset)
     HtmlTree *pTree;
     int eType;
+    const char *zType;
     HtmlAttributes *pAttr;
     int iOffset;
 {
@@ -1280,7 +1293,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
          * section.
          */
         case Html_TITLE: {
-            int n = HtmlNodeAddChild(pHeadElem, eType, pAttr);
+            int n = HtmlNodeAddChild(pHeadElem, eType, 0, pAttr);
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
             pTree->state.isCdataInHead = 1;
             p->iNode = pTree->iNextNode++;
@@ -1293,7 +1306,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
         case Html_META:
         case Html_LINK:
         case Html_BASE: {
-            int n = HtmlNodeAddChild(pHeadElem, eType, pAttr);
+            int n = HtmlNodeAddChild(pHeadElem, eType, 0, pAttr);
             HtmlNode *p = HtmlNodeChild(pHeadNode, n);
             p->iNode = pTree->iNextNode++;
             nodeHandlerCallbacks(pTree, p);
@@ -1326,7 +1339,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
             ) ? 1 : 0);
             if (isTableType && eType != Html_FORM) {
                 /* Need to add this node to the foster tree. */
-                pParsed = treeAddFosterElement(pTree, eType, pAttr);
+                pParsed = treeAddFosterElement(pTree, eType, zType, pAttr);
             } else {
                 /* Add this node to pCurrent. */
                 int nClose = 0;
@@ -1343,7 +1356,7 @@ HtmlTreeAddElement(pTree, eType, pAttr, iOffset)
 
                 pC = HtmlNodeAsElement(pCurrent);
                 assert(!HtmlNodeIsText(pTree->state.pCurrent));
-                N = HtmlNodeAddChild(pC, eType, pAttr);
+                N = HtmlNodeAddChild(pC, eType, zType, pAttr);
                 pCurrent = HtmlNodeChild(pCurrent, N);
                 pCurrent->iNode = pTree->iNextNode++;
                 pParsed = pCurrent;
@@ -1440,9 +1453,10 @@ HtmlTreeAddText(pTree, pTextNode, iOffset)
  *---------------------------------------------------------------------------
  */
 void
-HtmlTreeAddClosingTag(pTree, eTag, iOffset)
+HtmlTreeAddClosingTag(pTree, eTag, zTag, iOffset)
     HtmlTree *pTree;
     int eTag;
+    const char *zTag;
     int iOffset;
 {
     int nClose;
@@ -1452,10 +1466,10 @@ HtmlTreeAddClosingTag(pTree, eTag, iOffset)
 
     if (pTree->state.pFoster && 0 == TAG_TO_TABLELEVEL(eTag)) {
         assert(TAG_TO_TABLELEVEL(HtmlNodeTagType(pTree->state.pCurrent)) > 0);
-        treeAddFosterClosingTag(pTree, eTag);
+        treeAddFosterClosingTag(pTree, eTag, zTag);
     } else {
         HtmlNode *pBody = HtmlNodeChild(pTree->pRoot, 1);
-        explicitCloseCount(pTree->state.pCurrent, eTag, &nClose);
+        explicitCloseCount(pTree->state.pCurrent, eTag, zTag, &nClose);
         for (ii = 0; ii < nClose && pTree->state.pCurrent != pBody; ii++) {
             nodeHandlerCallbacks(pTree, pTree->state.pCurrent);
             pTree->state.pCurrent = HtmlNodeParent(pTree->state.pCurrent);
@@ -1693,7 +1707,9 @@ Html_u8 HtmlNodeTagType(pNode)
 CONST char * HtmlNodeTagName(pNode)
     HtmlNode *pNode;
 {
-    return HtmlMarkupName(pNode->eTag);
+    assert(pNode->zTag || HtmlNodeIsText(pNode));
+    if (!pNode->zTag) return "";
+    return pNode->zTag;
 }
 
 /*
@@ -2503,7 +2519,7 @@ node_attr_usage:
                 Tcl_WrongNumArgs(interp, 2, objv, "");
                 return TCL_ERROR;
             }
-            zTag = HtmlMarkupName(HtmlNodeTagType(pNode));
+            zTag = HtmlNodeTagName(pNode);
             Tcl_SetResult(interp, (char *)zTag, TCL_VOLATILE);
             break;
         }
@@ -3107,9 +3123,10 @@ fragmentAddText(pTree, pTextNode, iOffset)
 }
 
 static void 
-fragmentAddElement(pTree, eType, pAttributes, iOffset)
+fragmentAddElement(pTree, eType, zType, pAttributes, iOffset)
     HtmlTree *pTree;
     int eType;
+    const char *zType;               /* Atom */
     HtmlAttributes *pAttributes; 
     int iOffset;
 {
@@ -3135,14 +3152,19 @@ fragmentAddElement(pTree, eType, pAttributes, iOffset)
     implicitCloseCount(pTree, pFragment->pCurrent, eType, &nClose);
     for (ii = 0; ii < nClose; ii++) {
         HtmlNode *pC = &pFragment->pCurrent->node;
+        HtmlNode *pParentC = HtmlNodeParent(pC);
         assert(pC);
         nodeHandlerCallbacks(pTree, pC);
-        pFragment->pCurrent = HtmlNodeAsElement(HtmlNodeParent(pC));
+        pFragment->pCurrent = (HtmlElementNode *)pParentC;
+    }
+    if (!pFragment->pCurrent) {
+        fragmentOrphan(pTree);
     }
 
     pElem = HtmlNew(HtmlElementNode);
     pElem->pAttributes = pAttributes;
     pElem->node.eTag = eType;
+    pElem->node.zTag = zType;
 
     if (pFragment->pCurrent) {
         nodeInsertChild(pTree, pFragment->pCurrent, 0, 0, (HtmlNode *)pElem);
@@ -3163,15 +3185,16 @@ fragmentAddElement(pTree, eType, pAttributes, iOffset)
 }
 
 static void 
-fragmentAddClosingTag(pTree, eType, iOffset)
+fragmentAddClosingTag(pTree, eType, zType, iOffset)
     HtmlTree *pTree;
     int eType;
+    const char *zType;
     int iOffset;
 {
     int nClose;
     int ii;
     HtmlFragmentContext *p = pTree->pFragment;
-    explicitCloseCount(p->pCurrent, eType, &nClose);
+    explicitCloseCount(p->pCurrent, eType, zType, &nClose);
     for (ii = 0; ii < nClose; ii++) {
         assert(p->pCurrent);
         nodeHandlerCallbacks(pTree, p->pCurrent);

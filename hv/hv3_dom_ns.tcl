@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.35 2007/10/18 11:29:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.36 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -392,6 +392,12 @@ namespace eval ::hv3::DOM {
   dom_get innerWidth  { list number [winfo width $myHv3] }
 
   dom_events { list }
+
+  -- Shift keyboard focus to this window. This is mainly useful in frameset
+  -- documents.
+  dom_call focus {THIS} {
+    focus $myHv3
+  }
 
   # Pass any request for an unknown property to the FramesList object.
   #
