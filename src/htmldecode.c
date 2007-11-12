@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmldecode.c,v 1.6 2007/09/20 18:09:31 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmldecode.c,v 1.7 2007/11/12 10:16:20 danielk1977 Exp $";
 
 
 #include "html.h"
@@ -189,38 +189,13 @@ HtmlDecode(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
-/*
- *---------------------------------------------------------------------------
- *
- * HtmlEscapeUriComponent --
- *
- *         ::tkhtml::escape_uri ?-query? STRING
- *
- * Results:
- *     Returns the decoded data.
- *
- * Side effects:
- *     None.
- *
- *---------------------------------------------------------------------------
- */
-int 
-HtmlEscapeUriComponent(clientData, interp, objc, objv)
-    ClientData clientData;             /* The HTML widget data structure */
-    Tcl_Interp *interp;                /* Current interpreter. */
-    int objc;                          /* Number of arguments. */
-    Tcl_Obj *CONST objv[];             /* Argument strings. */
-{
-    unsigned char *zOut;
-    unsigned char *zRes;
 
-    unsigned char *zCsr;
-    unsigned char *zEnd;
-    int nIn;
-
-    Tcl_Obj *pData;
+const char * 
+allocEscapedComponent(zInput, nInput, isQuery)
+    const char *zInput;
+    int nInput;
     int isQuery;
-
+{
     int map[128] = { 
         0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,    /* 0   */
         0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,    /* 16  */
@@ -233,17 +208,14 @@ HtmlEscapeUriComponent(clientData, interp, objc, objv)
         1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 0, 0, 0, 1, 0     /* 112 */
     };
 
-    if (objc != 3 && objc != 2) {
-        Tcl_WrongNumArgs(interp, 1, objv, "?-query? URI-COMPONENT");
-        return TCL_ERROR;
-    }
-    pData = objv[objc - 1];
-    isQuery = (objc == 3);
+    unsigned char *zEnd = (unsigned char *)&zInput[nInput];
+    unsigned char *zCsr = (unsigned char *)zInput;
+    char *zRes;
+    char *zOut;
 
-    zCsr = (unsigned char *)Tcl_GetStringFromObj(pData, &nIn);
-    zEnd = &zCsr[nIn];
-    zRes = (unsigned char *)HtmlAlloc("temp", 1+(nIn*3));
-    zOut = zRes;
+    zRes = (char *)HtmlAlloc("temp", 1+(nInput*3));
+    zOut = (char *)zRes;
+
     for ( ; zCsr < zEnd; zCsr++) {
         if (*zCsr == '%' && (zEnd - zCsr) >= 3) {
             *(zOut++) = zCsr[0];
@@ -271,7 +243,49 @@ HtmlEscapeUriComponent(clientData, interp, objc, objv)
         }
     }
     *zOut = '\0';
-    assert((zOut - zRes) <= (1+(nIn*3)));
+    assert((zOut - zRes) <= (1+(nInput*3)));
+
+    return zRes;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlEscapeUriComponent --
+ *
+ *         ::tkhtml::escape_uri ?-query? STRING
+ *
+ * Results:
+ *     Returns the decoded data.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlEscapeUriComponent(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    char *zRes;
+    unsigned char *zCsr;
+    int nIn;
+
+    Tcl_Obj *pData;
+    int isQuery;
+
+    if (objc != 3 && objc != 2) {
+        Tcl_WrongNumArgs(interp, 1, objv, "?-query? URI-COMPONENT");
+        return TCL_ERROR;
+    }
+    pData = objv[objc - 1];
+    isQuery = (objc == 3);
+
+    zCsr = (unsigned char *)Tcl_GetStringFromObj(pData, &nIn);
+    zRes = allocEscapedComponent(zCsr, nIn, isQuery);
 
     Tcl_SetResult(interp, (char *)zRes, TCL_VOLATILE);
     HtmlFree(zRes);

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.9 2007/10/13 18:05:45 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.10 2007/11/12 10:16:20 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of the two DOM specific
 # container objects:
@@ -45,7 +45,6 @@ namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.9 2007/10/13 1
   #     HTMLDocument.anchors
   #
   #     HTMLFormElement.elements
-  #     HTMLSelectElement.options
   #     HTMLMapElement.areas
   #
   #     HTMLTableElement.rows
@@ -76,36 +75,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.9 2007/10/13 1
   # Handle an attempt to retrieve an unknown property.
   #
   dom_get * {
-
-    # If $property looks like a number, treat it as an index into the list
-    # of widget nodes. 
-    #
-    # Otherwise look for nodes with the "name" or "id" attribute set 
-    # to the queried attribute name. If a single node is found, return
-    # it directly. If more than one have matching names or ids, a NodeList
-    # containing the matches is returned.
-    #
-    if {[string is double $property]} {
-      set res [HTMLCollectionC_item $myDom $nodelistcmd $property]
-    } else {
-      set res [
-        HTMLCollectionC_getNodeHandlesByName $nodelistcmd $property
-      ]
-      set nRet [llength $res]
-      if {$nRet==0} {
-        set res ""
-      } elseif {$nRet==1} {
-        set res [list object [::hv3::dom::wrapWidgetNode $myDom [lindex $res 0]]]
-      } else {
-        set getnodes [namespace code [list \
-          HTMLCollectionC_getNodeHandlesByName $nodelistcmd $property
-        ]]
-        set obj [list ::hv3::DOM::NodeListC $myDom $getnodes]
-        set res [list object $obj]
-      }
-    }
-
-    return $res
+    HTMLCollectionC_getUnknownProperty $myDom $nodelistcmd $property
   }
 }
 
@@ -120,6 +90,39 @@ namespace eval ::hv3::DOM {
       }
     }
     return $ret
+  }
+
+  proc HTMLCollectionC_getUnknownProperty {dom supersetcmd property} {
+
+    # If $property looks like a number, treat it as an index into the list
+    # of widget nodes. 
+    #
+    # Otherwise look for nodes with the "name" or "id" attribute set 
+    # to the queried attribute name. If a single node is found, return
+    # it directly. If more than one have matching names or ids, a NodeList
+    # containing the matches is returned.
+    #
+    if {[string is double $property]} {
+      set res [HTMLCollectionC_item $dom $supersetcmd $property]
+    } else {
+      set res [
+        HTMLCollectionC_getNodeHandlesByName $supersetcmd $property
+      ]
+      set nRet [llength $res]
+      if {$nRet==0} {
+        set res ""
+      } elseif {$nRet==1} {
+        set res [list object [::hv3::dom::wrapWidgetNode $dom [lindex $res 0]]]
+      } else {
+        set getnodes [namespace code [list \
+          HTMLCollectionC_getNodeHandlesByName $supersetcmd $property
+        ]]
+        set obj [list ::hv3::DOM::NodeListC $dom $getnodes]
+        set res [list object $obj]
+      }
+    }
+
+    return $res
   }
   
   proc HTMLCollectionC_item {dom nodelistcmd index} {
@@ -364,4 +367,45 @@ namespace eval ::hv3::DOM {
     return ""
   }
 }
+
+::hv3::dom2::stateless HTMLOptionsCollection {
+  dom_parameter mySelectNode
+
+  # HTMLCollection.length
+  #
+  dom_get length {
+    list number [llength [HTMLSelectElement_getOptions $mySelectNode]]
+  }
+
+  # HTMLCollection.item()
+  #
+  dom_call -string item {THIS index} {
+    set cmd [list HTMLSelectElement_getOptions $mySelectNode]
+    HTMLCollectionC_item $myDom $cmd $index
+  }
+
+  # HTMLCollection.namedItem()
+  #
+  dom_call -string namedItem {THIS name} {
+    set cmd [list HTMLSelectElement_getOptions $mySelectNode]
+    HTMLCollectionC_namedItem $myDom $cmd $name
+  }
+
+  # Handle an attempt to retrieve an unknown property.
+  #
+  dom_get * {
+    set cmd [list HTMLSelectElement_getOptions $mySelectNode]
+    HTMLCollectionC_getUnknownProperty $myDom $cmd $property
+  }
+
+  # The "selectedIndex" property of this collection is an alias for
+  # the "selectedIndex" property of the <SELECT> node.
+  dom_get selectedIndex {
+    list number [[$mySelectNode replace] dom_selectionIndex]
+  }
+  dom_put -string selectedIndex value {
+    [$mySelectNode replace] dom_setSelectionIndex $value
+  }
+}
+
 

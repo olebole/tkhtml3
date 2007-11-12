@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.44 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.45 2007/11/12 10:16:20 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -652,8 +652,7 @@ namespace eval ::hv3::DOM {
   }
 
   dom_get options {
-    set cmd [list HTMLSelectElement_getOptions $myNode]
-    list object [list ::hv3::DOM::HTMLCollectionC $myDom $cmd]
+    list object [list ::hv3::DOM::HTMLOptionsCollection $myDom $myNode]
   }
 
   dom_get multiple {

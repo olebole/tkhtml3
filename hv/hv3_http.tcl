@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.57 2007/11/07 17:38:33 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.58 2007/11/12 10:16:20 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -149,6 +149,7 @@ snit::type ::hv3::protocol {
     # Knock any #fragment off the end of the URI.
     set obj [::tkhtml::uri $uri]
     set uri [$obj get_no_fragment]
+set uri [::tkhtml::escape_uri -query $uri]
     $obj destroy
 
     # Store the HTTP header containing the cookies in variable $headers

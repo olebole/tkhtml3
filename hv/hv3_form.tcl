@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.90 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.91 2007/11/12 10:16:20 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -909,10 +909,11 @@ snit::widgetadaptor ::hv3::forms::select {
   #
 
   method dom_selectionIndex {} { 
-    if {[$hull cget -state] eq "disabled"} {
-      return -1
+    set idx [$hull curselection]
+    if {[$hull cget -state] eq "disabled" || $idx eq ""} {
+      set idx -1
     }
-    $hull curselection 
+    set idx
   }
   method dom_setSelectionIndex {value} { 
     if {[$hull cget -state] ne "disabled"} {
@@ -1159,20 +1160,6 @@ snit::widget ::hv3::forms::fileselect {
   method configurecmd {values} {}
   method stylecmd {} {}
 
-  # This method is called by the DOM when the HTMLInputElement.value 
-  # property is set. See also the ::hv3::control method of the same name.
-  #
-  # From the DOM Level 1 html module (about the HTMLInputElement.value
-  # property):
-  #
-  #     When the type attribute of the element has the value "Button",
-  #     "Hidden", "Submit", "Reset", "Image", "Checkbox" or "Radio", this
-  #     represents the HTML value attribute of the element.
-  #
-  method set_value {newValue} {
-    $myNode attr value $newValue
-  }
-
   method formsreport {} {
     set n [::hv3::control_to_form $myNode]
     set report "<p>"
@@ -1188,6 +1175,45 @@ snit::widget ::hv3::forms::fileselect {
   }
 
   method reset {} { # no-op }
+
+  #---------------------------------------------------------------------
+  # START OF DOM FUNCTIONALITY
+  #
+  # Below this point are some methods used by the DOM class 
+  # HTMLInputElement. None of this is used unless scripting is enabled.
+  #
+
+  # Get/set on the DOM "checked" attribute. This means the state 
+  # of control (1==checked, 0==not checked) for this type of object.
+  #
+  method dom_checked {args} {
+    return 0
+  }
+
+  # DOM Implementation does not call this. HTMLInputElement.value is
+  # the "value" attribute of the HTML element for this type of object.
+  #
+  method dom_value {args} { error "N/A" }
+
+  # HTMLInputElement.select() is a no-op for this kind of object. It
+  # contains no text so there is nothing to select...
+  #
+  method dom_select  {} {}
+
+  # Hv3 will not support keyboard access to checkboxes. Until
+  # this changes these can be no-ops :)
+  method dom_focus {} {}
+  method dom_blur  {} {}
+
+  # Generate a synthetic click. This same trick can be used for <INPUT>
+  # elements with "type" set to "Button", "Radio", "Reset", or "Submit".
+  #
+  method dom_click {} {
+    set x [expr [winfo width $win]/2]
+    set y [expr [winfo height $win]/2]
+    event generate $win <ButtonPress-1> -x $x -y $y
+    event generate $win <ButtonRelease-1> -x $x -y $y
+  }
 }
 
 #-----------------------------------------------------------------------
