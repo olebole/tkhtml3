@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.6 2007/11/10 07:24:58 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.7 2007/11/13 14:19:14 hkoba Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -484,7 +484,7 @@ namespace eval ::hv3 {
 	    {To browse the document source code, select a different option}
             {from the "Debug->Application Source Logging" menu and reload}
             {the document.}
-        }
+        }]
         return
       }
       $self DisplayResources $top 2
