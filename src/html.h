@@ -790,6 +790,7 @@ void HtmlDrawCanvasItemReference(HtmlCanvasItem *);
 
 void HtmlWidgetDamageText(HtmlTree *, HtmlNode *, int, HtmlNode *, int);
 int HtmlWidgetNodeTop(HtmlTree *, HtmlNode *);
+void HtmlWidgetOverflowBox(HtmlTree *, HtmlNode *, int *, int *, int *, int *);
 
 HtmlTokenMap *HtmlMarkup(int);
 CONST char * HtmlMarkupName(int);
@@ -1005,6 +1006,9 @@ const char *HtmlTextIterData(HtmlTextIter *);
 void HtmlInstrumentInit(Tcl_Interp *);
 void HtmlInstrumentCall(ClientData, int, void(*)(ClientData), ClientData);
 void *HtmlInstrumentCall2(ClientData, int, void*(*)(ClientData), ClientData);
+
+/* htmltagdb.c */
+const char *HtmlTypeToName(void *, int);
 
 #endif
 
