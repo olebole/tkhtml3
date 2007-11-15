@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.119 2007/11/11 11:00:48 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.120 2007/11/15 05:16:24 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -834,12 +834,12 @@ HtmlTokenize(pTree, zText, isFinal, xAddText, xAddElement, xAddClosing)
             int isSelfClosing = 0;
             int i = 1;
             int nStartScript = n;
+            const char *zAtom = 0;
+            int eType = 0;
+
             argc = 1;
             argv[0] = &z[n + 1];
             assert( c=='<' );
-
-            const char *zAtom = 0;
-            int eType = 0;
 
             /* Check if we are dealing with a closing tag. */
             if (*argv[0] == '/' && argv[0][1]) {
