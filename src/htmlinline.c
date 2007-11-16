@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.56 2007/11/11 11:00:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.57 2007/11/16 06:53:15 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <stdio.h>
@@ -1136,7 +1136,7 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
     int iLeft = 0;           /* Leftmost pixel of line box */
 
     /* The amount of horizontal space available in which to stack boxes */
-    const int iReqWidth = *pWidth - p->iTextIndent;
+    const int iReqWidth = MAX(*pWidth - p->iTextIndent, 0);
 
     HtmlCanvas content;      /* Canvas for content (as opposed to borders) */
     HtmlCanvas borders;      /* Canvas for borders */
