@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.137 2007/11/11 11:00:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.138 2007/11/16 11:25:53 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -1251,11 +1251,15 @@ shortcutBackground(pParse, p, v)
     /*
      * From CSS2 description of the 'background-position' property:
      */
-    if ((pPositionX && pPositionY && (
-        pPositionX->eType == CSS_CONST_TOP ||
-        pPositionX->eType == CSS_CONST_BOTTOM || 
-        pPositionY->eType == CSS_CONST_RIGHT ||
-        pPositionY->eType == CSS_CONST_LEFT)) 
+    if (
+        (pPositionX && (
+            pPositionX->eType == CSS_CONST_TOP ||
+            pPositionX->eType == CSS_CONST_BOTTOM
+        )) ||
+        (pPositionY && (
+            pPositionY->eType == CSS_CONST_RIGHT ||
+            pPositionY->eType == CSS_CONST_LEFT
+        ))
     ) {
         CssProperty *pTmp = pPositionX;
         pPositionX = pPositionY;
