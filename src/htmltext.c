@@ -358,6 +358,7 @@ static struct sgEsc esc_sequences[] = {
   
     /* Non-standard. But very common. */
     {"quote", "\"", 0},
+    {"apos", "'", 0},
 };
 
 /* The size of the handler hash table.  For best results this should
