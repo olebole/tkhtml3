@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.266 2007/11/06 11:48:54 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.267 2007/11/16 10:56:11 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3276,6 +3276,25 @@ normalFlowLayoutNode(pLayout, pBox, pNode, pY, pContext, pNormal)
 
     /* See if there are any complete line-boxes to copy to the main canvas. */
     inlineLayoutDrawLines(pLayout, pBox, pContext, 0, pY, pNormal);
+
+    /* More backwards compatible insanity. As of CSS 2, the 'clear' property
+     * should be ignored on all inline elements. And the BR element, so
+     * says the spec, should be implemented as:
+     *
+     *     BR:before { content: "\A" ; white-space: pre-line; }
+     *
+     * But it's common to apply the 'clear' property to BR elements. The
+     * following block seems to mimic what other browsers are doing - add
+     * the newline, then clear any floats if required.
+     */
+    if (
+        HtmlNodeTagType(pNode) == Html_BR &&
+        pV->eClear != CSS_CONST_NONE && 
+        pV->eDisplay == CSS_CONST_INLINE
+    ) {
+        inlineLayoutDrawLines(pLayout, pBox, pContext, 1, pY, pNormal);
+        *pY = normalFlowClearFloat(pBox, pNode, pNormal, *pY);
+    }
 
     /* Log the state of the normal-flow context after this node */
     LOG(pNode) {
