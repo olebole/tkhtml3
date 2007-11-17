@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.175 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.176 2007/11/17 11:24:21 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -7,7 +7,6 @@ proc sourcefile {file} [string map              \
 { 
   return [file join {%HV3_DIR%} $file] 
 }]
-
 
 # Before doing anything else, set up profiling if it is requested.
 # Profiling is only used if the "-profile" option was passed on
@@ -19,57 +18,22 @@ package require Tk
 tk scaling 1.33333
 package require Tkhtml 3.0
 
-# option add *TButton.compound left
-
 # If possible, load package "Img". Without it the script can still run,
-# but won't be able to load many image formats. Similarly, try to load
-# sqlite3. If sqlite3 is present cookies, auto-completion and 
-# coloring of visited URIs work.
+# but won't be able to load many image formats.
 #
 if {[catch { package require Img } errmsg]} {
   puts stderr "WARNING: $errmsg (most image types will fail to load)"
 }
-if {[catch { package require sqlite3 } errmsg]} {
-  puts stderr "WARNING: $errmsg"
-}
 
-# Source the other script files that are part of this application.
-#
-if {[package vsatisfies [package provide Tcl] 8.5]} {
-  # FIXME: Disabling snit2.tcl for now as it seems to be incompatible with
-  # tcl 8.5b1.
-  source [sourcefile snit.tcl]
-} else {
-  source [sourcefile snit.tcl]
+source [sourcefile hv3_browser.tcl]
+if {![llength [info procs ::console]]} {
+    source [sourcefile hv3_console.tcl]
 }
 
 namespace eval ::hv3 {
   set log_source_option 0
   set reformat_scripts_option 0
 }
-
-source [sourcefile hv3_widgets.tcl]
-source [sourcefile hv3_encodings.tcl]
-source [sourcefile hv3_db.tcl]
-source [sourcefile hv3_home.tcl]
-source [sourcefile hv3.tcl]
-source [sourcefile hv3_prop.tcl]
-source [sourcefile hv3_log.tcl]
-source [sourcefile hv3_http.tcl]
-source [sourcefile hv3_frameset.tcl]
-source [sourcefile hv3_polipo.tcl]
-source [sourcefile hv3_icons.tcl]
-source [sourcefile hv3_history.tcl]
-source [sourcefile hv3_string.tcl]
-source [sourcefile hv3_bookmarks.tcl]
-source [sourcefile hv3_bugreport.tcl]
-source [sourcefile hv3_debug.tcl]
-if {![llength [info procs ::console]]} {
-    source [sourcefile hv3_console.tcl]
-}
-
-source [sourcefile hv3_browser.tcl]
-
 
 # ::hv3::config
 #

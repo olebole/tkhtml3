@@ -1,4 +1,32 @@
 
+package require sqlite3
+package require Tkhtml 3.0
+
+proc sourcefile {file} [string map              \
+  [list %HV3_DIR% [file dirname [info script]]] \
+{ 
+  return [file join {%HV3_DIR%} $file] 
+}]
+
+source [sourcefile hv3_profile.tcl]
+source [sourcefile snit.tcl]
+source [sourcefile hv3_widgets.tcl]
+source [sourcefile hv3_encodings.tcl]
+source [sourcefile hv3_db.tcl]
+source [sourcefile hv3_home.tcl]
+source [sourcefile hv3.tcl]
+source [sourcefile hv3_prop.tcl]
+source [sourcefile hv3_log.tcl]
+source [sourcefile hv3_http.tcl]
+source [sourcefile hv3_frameset.tcl]
+source [sourcefile hv3_polipo.tcl]
+source [sourcefile hv3_icons.tcl]
+source [sourcefile hv3_history.tcl]
+source [sourcefile hv3_string.tcl]
+source [sourcefile hv3_bookmarks.tcl]
+source [sourcefile hv3_bugreport.tcl]
+source [sourcefile hv3_debug.tcl]
+
 #--------------------------------------------------------------------------
 # Widget ::hv3::browser_frame
 #
@@ -375,7 +403,11 @@ snit::widget ::hv3::browser_frame {
     if {$options(-statusvar) ne ""} {
       global $options(-statusvar)
       set str ""
-      switch -- $::hv3::G(status_mode) {
+
+      set status_mode browser
+      catch { set status_mode $::hv3::G(status_mode) }
+
+      switch -- $status_mode {
         browser-tree {
           set value [$self node_to_string [lindex $myNodeList end]]
           set str "($myX $myY) $value"
@@ -774,3 +806,6 @@ snit::widget ::hv3::browser {
   delegate option * to myMainFrame
   delegate method * to myMainFrame
 }
+
+set ::hv3::maindir [file dirname [info script]] 
+
