@@ -265,6 +265,7 @@ snit::widget ::hv3::browser_frame {
   # the root window.
   #
   method rightclick {x y X Y} {
+    if {![info exists ::hv3::G]} return
 
     set m ${win}.hyperlinkmenu
     $m delete 0 end
