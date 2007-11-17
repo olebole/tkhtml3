@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.64 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.65 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -459,15 +459,15 @@ snit::widget ::hv3::debug::LogReport {
 
         append Tbl "    <tr><td>"
         if {[regexp $pattern1 $entry DUMMY zSelector zFrom]} {
-          set zFrom [htmlize $zFrom]
-          set zSelector [htmlize $zSelector]
+          set zFrom [::hv3::string::htmlize $zFrom]
+          set zSelector [::hv3::string::htmlize $zSelector]
           append Tbl "<i style=color:green>match </i>"
           append Tbl "<span style=font-family:fixed>$zSelector</span> "
           append Tbl "<i style=color:green>from $zFrom</i>\n"
         } \
         elseif {[regexp $pattern2 $entry DUMMY zSelector zFrom]} {
-          set zFrom [htmlize $zFrom]
-          set zSelector [htmlize $zSelector]
+          set zFrom [::hv3::string::htmlize $zFrom]
+          set zSelector [::hv3::string::htmlize $zSelector]
           append Tbl "<i style=color:red>nomatch </i>"
           append Tbl "<span style=font-family:fixed>$zSelector</span> "
           append Tbl "<i style=color:red>from $zFrom</i>\n"
@@ -516,7 +516,7 @@ proc ::hv3::debug::EventsReport {hv3 node} {
   if {$dom ne ""} {
     foreach evt [$dom eventdump $node] {
       foreach {e l j} $evt {}
-      set fj [htmlize [::see::format $j]]
+      set fj [::hv3::string::htmlize [::see::format $j]]
       append Tbl "<tr><td>$e<td>$l<td><pre>$fj</pre>" 
     }
   }

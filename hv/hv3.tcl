@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.216 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.217 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -945,12 +945,14 @@ snit::type ::hv3::hv3::framelog {
   }
 
   method loghtml {data} {
+    if {![info exists ::hv3::log_source_option]} return
     if {$::hv3::log_source_option} {
       append myHtmlDocument $data
     }
   }
 
   method log {id filename data parse_errors} {
+    if {![info exists ::hv3::log_source_option]} return
     if {$::hv3::log_source_option} {
       lappend myStyleErrors [list $id $filename $data $parse_errors]
     }

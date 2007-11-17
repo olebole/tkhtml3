@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.91 2007/11/12 10:16:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.92 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1495,14 +1495,14 @@ snit::type ::hv3::form {
       set isSubmit [expr {([lsearch [$self SubmitNodes] $controlnode]>=0)}]
 
       if {$success} {
-        set value [htmlize [$control value]]
+        set value [::hv3::string::htmlize [$control value]]
       } else {
         set value "<i>N/A</i>"
       }
       append report "<tr><td>"
       append report "<a href=\"$controlnode\">"
       if {$name ne ""} {
-        append report "[htmlize $name]"
+        append report "[::hv3::string::htmlize $name]"
       } else {
         append report "<i>$controlnode</i>"
       }

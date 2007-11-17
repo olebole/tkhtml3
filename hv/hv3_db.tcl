@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.20 2007/10/08 14:28:06 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.21 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -371,6 +371,9 @@ proc ::hv3::cookies_scheme_init {protocol} {
 }
 
 proc ::hv3::dbinit {} {
+  if {[info commands ::hv3::sqlitedb] ne ""} return
+  if {![info exists ::hv3::statefile]} {set ::hv3::statefile ""}
+
   sqlite3 ::hv3::sqlitedb $::hv3::statefile
   ::hv3::profile::instrument ::hv3::sqlitedb
   ::hv3::sqlitedb eval {PRAGMA synchronous = OFF}

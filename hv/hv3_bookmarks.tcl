@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.17 2007/11/01 15:49:40 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.18 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
 
@@ -355,7 +355,7 @@ pressing enter.
 
   ::snit::widget treewidget {
 
-    # The browser (::hv3::browser_toplevel) containing this frameset
+    # The browser (::hv3::browser) containing this frameset
     #
     variable myBrowser
 

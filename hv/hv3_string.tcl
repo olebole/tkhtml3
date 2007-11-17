@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_string.tcl,v 1.7 2007/09/10 03:57:41 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_string.tcl,v 1.8 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
 
 
 namespace eval ::hv3::string {
@@ -87,6 +87,10 @@ namespace eval ::hv3::string {
     }
 
     return [list $type $subtype $enc]
+  }
+
+  proc htmlize {zIn} {
+    string map [list "<" "&lt;" ">" "&gt;" "&" "&amp;" "\"" "&quote;"] $zIn
   }
 
 }

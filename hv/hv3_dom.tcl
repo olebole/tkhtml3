@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.87 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.88 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -66,7 +66,7 @@ snit::type ::hv3::dom {
   # Logging command.
   option -logcmd -default "" -configuremethod ConfigureLogcmd
 
-  # Instance of [::hv3::browser_toplevel] associated with this object.
+  # Instance of [::hv3::browser] associated with this object.
   variable myBrowser ""
 
   # Used to assign unique ids to each block of script evaluated. 
@@ -208,16 +208,17 @@ return
             -mimetype    text/javascript               \
             -cachecontrol normal                       \
         ]
-	  if {[$hv3 encoding] ne ""} {
-	      # puts "load script $fulluri encoding [$hv3 encoding]"
-	      $handle configure -encoding [$hv3 encoding]
-	  }
+        if {[$hv3 encoding] ne ""} {
+          # puts "load script $fulluri encoding [$hv3 encoding]"
+          $handle configure -encoding [$hv3 encoding]
+        }
 	  
         set fin [mymethod scriptCallback $hv3 $attr $handle]
         $handle configure -finscript $fin
         $hv3 makerequest $handle
         # $self Log "Dispatched script request - $handle" "" "" ""
       } else {
+        # return [$self scriptCallback $hv3 $attr "" $script]
         return [$self scriptCallback $hv3 $attr "" $script]
       }
     }
@@ -243,7 +244,6 @@ return
   # successful callback.
   #
   method scriptCallback {hv3 attr downloadHandle script} {
-
     set title ""
     if {$downloadHandle ne ""} { 
       # Handle an HTTP redirect or a Location header:
@@ -256,15 +256,18 @@ return
     if {$title eq ""} {
       set attributes ""
       foreach {a v} $attr {
-        append attributes " [htmlize $a]=\"[htmlize $v]\""
+        append attributes " [::hv3::string::htmlize $a]="
+        append attributes "\"[::hv3::string::htmlize $v]\""
       }
       set title "<script$attributes>"
     }
 
-    if {$::hv3::reformat_scripts_option} {
-      set script [string map {"\r\n" "\n"} $script]
-      set script [string map {"\r" "\n"} $script]
-      set script [::see::format $script]
+    if {[info exists ::hv3::reformat_scripts_option]} {
+      if {$::hv3::reformat_scripts_option} {
+        set script [string map {"\r\n" "\n"} $script]
+        set script [string map {"\r" "\n"} $script]
+        set script [::see::format $script]
+      }
     }
 
     set name [$self NewFilename]
@@ -511,6 +514,7 @@ load_xml_parser $mySee
   method GetLog {} {return $myLogList}
 
   method Log {heading name script rc result} {
+    if {![info exists ::hv3::log_source_option]} return
     if {!$::hv3::log_source_option} return
 
     set obj [::hv3::dom::logscript %AUTO% \
@@ -520,6 +524,7 @@ load_xml_parser $mySee
   }
 
   method EventLog {heading name script rc result} {
+    if {![info exists ::hv3::log_source_option]} return
     if {!$::hv3::log_source_option} return
 
     set obj [::hv3::dom::logscript %AUTO% -isevent true \
@@ -599,6 +604,7 @@ snit::type ::hv3::dom::logdata {
   }
 
   method Log {heading name script rc result} {
+    if {![info exists ::hv3::log_source_option]} return
     if {!$::hv3::log_source_option} return
     set ls [::hv3::dom::logscript %AUTO% \
       -rc $rc -name $name -heading $heading -script $script -result $result

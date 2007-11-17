@@ -87,7 +87,7 @@ Hv3 Application Object Types:
 
     ::hv3::browser_frame         (hv3_main.tcl)
 
-    ::hv3::browser_toplevel      (hv3_main.tcl)
+    ::hv3::browser (hv3_main.tcl)
          Instances of this widget are managed directly by the notebook.
          Each instance of this widget creates it's own ::hv3::protocol
          and ::hv3::history objects. It also creates and destroys

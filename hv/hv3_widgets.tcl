@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.52 2007/10/06 14:58:22 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.53 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -911,7 +911,7 @@ proc ::hv3::ComparePositionId {frame1 frame2} {
 #
 #
 snit::widget ::hv3::findwidget {
-  variable myBrowser          ;# The ::hv3::browser_toplevel widget
+  variable myBrowser          ;# The ::hv3::browser widget
 
   variable myNocaseVar 1      ;# Variable for the "Case insensitive" checkbox 
   variable myEntryVar  ""     ;# Variable for the entry widget
