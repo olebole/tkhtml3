@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.37 2007/11/18 08:34:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.38 2007/11/18 10:13:37 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -399,6 +399,11 @@ namespace eval ::hv3::DOM {
     focus $myHv3
   }
 
+  -- This function is only available if the -unsafe option on the
+  -- {[::hv3::browser]} widget is set to true. This is <b>not</b> the
+  -- case in the Hv3 web browser, but may be in other applications.
+  -- The string passed as an argument is evaluated as a Tcl script
+  -- in the widget's interpreter.
   dom_call -string tcl {THIS script} {
     set browser [$myDom browser]
     if {[$browser cget -unsafe]} {

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.26 2007/10/03 10:06:38 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.27 2007/11/18 10:13:37 danielk1977 Exp $)} 1 }
 
 package require snit
 
@@ -461,7 +461,7 @@ snit::widget ::hv3::locationentry {
       static unsigned char v_bits[] = { 0xff, 0x7e, 0x3c, 0x18 };
     }]
     set myButton [button ${win}.button -image $myButtonImage -width 12]
-    $myButton configure -command [list $self ButtonPress]
+    $myButton configure -command [list $self ButtonPress] -takefocus 0
 
     pack $myButton -side right -fill y
     pack $myEntry -fill both -expand true
@@ -474,7 +474,7 @@ snit::widget ::hv3::locationentry {
     # the same top-level as the ::hv3::locationentry widget...
     #
     set myListbox [winfo toplevel $win][string map {. _} ${win}]
-    ::hv3::scrolledlistbox $myListbox
+    ::hv3::scrolledlistbox $myListbox -takefocus 0
 
     # Any button-press anywhere in the GUI folds up the drop-down menu.
     bind [winfo toplevel $win] <ButtonPress> +[list $self AnyButtonPress %W]
@@ -482,6 +482,7 @@ snit::widget ::hv3::locationentry {
     bind $myEntry <KeyPress>        +[list $self KeyPress]
     bind $myEntry <KeyPress-Return> +[list $self KeyPressReturn]
     bind $myEntry <KeyPress-Down>   +[list $self KeyPressDown]
+    bind $myEntry <KeyPress-Tab>    +noop
     bind $myEntry <KeyPress-Escape> gui_escape
 
     $myListbox configure -listvariable [myvar myListboxVar]
@@ -632,3 +633,4 @@ snit::widget ::hv3::locationentry {
   }
 }
 
+proc noop {args} {}

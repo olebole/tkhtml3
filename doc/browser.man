@@ -1,0 +1,37 @@
+[TH ::hv3::browser n]
+
+[Section Name]
+	::hv3::browser - Web browser widget.
+
+[Section Synopsis]
+	::hv3::browser pathName ?options?
+
+[Section Standard Options]
+	[Code {
+	}]
+
+	See the options(n) manual entry for details on the standard options.
+
+[Section Widget-Specific Options]
+
+	[Option enablejavascript {
+		If set to true and the Tclsee package can be loaded, 
+		javascript is enabled in the browser widget.
+
+		The default value is false.
+	}]
+	[Option unsafe {
+		This boolean option determines whether or not the javascript
+		interpreter has access to the function window.tcl(). Because
+		this function allows javascript programs embedded in 
+		documents to evaluate Tcl scripts in the widget's intepreter,
+		any document loaded while this option is set should be
+		from a trusted source.
+
+		The default value is false.
+        }]
+
+[Section Description]
+
+[Section Widget Command]
+

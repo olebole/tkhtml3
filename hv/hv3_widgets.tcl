@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.53 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.54 2007/11/18 10:13:37 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -153,8 +153,8 @@ namespace eval ::hv3 {
       bind $w <KeyPress-space>  [list $scrollme $v $w yview scroll  1 pages]
       bind $w <KeyPress-Prior>  [list $scrollme $v $w yview scroll -1 pages]
   
-      set myVsb [::hv3::scrollbar ${win}.vsb -orient vertical] 
-      set myHsb [::hv3::scrollbar ${win}.hsb -orient horizontal] 
+      set myVsb [::hv3::scrollbar ${win}.vsb -orient vertical -takefocus 0] 
+      set myHsb [::hv3::scrollbar ${win}.hsb -orient horizontal -takefocus 0]
   
       $myVsb configure -cursor "top_left_arrow"
       $myHsb configure -cursor "top_left_arrow"
@@ -245,7 +245,7 @@ namespace eval ::hv3 {
     if {$::hv3::toolkit eq "Tile"} {
       set myButton [::ttk::button ${win}.button -style Toolbutton]
     } else {
-      set myButton [::button ${win}.button]
+      set myButton [::button ${win}.button -takefocus 0]
 
       # Configure Tk presentation options not required for Tile here.
       $myButton configure -highlightthickness 0
