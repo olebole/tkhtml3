@@ -795,6 +795,8 @@ snit::widget ::hv3::browser {
 
   option -stopbutton -default "" -configuremethod Configurestopbutton
 
+  option -unsafe -default 0
+
   delegate option -backbutton    to myHistory
   delegate option -forwardbutton to myHistory
   delegate option -locationentry to myHistory

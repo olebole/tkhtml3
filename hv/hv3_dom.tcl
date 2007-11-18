@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.88 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.89 2007/11/18 08:34:54 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -77,6 +77,10 @@ snit::type ::hv3::dom {
     set myBrowser $browser
     set myLogData [::hv3::dom::logdata %AUTO% $self]
     $self configurelist $args
+  }
+
+  method browser {} {
+    return $myBrowser
   }
 
   method SetEnable {option value} {

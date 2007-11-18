@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.36 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.37 2007/11/18 08:34:54 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -397,6 +397,15 @@ namespace eval ::hv3::DOM {
   -- documents.
   dom_call focus {THIS} {
     focus $myHv3
+  }
+
+  dom_call -string tcl {THIS script} {
+    set browser [$myDom browser]
+    if {[$browser cget -unsafe]} {
+      uplevel #0 $script
+    } else {
+      error "This browser is not -unsafe. window.tcl() is disabled"
+    }
   }
 
   # Pass any request for an unknown property to the FramesList object.
