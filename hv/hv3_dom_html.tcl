@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.45 2007/11/12 10:16:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.46 2007/11/25 18:29:15 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -489,6 +489,13 @@ namespace eval ::hv3::DOM {
   element_attr acceptCharset -attribute acceptcharset
   element_attr enctype
 
+  dom_get ** {
+    set superset [subst -nocommands {
+      lrange [::hv3::get_form_nodes $myNode] 1 end
+    }]
+    HTMLCollectionC_getUnknownProperty $myDom $superset $property
+  }
+
   # The HTMLFormElement.elements array.
   #
   dom_get elements {
@@ -510,10 +517,10 @@ namespace eval ::hv3::DOM {
   # Unknown property handler. Delegate any unknown property requests to
   # the HTMLFormElement.elements object.
   #
-  dom_get * {
-    set obj [lindex [eval HTMLFormElement $myDom $myNode Get elements] 1]
-    eval $obj Get $property
-  }
+  #dom_get * {
+    #set obj [lindex [eval HTMLFormElement $myDom $myNode Get elements] 1]
+    #eval $obj Get $property
+  #}
 }
 # </HTMLFormElement>
 #-------------------------------------------------------------------------

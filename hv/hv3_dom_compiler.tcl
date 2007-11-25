@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.37 2007/10/18 06:09:19 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_compiler.tcl,v 1.38 2007/11/25 18:29:15 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file implements infrastructure used to create the [proc] definitions
@@ -173,6 +173,18 @@ namespace eval ::hv3::dom2 {
         unset compiler2::get_array(*)
       }
 
+      set DYNAMICGET ""
+      if {[info exists compiler2::get_array(**)]} {
+        set zDynamicGet $compiler2::get_array(**)
+        unset compiler2::get_array(**)
+        set DYNAMICGET "
+            set property \[lindex \$args 0\]
+            set result \[eval {$zDynamicGet} \]
+            if {\$result ne {}} {return \$result}
+            unset result property
+        "
+      }
+
       set SETSTATEARRAY ""
       if {$compiler2::parameter eq "myStateArray"} {
         set SETSTATEARRAY {upvar $myStateArray state}
@@ -251,6 +263,7 @@ namespace eval ::hv3::dom2 {
       set arglist [list myDom $compiler2::parameter Method args]
       set proccode [list \
         proc ::hv3::DOM::$type_name $arglist [string map [list \
+          %DYNAMICGET% $DYNAMICGET \
           %GET% $GET %PUT% $PUT \
           %DEFAULTVALUE% $compiler2::default_value \
           %FINALIZE% $compiler2::finalize   \
@@ -263,6 +276,7 @@ namespace eval ::hv3::dom2 {
           %SETSTATEARRAY%
           switch -exact -- $Method {
             Get {
+              %DYNAMICGET%
               switch -exact -- [lindex $args 0] {
                 %GET%
               }
@@ -295,7 +309,7 @@ namespace eval ::hv3::dom2 {
   
       evalcode $proccode
 
-      if {![info exists zDefaultGet]} {
+      if {![info exists zDefaultGet] && ![info exists zDynamicGet]} {
         set property_list [concat \
             [array names compiler2::get_array] \
             [array names compiler2::call_array] \

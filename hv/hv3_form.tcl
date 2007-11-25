@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.92 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.93 2007/11/25 18:29:15 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1488,8 +1488,8 @@ snit::type ::hv3::form {
     set report [subst $Template]
 
     foreach controlnode [lrange [::hv3::get_form_nodes $myFormNode] 1 end] {
-
       set control [$controlnode replace]
+      if {$control eq ""} continue
       set success [$control success]
       set name    [$control name]
       set isSubmit [expr {([lsearch [$self SubmitNodes] $controlnode]>=0)}]
@@ -1574,6 +1574,8 @@ snit::type ::hv3::formmanager {
   method SetupKeyBindings {widget node} {
     bind $widget <KeyPress>   +[list $self WidgetKeyPress $widget $node]
     bind $widget <KeyRelease> +[list $self WidgetKeyRelease $widget $node]
+    bind $widget <FocusIn>    +[list $self WidgetFocus $widget $node]
+    bind $widget <FocusOut>   +[list $self WidgetBlur $widget $node]
   }
 
   # Handler scripts for the <KeyPress> and <KeyRelease> events.
@@ -1589,6 +1591,12 @@ snit::type ::hv3::formmanager {
       [$myHv3 dom] event keypress $node
     }
     set myKeyPressNode ""
+  }
+  method WidgetFocus {widget node} {
+    [$myHv3 dom] event focus $node
+  }
+  method WidgetBlur {widget node} {
+    [$myHv3 dom] event blur $node
   }
 
   method control_handler {node} {

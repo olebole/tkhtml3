@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.33 2007/10/17 17:45:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_events.tcl,v 1.34 2007/11/25 18:29:15 danielk1977 Exp $)} 1 }
 
 #-------------------------------------------------------------------------
 # DOM Level 2 Events.
@@ -359,6 +359,9 @@ set ::hv3::dom::HtmlEventType(change)   [list 1 1]
 set ::hv3::dom::HtmlEventType(keyup)    [list 1 0]
 set ::hv3::dom::HtmlEventType(keydown)  [list 1 0]
 set ::hv3::dom::HtmlEventType(keypress) [list 1 0]
+
+set ::hv3::dom::HtmlEventType(focus)    [list 0 0]
+set ::hv3::dom::HtmlEventType(blur)     [list 0 0]
 
 namespace eval ::hv3::dom {
 
