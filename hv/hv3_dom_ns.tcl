@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.38 2007/11/18 10:13:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.39 2007/11/26 03:28:23 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -215,11 +215,13 @@ namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.38 2007/11/18 10:13:37
   -- Refresh the current URI. If the boolean <I>force</I> argument is true,
   -- reload the document from the server, bypassing any caches. If <I>force</I>
   -- is false, normal HTTP caching rules apply.
-  dom_call -string reload  {THIS force} { 
+  -- 
+  -- Note: In Hv3, this function always behaves as if <I>force</I> is true.
+  -- Documents are always reloaded from the origin server.
+  dom_call -string reload  {THIS {force 0}} { 
     if {![string is boolean $force]} { error "Bad boolean arg: $force" }
-    set cc normal
-    if {$force} { set cc no-cache }
-    $myHv3 goto [$myHv3 location] -nosave 
+    $myHv3 goto [$myHv3 location] -nosave -cachecontrol no-cache
+    return ""
   }
 
   -- Returns the same value as reading the <I>href</I> property.
