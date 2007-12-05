@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.267 2007/11/16 10:56:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.268 2007/12/05 10:11:12 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1388,6 +1388,10 @@ markerBoxLayout(pLayout, pBox, pNode, pVerticalOffset)
          */
         if (pParent) {
             int ii;
+            int iStart = HtmlNodeComputedValues(pParent)->iOrderedListStart;
+            if (iStart != PIXELVAL_AUTO) {
+                iList = iStart;
+            }
             for (ii = 0; ii < HtmlNodeNumChildren(pParent); ii++) {
                 HtmlNode *pSibling = HtmlNodeChild(pParent, ii);
                 HtmlComputedValues *pSibProp = HtmlNodeComputedValues(pSibling);
@@ -1396,8 +1400,14 @@ markerBoxLayout(pLayout, pBox, pNode, pVerticalOffset)
                 }
                 if (DISPLAY(pSibProp) == CSS_CONST_LIST_ITEM) {
                     iList++;
+                    if (pSibProp->iOrderedListValue != PIXELVAL_AUTO) {
+                        iList = pSibProp->iOrderedListValue;
+                    }
                 }
             }
+        }
+        if (pComputed->iOrderedListValue != PIXELVAL_AUTO) {
+            iList = pComputed->iOrderedListValue;
         }
 
         HtmlLayoutMarkerBox(eStyle, iList, 1, zBuf);

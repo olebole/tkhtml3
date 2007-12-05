@@ -334,6 +334,9 @@ BODY[marginwidth] {
   margin-right: attr(marginwidth l);
 }
 
+OL[start] { -tkhtml-ordered-list-start: attr(start); }
+LI[value] { -tkhtml-ordered-list-value: attr(value); }
+
 SPAN[spancontent]:after {
   content: attr(spancontent);
 }

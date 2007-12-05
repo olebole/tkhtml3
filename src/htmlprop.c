@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlprop.c,v 1.134 2007/11/11 17:02:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlprop.c,v 1.135 2007/12/05 10:11:12 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -66,7 +66,7 @@ static const char rcsid[] = "$Id: htmlprop.c,v 1.134 2007/11/11 17:02:16 danielk
  */
 
 enum PropertyValueType {
-    ENUM, COLOR, LENGTH, IMAGE, BORDERWIDTH, COUNTERLIST, CUSTOM
+    ENUM, COLOR, LENGTH, IMAGE, BORDERWIDTH, COUNTERLIST, CUSTOM, AUTOINTEGER
 };
 
 typedef struct PropertyDef PropertyDef;
@@ -169,9 +169,12 @@ static PropertyDef propdef[] = {
   PROPDEFM(BORDERWIDTH, BORDER_BOTTOM_WIDTH, border.iBottom, 2),
   PROPDEFM(BORDERWIDTH, OUTLINE_WIDTH,       iOutlineWidth,  2),
 
+  PROPDEF(AUTOINTEGER, Z_INDEX,                    iZIndex),
+  PROPDEF(AUTOINTEGER, _TKHTML_ORDERED_LIST_START, iOrderedListStart),
+  PROPDEF(AUTOINTEGER, _TKHTML_ORDERED_LIST_VALUE, iOrderedListValue),
+
   PROPDEF(CUSTOM, VERTICAL_ALIGN,            iVerticalAlign),
   PROPDEF(CUSTOM, LINE_HEIGHT,               iLineHeight),
-  PROPDEF(CUSTOM, Z_INDEX,                   iZIndex),
 
   PROPDEF(CUSTOM, FONT_SIZE,                 fFont),
   PROPDEF(CUSTOM, FONT_WEIGHT,               fFont),
@@ -230,7 +233,9 @@ static int propertyValuesSetFontFamily(HtmlComputedValuesCreator*,CssProperty*);
 static int propertyValuesSetFontWeight(HtmlComputedValuesCreator*,CssProperty*);
 
 static int propertyValuesSetContent(HtmlComputedValuesCreator*,CssProperty*);
-static int propertyValuesSetZIndex(HtmlComputedValuesCreator*,CssProperty*);
+
+static int 
+propertyValuesSetAutoInteger(HtmlComputedValuesCreator*,CssProperty*,int *);
 
 static Tcl_Obj *propertyValuesObjFontSize(HtmlComputedValues*);
 static Tcl_Obj *propertyValuesObjLineHeight(HtmlComputedValues*);
@@ -240,7 +245,6 @@ static Tcl_Obj *propertyValuesObjFontFamily(HtmlComputedValues*);
 static Tcl_Obj *propertyValuesObjFontWeight(HtmlComputedValues*);
 
 static Tcl_Obj *propertyValuesObjContent(HtmlComputedValues*);
-static Tcl_Obj *propertyValuesObjZIndex(HtmlComputedValues*);
 
 #define CUSTOMDEF(x, y) {x, propertyValuesSet ## y, propertyValuesObj ## y}
 static struct CustomDef {
@@ -255,7 +259,6 @@ static struct CustomDef {
   CUSTOMDEF(CSS_PROPERTY_FONT_STYLE,     FontStyle),
   CUSTOMDEF(CSS_PROPERTY_FONT_FAMILY,    FontFamily),
   CUSTOMDEF(CSS_PROPERTY_CONTENT,        Content),
-  CUSTOMDEF(CSS_PROPERTY_Z_INDEX,        ZIndex),
 };
 
 static int inheritlist[] = {
@@ -692,21 +695,41 @@ propertyValuesCalculateContent(p)
     *(p->pzContent) = zOut;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * propertyValuesSetAutoInteger --
+ *
+ *     Set the value of the 'z-index' property (either an integer or "auto").
+ *     This procedure is also used for the custom Tkhtml3 properties:
+ *
+ *        -tkhtml-ordered-list-start
+ *        -tkhtml-ordered-list-value
+ *
+ * Results: 
+ *     0 if value is successfully set. 1 if the value of *pProp is not a valid
+ *     a value for the 'font-weight' property.
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
 static int
-propertyValuesSetZIndex(p, pProp)
+propertyValuesSetAutoInteger(p, pProp, piVal)
     HtmlComputedValuesCreator *p;
     CssProperty *pProp;
+    int *piVal;
 {
     if (pProp->eType == CSS_TYPE_FLOAT) {
-        p->values.iZIndex = (int)pProp->v.rVal;
+        *piVal = (int)pProp->v.rVal;
     }else if (pProp->eType == CSS_CONST_AUTO) {
-        p->values.iZIndex = PIXELVAL_AUTO;
+        *piVal = PIXELVAL_AUTO;
     }else{
         /* Type mismatch */
         return 1;
     }
     return 0;
-}
+} 
 
 /*
  *---------------------------------------------------------------------------
@@ -840,15 +863,6 @@ propertyValuesObjContent(p)
     HtmlComputedValues *p;
 {
     return Tcl_NewStringObj("", -1);
-}
-static Tcl_Obj*
-propertyValuesObjZIndex(p)
-    HtmlComputedValues *p;
-{
-    if (p->iZIndex == PIXELVAL_AUTO) {
-        return Tcl_NewStringObj("auto", -1);
-    }
-    return Tcl_NewIntObj(p->iZIndex);
 }
 static Tcl_Obj*
 propertyValuesObjLineHeight(p)
@@ -1916,7 +1930,6 @@ getPrototypeCreator(pTree, pMask, piCopyBytes)
 	/* Initialise the CUSTOM properties. */
 	pValues->eVerticalAlign = CSS_CONST_BASELINE;
         pValues->iLineHeight = PIXELVAL_NORMAL;
-        pValues->iZIndex = PIXELVAL_AUTO;
         propertyValuesSetFontSize(p, &Medium);
         p->fontKey.zFontFamily = "Helvetica";
 
@@ -1950,6 +1963,11 @@ getPrototypeCreator(pTree, pMask, piCopyBytes)
                     unsigned char *opt = HtmlCssEnumeratedValues(pDef->eProp);
                     *(unsigned char *)(values + pDef->iOffset) = *opt;
                     assert(*opt);
+                    break;
+                }
+                case AUTOINTEGER: {
+                    /* Default is 'auto' */
+                    *(int *)(values + pDef->iOffset) = PIXELVAL_AUTO;
                     break;
                 }
                 default: /* do nothing */
@@ -2294,6 +2312,10 @@ HtmlComputedValuesSet(p, eProp, pProp)
                 return propertyValuesSetBorderWidth(
                     p, pBVar, pDef->mask, pProp
                 );
+            }
+            case AUTOINTEGER: {
+                int *pAVar = (int*)((unsigned char*)&p->values + pDef->iOffset);
+                return propertyValuesSetAutoInteger(p, pProp, pAVar);
             }
             case CUSTOM: {
                 return pDef->xSet(p, pProp);
@@ -3291,6 +3313,16 @@ getPropertyObj(pValues, eProp)
                 break;
             }
 
+            case AUTOINTEGER: {
+                int i = *(int *)(v + pDef->iOffset);
+                if (i==PIXELVAL_AUTO) {
+                     pValue = Tcl_NewStringObj("auto", 4);
+                } else {
+                     pValue = Tcl_NewIntObj(i);
+                }
+                break;
+            }
+
             case CUSTOM: {
                 pValue = pDef->xObj(pValues);
                 break;
@@ -3461,7 +3493,19 @@ HtmlComputedValuesCompare(pV1, pV2)
 
             case COLOR:
             case IMAGE:
+                break;
+
+            case AUTOINTEGER: {
+                int *pI1 = (int *)(v1 + pDef->iOffset);
+                int *pI2 = (int *)(v2 + pDef->iOffset);
+                if (*pI1 != *pI2) {
+                    return HTML_REQUIRE_LAYOUT;
+                }
+                break;
+            }
+
             case CUSTOM:
+                /* TODO */
                 break;
 
             case COUNTERLIST:

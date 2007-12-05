@@ -268,10 +268,13 @@ struct HtmlComputedValues {
 
     unsigned char eOverflow;          /* 'overflow' */
 
+    int iZIndex;                      /* 'z-index'        (integer, AUTO) */
+
     /* The Tkhtml specific properties */
     HtmlImage2 *imReplacementImage;   /* '-tkhtml-replacement-image' */
 
-    int iZIndex;                      /* 'z-index'        (integer, AUTO) */
+    int iOrderedListStart;            /* '-tkhtml-ordered-list-start' */
+    int iOrderedListValue;            /* '-tkhtml-ordered-list-value' */
 
     /* Properties not yet in use - TODO! */
     unsigned char eUnicodeBidi;       /* 'unicode-bidi' */

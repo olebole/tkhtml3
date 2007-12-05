@@ -134,6 +134,8 @@ P top unicode-bidi vertical-align visibility voice-family volume white-space
 P widows width word-spacing z-index 
 
 P -tkhtml-replacement-image
+P -tkhtml-ordered-list-start
+P -tkhtml-ordered-list-value
 
 S background border border-top border-right border-bottom border-left
 S border-color border-style border-width cue font padding outline margin
