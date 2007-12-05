@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.217 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.218 2007/12/05 14:40:46 danielk1977 Exp $)} 1 }
 #
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
@@ -1079,7 +1079,7 @@ snit::widget ::hv3::hv3 {
 
     # Create the scrolled html widget and bind it's events to the
     # mega-widget window.
-    set myHtml [::hv3::scrolled html ${win}.html -propagate 1]
+    set myHtml [::hv3::scrolled html ${win}.html]
     ::hv3::profile::instrument [$myHtml widget]
     bindtags [$self html] [concat [bindtags [$self html]] $self]
     pack $myHtml -fill both -expand 1
