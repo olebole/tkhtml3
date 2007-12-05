@@ -1,5 +1,5 @@
 #
-# $Revision: 1.44 $
+# $Revision: 1.45 $
 #
 # tokenlist.tcl -- 
 #
@@ -91,7 +91,7 @@ TAG a -flow inline -content HtmlAnchorContent
 # TAG abbr
 # TAG acronym
 TAG address
-TAG applet
+TAG applet -flow inline
 TAG area -content HtmlEmptyContent
 TAG base -content HtmlEmptyContent             
 TAG basefont
