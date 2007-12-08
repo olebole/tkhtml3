@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.158 2007/11/11 17:02:17 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.159 2007/12/08 15:33:00 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -504,7 +504,7 @@ nodeHandlerCallbacks(pTree, pNode)
     }
 
     /* Execute the node-handler script for node pNode, if one exists. */
-    pEntry = Tcl_FindHashEntry(&pTree->aNodeHandler, (char *)eTag);
+    pEntry = Tcl_FindHashEntry(&pTree->aNodeHandler, (char *)((size_t) eTag));
     if (pEntry) {
         Tcl_Obj *pEval;
         Tcl_Obj *pScript;
@@ -879,7 +879,7 @@ doAttributeHandler(pTree, pNode, zAttr, zValue)
     int eType = pNode->eTag;
     Tcl_HashEntry *pEntry;
 
-    pEntry = Tcl_FindHashEntry(&pTree->aAttributeHandler, (char*)eType);
+    pEntry = Tcl_FindHashEntry(&pTree->aAttributeHandler, (char*)((size_t) eType));
     if (pEntry) {
         Tcl_Obj *pScript;
         pScript = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
@@ -911,7 +911,7 @@ doParseHandler(pTree, eType, pNode, iOffset)
         eType = Html_Text;
     }
 
-    pEntry = Tcl_FindHashEntry(&pTree->aParseHandler, (char *)eType);
+    pEntry = Tcl_FindHashEntry(&pTree->aParseHandler, (char *)((size_t) eType));
     if (pEntry) {
         Tcl_Obj *pScript;
         pScript = (Tcl_Obj *)Tcl_GetHashValue(pEntry);

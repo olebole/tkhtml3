@@ -31,7 +31,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 static char const rcsid[] =
-        "@(#) $Id: htmlparse.c,v 1.120 2007/11/15 05:16:24 danielk1977 Exp $";
+        "@(#) $Id: htmlparse.c,v 1.121 2007/12/08 15:33:00 danielk1977 Exp $";
 
 #include <string.h>
 #include <stdlib.h>
@@ -559,7 +559,7 @@ getScriptHandler(pTree, tag)
     int tag;
 {
     Tcl_HashEntry *pEntry;
-    pEntry = Tcl_FindHashEntry(&pTree->aScriptHandler, (char *)tag);
+    pEntry = Tcl_FindHashEntry(&pTree->aScriptHandler, (char *)((size_t) tag));
     if (pEntry) {
         return (Tcl_Obj *)Tcl_GetHashValue(pEntry);
     }

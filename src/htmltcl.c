@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.197 2007/11/11 17:02:17 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.198 2007/12/08 15:33:00 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2109,12 +2109,12 @@ handlerCmd(clientData, interp, objc, objv)
     pScript = objv[4];
 
     if (Tcl_GetCharLength(pScript) == 0) {
-        pEntry = Tcl_FindHashEntry(pHash, (char *)tag);
+        pEntry = Tcl_FindHashEntry(pHash, (char *)((size_t) tag));
         if (pEntry) {
             Tcl_DeleteHashEntry(pEntry);
         }
     } else {
-        pEntry = Tcl_CreateHashEntry(pHash,(char*)tag,&newentry);
+        pEntry = Tcl_CreateHashEntry(pHash,(char*)((size_t) tag),&newentry);
         if (!newentry) {
             Tcl_Obj *pOld = (Tcl_Obj *)Tcl_GetHashValue(pEntry);
             Tcl_DecrRefCount(pOld);

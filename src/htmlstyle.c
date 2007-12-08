@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.59 2007/11/11 11:00:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.60 2007/12/08 15:33:00 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -483,7 +483,7 @@ styleNode(pTree, pNode, clientData)
     ClientData clientData;
 {
     CONST char *zStyle;      /* Value of "style" attribute for node */
-    int trashDynamics = (int)clientData;
+    int trashDynamics = (int)((size_t) clientData);
 
     HtmlElementNode *pElem = (HtmlElementNode *)pNode;
     HtmlComputedValues *pV = pElem->pPropertyValues;

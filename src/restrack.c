@@ -61,7 +61,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  */
-static const char rcsid[] = "$Id: restrack.c,v 1.11 2007/01/27 12:53:15 danielk1977 Exp $";
+static const char rcsid[] = "$Id: restrack.c,v 1.12 2007/12/08 15:33:00 danielk1977 Exp $";
 
 #ifdef HTML_RES_DEBUG
 #define RES_DEBUG
@@ -216,7 +216,7 @@ ResAlloc(v1, v2)
     pRec->aStack[pRec->nStack - 1] = aFrame;
 #endif
 
-    aResCounts[(int)v1]++;
+    aResCounts[(int)((size_t) v1)]++;
 }
 
 /*
@@ -269,7 +269,7 @@ ResFree(v1, v2)
     }
 #endif
 
-    aResCounts[(int)v1]--;
+    aResCounts[(int)((size_t) v1)]--;
 }
 
 /*
