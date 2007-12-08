@@ -38,3 +38,56 @@ if 0 {_
 } -expected "three two one"
 
 }
+
+proc slow_html {channel} {
+puts SLOWHTML
+  slow_part1 $channel {
+HTTP/1.1 200 OK
+Content-type: text/html
+Cache-Control: no-cache
+
+<p> Paragraph 1</p>
+} {
+<p> Paragraph 2</p>
+}
+}
+
+proc slow_css {channel} {
+  slow_part1 $channel {
+HTTP/1.1 200 OK
+Content-type: text/css
+Cache-Control: no-cache
+
+} {
+.tall { height: 500px }
+}
+}
+
+proc slow_part1 {channel data1 data2} {
+  puts -nonewline $channel [string trimleft $data1]
+  flush $channel
+  after 1000 [list slow_part2 $channel $data2]
+}
+
+proc slow_part2 {channel data} {
+  puts -nonewline $channel $data
+  flush $channel
+  close $channel
+}
+
+# This is to test that the browser waits until all stylesheets are 
+# downloaded and applied before firing the "onload" event.
+#
+do_browser_test events.1 -timeout 10000000 -html {
+  <STYLE> 
+    @import "/tcl?script=slow_css";
+    div { height: 50px }
+  </STYLE>
+  <BODY>
+    <DIV class="tall" id="me">hello</DIV>
+} -javascript {
+  var div = document.getElementById("me")
+  return div.offsetHeight
+}
+
+

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.176 2007/11/17 11:24:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.177 2007/12/08 11:45:28 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -13,6 +13,8 @@ proc sourcefile {file} [string map              \
 # the command line.
 source [sourcefile hv3_profile.tcl]
 ::hv3::profile::init $argv
+
+encoding system cp1252
 
 package require Tk
 tk scaling 1.33333

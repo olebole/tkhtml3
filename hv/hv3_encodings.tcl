@@ -132,4 +132,3 @@ set ::Hv3EncodingMap(iso-8559-1) utf-8
 # Thai encoding.
 set ::Hv3EncodingMap(windows-874) tis-620
 
-

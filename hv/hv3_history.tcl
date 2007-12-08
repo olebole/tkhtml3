@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.27 2007/11/18 10:13:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.28 2007/12/08 11:45:27 danielk1977 Exp $)} 1 }
 
 package require snit
 
@@ -16,14 +16,6 @@ snit::type ::hv3::history_state {
   #
   variable myUri     ""
   variable myTitle   ""
-
-  # Values to use with [pathName xscroll|yscroll moveto] to restore
-  # the previous scrollbar positions. Currently only the main browser
-  # window scrollbar positions are restored, not the scrollbars used
-  # by any <frame> or "overflow:scroll" elements.
-  #
-  variable myXscroll ""
-  variable myYscroll ""
 
   # Object member $myUri stores the URI of the top-level document loaded
   # into the applicable browser window. However if that document is a 
@@ -46,16 +38,21 @@ snit::type ::hv3::history_state {
     return [set $var]
   }
 
-  method uri     {args} { return [$self Getset myUri $args] }
-  method title   {args} { return [$self Getset myTitle $args] }
-  method xscroll {args} { return [$self Getset myXscroll $args] }
-  method yscroll {args} { return [$self Getset myYscroll $args] }
+  method uri        {args} { return [$self Getset myUri $args] }
+  method title      {args} { return [$self Getset myTitle $args] }
 
   # Retrieve the URI associated with the frame $positionid.
   #
   method get_frameuri {positionid} {
     if {[info exists myFrameUri($positionid)]} {
       return [lindex $myFrameUri($positionid) 0]
+    }
+    return ""
+  }
+
+  method get_framedoc {positionid} {
+    if {[info exists myFrameUri($positionid)]} {
+      return [lindex $myFrameUri($positionid) 3]
     }
     return ""
   }
@@ -69,14 +66,36 @@ snit::type ::hv3::history_state {
 
   # Set an entry in the $myFrameUri array.
   #
-  method set_framestate {positionid uri xscroll yscroll} {
-    set myFrameUri($positionid) [list $uri $xscroll $yscroll]
+  method set_framestate {positionid uri xscroll yscroll handle} {
+    if {$handle ne ""} {
+      if {
+          ![string match -nocase http* [$handle cget -uri]] || 
+          ![$handle isFinished]
+      } {
+        set handle ""
+      } else {
+        $handle reference
+      }
+    }
+    set current_handle [$self get_framedoc $positionid]
+    if {$current_handle ne ""} {
+      $current_handle release
+    }
+    set myFrameUri($positionid) [list $uri $xscroll $yscroll $handle]
   }
 
   # Clear the $myFrameUri array.
   #
   method clear_frameurilist {} {
+    foreach {k v} [array get myFrameUri] {
+      set handle [lindex $v 3]
+      catch {$handle release}
+    }
     array unset myFrameUri
+  }
+
+  destructor {
+    $self clear_frameurilist
   }
 }
 
@@ -125,14 +144,12 @@ snit::type ::hv3::history {
 
   # Events:
   #     <<Goto>>
-  #     <<Complete>>
   #     <<SaveState>>
   #     <<Location>>
   #
   #     Also there is a trace on "titlevar" (set whenever a <title> node is
   #     parsed)
   #
-
   constructor {hv3 protocol browser args} {
     $hv3 configure -locationvar [myvar myLocationVar]
     $self configurelist $args
@@ -144,8 +161,6 @@ snit::type ::hv3::history {
     set myProtocol $protocol
     set myBrowser $browser
 
-    # bind $hv3 <<Reset>>    +[list $self ResetHandler]
-    # bind $hv3 <<Complete>>  +[list $self CompleteHandler]
     bind $hv3 <<Location>>  +[list $self Locvarcmd]
     $self add_hv3 $hv3
 
@@ -195,19 +210,6 @@ snit::type ::hv3::history {
     }
   }
 
-  # This method is bound to the <<Complete>> event of the ::hv3::hv3 
-  # widget associated with this history-list. If the <<Complete>> is
-  # issued because a history-seek is complete, then scroll the widget
-  # to the stored horizontal and vertical offsets.
-  #
-  method CompleteHandler {} {
-    if {$myHistorySeek >= 0} {
-      set state [lindex $myStateList $myStateIdx]
-      after idle [list $myHv3 yview moveto [$state yscroll]]
-      after idle [list $myHv3 xview moveto [$state xscroll]]
-    }
-  }
-
   # Invoked whenever our hv3 widget is reset (i.e. just before a new
   # document is loaded) or when moving to a different #fragment within
   # the same document. The current state of the widget should be copied 
@@ -217,9 +219,6 @@ snit::type ::hv3::history {
     set state [lindex $myStateList $myStateIdx]
 
     # Update the current history-state record:
-    $state xscroll [lindex [$myHv3 xview] 0]
-    $state yscroll [lindex [$myHv3 yview] 0]
-
     if {$myHistorySeek != $myStateIdx} {
       $state clear_frameurilist
       foreach frame [$myBrowser get_frames] {
@@ -228,7 +227,8 @@ snit::type ::hv3::history {
         $state set_framestate $pos   \
             [$fhv3 uri get]          \
             [lindex [$fhv3 xview] 0] \
-            [lindex [$fhv3 yview] 0]
+            [lindex [$fhv3 yview] 0] \
+            [$fhv3 documenthandle]
       }
     }
 
@@ -274,10 +274,11 @@ snit::type ::hv3::history {
 
     set pos [$browser_frame positionid]
     set zUri [$state get_frameuri $pos]
+    set handle [$state get_framedoc $pos]
     set zUriNow [$hv3 uri get]
 
     $hv3 seek_to_yview [$state get_frameyview $pos]
-    $hv3 goto $zUri -cachecontrol $myCacheControl
+    $hv3 goto $zUri -cachecontrol $myCacheControl -history_handle $handle
 
     if {$zUriNow eq [$hv3 uri get]} {
       foreach frame [$myBrowser get_frames] {

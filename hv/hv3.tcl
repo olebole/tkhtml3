@@ -1,5 +1,3 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.218 2007/12/05 14:40:46 danielk1977 Exp $)} 1 }
-#
 # This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
 # browser. An instance of this widget displays a single HTML frame.
 #
@@ -88,13 +86,6 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.218 2007/12/05 14:40:46 danie
 #         This event is generated once all of the resources required
 #         to display a document have been loaded. This is analogous
 #         to the Html "onload" event.
-#
-#     <<Reset>>
-#         This event is generated just before [$html reset] is called
-#         and mega-widget state data discarded (because a new document
-#         is about to be loaded). This gives the application a final 
-#         chance to query the current state of the browser before it 
-#         is discarded.
 #
 #     <<Location>>
 #         This event is generated whenever the "location" is set.
@@ -1018,11 +1009,6 @@ snit::widget ::hv3::hv3 {
   # This variable may be set to "unknown", "quirks" or "standards".
   variable myQuirksmode unknown
 
-  # Root of currently outstanding download-handles. See methods makerequest,
-  # Finrequest and <TODO: related to stop?>.
-  variable myRootDownload ""
-  variable myStartDownload ""
-
   variable myFirstReset 1
 
   # Current value to set the -cachecontrol option of download handles to.
@@ -1039,11 +1025,6 @@ snit::widget ::hv3::hv3 {
   # has been requested, but has not yet arrived.
   #
   variable myMimetype ""
-
-  # If this variable is set to anything other than an empty string, then
-  # it is set to the encoding of the document.
-  #
-  variable myEncoding ""
 
   # This variable is only used when ($myMimetype eq "image"). It stores
   # the data for the image about to be displayed. Once the image
@@ -1074,6 +1055,19 @@ snit::widget ::hv3::hv3 {
   variable myOnloadFired 0
 
   variable myFragmentSeek ""
+
+  # The ::hv3::download object used to retrieve the main document.
+  #
+  variable myDocumentHandle ""
+
+  # List of handle objects that should be released after the page has
+  # loaded. This is part of the hack to work around the polipo bug.
+  #
+  variable myShelvedHandles [list]
+
+  # List of all active download handles.
+  #
+  variable myActiveHandles [list]
 
   constructor {} {
 
@@ -1140,10 +1134,10 @@ snit::widget ::hv3::hv3 {
   }
 
   destructor {
-    # Clean up any pending downloads.
-    if {$myRootDownload ne ""} {
-      $myRootDownload destroy
-    }
+    # Cancel any and all pending downloads.
+    #
+    $self stop
+    catch {$myDocumentHandle release }
 
     # Destroy the components. We don't need to destroy the scrolled
     # html component because it is a Tk widget - it is automatically
@@ -1165,11 +1159,6 @@ snit::widget ::hv3::hv3 {
       after cancel $myRefreshEventId
       set myRefreshEventId ""
     }
-
-    # Cancel any idle callbacks that might be pending. Otherwise
-    # Tcl will throw a background error when they are delivered and
-    # this object no longer exists.
-    after cancel [list $self MightBeComplete]
   }
 
   # Return the location URI of the widget.
@@ -1180,6 +1169,11 @@ snit::widget ::hv3::hv3 {
   #
   method referrer {} { return $myReferrer }
 
+  method forget {handle} {
+    set idx [lsearch $myActiveHandles $handle]
+    set myActiveHandles [lreplace $myActiveHandles $idx $idx]
+  }
+
   # The argument download-handle contains a configured request. This 
   # method initiates the request. 
   #
@@ -1188,22 +1182,8 @@ snit::widget ::hv3::hv3 {
   #
   method makerequest {downloadHandle} {
 
-      # Let the handles form a flat lifetime tree.
-      if {$myRootDownload eq ""} {
-	  # First download is remembered as root.
-	  # It now officially knows owner hv3 so that
-	  # it can notify its destruction to hv3.
-	  set myRootDownload $downloadHandle
-	  $downloadHandle configure -root yes -hv3 $self
-	  set myStartDownload [clock clicks -milli]
-      } else {
-	  # Child downloads are chained under root. Add a wrapper to
-	  # the code in the -failscript and -finscript options to
-	  # remove it when the download is finished.
-	  $downloadHandle destroy_hook [list $self set_pending_var]
-	  $myRootDownload addChild $downloadHandle
-      }
-    $self set_pending_var
+    lappend myActiveHandles $downloadHandle
+    $downloadHandle finish_hook [list $self forget $downloadHandle]
 
     # Execute the -requestcmd script. Fail the download and raise
     # an exception if an error occurs during script evaluation.
@@ -1211,34 +1191,9 @@ snit::widget ::hv3::hv3 {
     set rc [catch $cmd errmsg]
     if {$rc} {
       set einfo $::errorInfo
-      catch {$downloadHandle finish}
+      catch {$downloadHandle destroy}
       error $errmsg $einfo
     }
-
-      # For http/s case, when META triggered reload occurs,
-      # we cannot simply destruct it because of proxy race condition.
-      # So, we need temporarily to disable but kept connected 
-      # until entire downloads are finished.
-      # To achieve this, $download needs to know $httpToken.
-      # XXX: Really dirty hack. May fail unless it is hv3::protocol.
-      catch {
-	  set protocol [lindex $options(-requestcmd) 0]
-	  if {[set token [$protocol getToken $downloadHandle]] ne ""} {
-	      $downloadHandle configure -token $token
-	  }
-      }
-  }
-
-  # Forget root of current downloads.
-  # This method is only called internally from destructor of $download.
-  method Forgetrequest {} {
-    # puts "got Finrequest for $myRootDownload"
-      if {[catch {$myRootDownload cget -uri} dluri]} {
-	  set dluri "(unknown)"
-      }
-    set myRootDownload {}
-    $self set_pending_var
-    puts stderr elapsed=[expr {[clock clicks -milli] - $myStartDownload}]ms\t$dluri
   }
 
   # Based on the current contents of instance variable $myUri, set the
@@ -1251,13 +1206,8 @@ snit::widget ::hv3::hv3 {
     event generate $win <<Location>>
   }
 
-  method set_pending_var {} {
-    after cancel [list $self MightBeComplete]
-    after idle [list $self MightBeComplete]
-  }
-
   method MightBeComplete {} {
-    if {! [$self pending]} {
+    if {[llength $myActiveHandles] == 0} {
       event generate $win <<Complete>>
 
       # There are no outstanding HTTP transactions. So fire
@@ -1411,6 +1361,7 @@ snit::widget ::hv3::hv3 {
       $myFrameLog log $full_id [$handle cget -uri] $data $parse_errors
 
       $self goto_fragment
+      $self MightBeComplete
       $handle release
     }
   }
@@ -1427,33 +1378,61 @@ snit::widget ::hv3::hv3 {
       }
 
       content-type {
-	  foreach {a b enc} [::hv3::string::parseContentType $content] {}
-	  if {![::hv3::encoding_isequal $enc $myEncoding]
-	      && $myRefreshEventId eq ""
-	  } {
-	      puts "meta enc reload ('$myEncoding' -> $enc) [$myUri get]"
-	      $self ReloadWithEncoding $enc
-	  }
+        foreach {a b enc} [::hv3::string::parseContentType $content] {}
+	if {
+           ![$myDocumentHandle cget -hastransportencoding] &&
+           ![::hv3::encoding_isequal $enc [$self encoding]]
+        } {
+          # This occurs when a document contains a <meta> element that
+          # specifies a character encoding and the document was 
+          # delivered without a transport-layer encoding (Content-Type
+          # header). We need to start reparse the document from scratch
+          # using the new encoding.
+          #
+          # We need to be careful to work around a polipo bug here: If
+          # there are more than two requests for a single resource
+          # to a single polipo process, and one of the requests is 
+          # cancelled, then the other (still active) request is truncated
+          # by polipo. The polipo developers acknowledge that this is
+          # a bug, but as it doesn't come up very often in normal polipo
+          # usage it is not likely to be fixed soon.
+          #
+          # It's a problem for Hv3 because if the following [reset] cancels
+          # any requests, then when reparsing the same document with a
+          # different encoding the same resources are requested, we are 
+          # likely to trigger this bug.
+          #
+          puts "INFO: This page triggers meta enc reload"
+          
+          # For all active handles except the document handle, configure
+          # the -incrscript as a no-op, and have the finscript simply 
+          # release the handle reference. This means the polipo bug will
+          # not be triggered.
+          foreach h $myActiveHandles {
+            if {$h ne $myDocumentHandle} {
+              set fin [list ::hv3::release_handle $h]
+              $h configure -incrscript "" -finscript $fin
+            }
+          }
+
+          $self InternalReset
+          $myDocumentHandle configure -encoding $enc
+          $self HtmlCallback                 \
+              $myDocumentHandle              \
+              [$myDocumentHandle isFinished] \
+              [$myDocumentHandle data]
+        }
       }
     }
   }
 
+  # Return the default encoding that should be used for 
+  # javascript and CSS resources.
   method encoding {} {
-      # To supply default encoding for related js (and css).
-      if {$myEncoding eq ""} {
-        return [encoding system]
-      }
-      set myEncoding
-  }
-
-  method setEncoding enc {
-      set myEncoding $enc
-  }
-
-  method ReloadWithEncoding {enc} {
-      $self reset 0
-      set myEncoding $enc
-      $myRootDownload reload_with_encoding $enc
+    if {$myDocumentHandle eq ""} { 
+      return [encoding system] 
+    }
+    return [$myDocumentHandle encoding]
   }
 
   # This method is called to handle "Refresh" and "Location" headers
@@ -1654,6 +1633,10 @@ snit::widget ::hv3::hv3 {
     set myFragmentSeek $moveto
   }
 
+  method documenthandle {} {
+    return $myDocumentHandle
+  }
+
   method documentcallback {handle referrer savestate final data} {
 
     if {$myMimetype eq ""} {
@@ -1671,7 +1654,6 @@ snit::widget ::hv3::hv3 {
             if {$isXHTML} { $myHtml configure -parsemode xhtml } \
             else          { $myHtml configure -parsemode html }
             set myMimetype html
-	    set myEncoding [$handle suggestedEncoding]
           }
         }
   
@@ -1689,9 +1671,7 @@ snit::widget ::hv3::hv3 {
           # Remove the download handle from the list of handles to cancel
           # if [$hv3 stop] is invoked (when the user clicks the "stop" button
           # we don't want to cancel pending save-file operations).
-	  if {[$myRootDownload forget $handle]} {
-	      $self set_pending_var
-	  }
+          $self forget $handle
           eval [linsert $options(-downloadcmd) end $handle $data $final]
         } else {
           $handle release
@@ -1726,13 +1706,20 @@ snit::widget ::hv3::hv3 {
         }
       }
       if {$refreshheader ne ""} {
-	  if {[$self Refresh $refreshheader]} {
-	      # Immediate refresh is requested.
-	      # No need to parse body.
-	      $handle release
-	      return
-	  }
+	if {[$self Refresh $refreshheader]} {
+	  # Immediate refresh is requested.
+	  # No need to parse body.
+	  $handle release
+	  return
+        }
       }
+    }
+
+    if {$myDocumentHandle ne $handle} {
+      if {$myDocumentHandle ne ""} {
+        $myDocumentHandle release
+      }
+      set myDocumentHandle $handle
     }
 
     switch -- $myMimetype {
@@ -1742,14 +1729,13 @@ snit::widget ::hv3::hv3 {
 
 
     if {$final} {
-      # For root, $handle is scheduled to checkPending.
-      # For child, $handle is removed from root and destroyed.
-      #$handle finish
-      $handle release
+      #$handle release
+
       if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
         set myStorevisitedDone 1
         eval $options(-storevisitedcmd) 1
       }
+      $self MightBeComplete
     }
   }
 
@@ -1802,7 +1788,7 @@ snit::widget ::hv3::hv3 {
     } else {
       $handle configure -uri "${full_uri}?${encdata}"
       $handle configure -cachecontrol $myCacheControl
-    }  
+    }
     $self makerequest $handle
 
     # Grab the keyboard focus for this widget. This is so that after
@@ -1845,6 +1831,7 @@ snit::widget ::hv3::hv3 {
   #     -cachecontrol "normal"|"relax-transparency"|"no-cache"
   #     -nosave
   #     -referer URI
+  #     -history_handle  DOWNLOAD-HANDLE
   #
   # The -cachecontrol option (default "normal") specifies the value 
   # that will be used for all ::hv3::request objects issued as a 
@@ -1864,6 +1851,7 @@ snit::widget ::hv3::hv3 {
     set savestate 1
     set cachecontrol normal
     set referer ""
+    set history_handle ""
 
     for {set iArg 0} {$iArg < [llength $args]} {incr iArg} {
       switch -- [lindex $args $iArg] {
@@ -1877,6 +1865,10 @@ snit::widget ::hv3::hv3 {
         }
         -nosave {
           set savestate 0
+        }
+        -history_handle {
+          incr iArg
+          set history_handle [lindex $args $iArg]
         }
         default {
           error "Bad option \"[lindex $args $iArg]\" to \[::hv3::hv3 goto\]"
@@ -1935,59 +1927,83 @@ snit::widget ::hv3::hv3 {
       eval $options(-storevisitedcmd) $savestate
     }
     $self stop
-
-    # Base the expected type on the extension of the filename in the
-    # URI, if any. If we can't figure out an expected type, assume
-    # text/html. The protocol handler may override this anyway.
-    set mimetype text/html
-    set path [$uri_obj path]
-    if {[regexp {\.([A-Za-z0-9]+)$} $path dummy ext]} {
-      switch -- [string tolower $ext] {
-	jpg  { set mimetype image/jpeg }
-        jpeg { set mimetype image/jpeg }
-        gif  { set mimetype image/gif  }
-        png  { set mimetype image/png  }
-        gz   { set mimetype application/gzip  }
-        gzip { set mimetype application/gzip  }
-        zip  { set mimetype application/gzip  }
-        kit  { set mimetype application/binary }
-      }
-    }
-
-    # Create a download request for this resource. We expect an html
-    # document, but at this juncture the URI may legitimately refer
-    # to kind of resource.
-    #
-    set handle [::hv3::download %AUTO%             \
-        -uri         [$uri_obj get]                \
-        -mimetype    $mimetype                     \
-        -cachecontrol $myCacheControl              \
-        -hv3          $self                        \
-    ]
     set myMimetype ""
-    $handle configure                                                          \
+
+    if {$history_handle eq ""} {
+      # Base the expected type on the extension of the filename in the
+      # URI, if any. If we can't figure out an expected type, assume
+      # text/html. The protocol handler may override this anyway.
+      set mimetype text/html
+      set path [$uri_obj path]
+      if {[regexp {\.([A-Za-z0-9]+)$} $path dummy ext]} {
+        switch -- [string tolower $ext] {
+  	jpg  { set mimetype image/jpeg }
+          jpeg { set mimetype image/jpeg }
+          gif  { set mimetype image/gif  }
+          png  { set mimetype image/png  }
+          gz   { set mimetype application/gzip  }
+          gzip { set mimetype application/gzip  }
+          zip  { set mimetype application/gzip  }
+          kit  { set mimetype application/binary }
+        }
+      }
+  
+      # Create a download request for this resource. We expect an html
+      # document, but at this juncture the URI may legitimately refer
+      # to kind of resource.
+      #
+      set handle [::hv3::download %AUTO%             \
+          -uri         [$uri_obj get]                \
+          -mimetype    $mimetype                     \
+          -cachecontrol $myCacheControl              \
+          -hv3          $self                        \
+      ]
+      $handle configure                                                        \
         -incrscript [list $self documentcallback $handle $referer $savestate 0]\
         -finscript  [list $self documentcallback $handle $referer $savestate 1] 
-    if {$referer ne ""} {
-      $handle configure -requestheader [list Referer $referer]
+      if {$referer ne ""} {
+        $handle configure -requestheader [list Referer $referer]
+      }
+  
+      $self makerequest $handle
+    } else {
+      # The history system has supplied the data to load into the widget.
+      # Use $history_handle instead of creating a new request.
+      #
+      $history_handle reference
+      $self documentcallback $history_handle $referer $savestate 1 [
+        $history_handle data
+      ]
+      $self goto_fragment
     }
-
-    $self makerequest $handle
     $uri_obj destroy
   }
 
   # Abandon all currently pending downloads. This method is 
   # part of the public interface.
+  #
   method stop {} {
-      if {$myRootDownload ne ""} {
-	  # puts "stop: destroying $myRootDownload\n [join [hv3::download::backtrace] \n\ ]"
-	  $myRootDownload destroy
-      }
-      set myRootDownload {}
+    foreach dl $myActiveHandles { $dl release }
 
     if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
       set myStorevisitedDone 1
       eval $options(-storevisitedcmd) 1
+    }
+  }
+
+  method InternalReset {} {
+    $myFrameLog clear
+
+    foreach m [list \
+        $myMouseManager $myFormManager          \
+        $mySelectionManager $myHyperlinkManager \
+    ] {
+      if {$m ne ""} {$m reset}
+    }
+    $myHtml reset
+
+    if {$options(-dom) ne ""} {
+      $options(-dom) clear_window $self
     }
   }
 
@@ -2003,31 +2019,16 @@ snit::widget ::hv3::hv3 {
       set myRefreshEventId ""
     }
 
-    $myFrameLog clear
-
     # Generate the <<Reset>> and <<SaveState> events.
     if {!$myFirstReset && $isSaveState} {
       event generate $win <<SaveState>>
     }
     set myFirstReset 0
-    event generate $win <<Reset>>
 
     set myTitleVar ""
-    set myEncoding ""
-
-    foreach m [list \
-        $myMouseManager $myFormManager          \
-        $mySelectionManager $myHyperlinkManager \
-    ] {
-      if {$m ne ""} {$m reset}
-    }
-    $myHtml reset
-
-    if {$options(-dom) ne ""} {
-      $options(-dom) clear_window $self
-    }
-
     set myQuirksmode unknown
+
+    $self InternalReset
   }
 
   method SetOption {option value} {
@@ -2065,8 +2066,7 @@ snit::widget ::hv3::hv3 {
   }
 
   method pending {}  {
-      if {$myRootDownload eq ""} {return 0}
-      $myRootDownload pending
+      return [llength $myActiveHandles]
   }
   method html {}     { return [$myHtml widget] }
   method hull {}     { return $hull }
@@ -2083,6 +2083,8 @@ snit::widget ::hv3::hv3 {
       eval $options(-dom) javascriptlog $args
     }
   }
+
+  option          -historydoccmd    -default ""
 
   # The option to display images (default true).
   option -enableimages     -default 1 -configuremethod SetOption
@@ -2110,6 +2112,10 @@ snit::widget ::hv3::hv3 {
   delegate option -fontscale        to myHtml
   delegate option -zoom             to myHtml
   delegate option -forcefontmetrics to myHtml
+}
+
+proc ::hv3::release_handle {handle args} {
+  $handle release
 }
 
 proc ::hv3::ignore_script {args} {}

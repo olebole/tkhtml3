@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.7 2007/11/13 14:19:14 hkoba Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.8 2007/12/08 11:45:27 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -139,7 +139,8 @@ namespace eval ::hv3 {
     method font {incr} {
       incr myFontSize $incr
       $myOutputWindow configure -font [list monospace $myFontSize]
-      $myCodeViewer configure -font [list monospace $myFontSize]
+      $myCodeViewer configure   -font [list monospace $myFontSize]
+      $myEntryField configure   -font [list monospace $myFontSize]
       if {($myFontSize + $incr) < 6} {
         ${win}.b.decreasefont configure -state disabled
       } else {

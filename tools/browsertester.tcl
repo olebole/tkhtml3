@@ -1,4 +1,7 @@
 
+package require Tk
+package require Tkhtml
+
 set       ::aBrowser {Hv3 Mozilla}
 array set ::aResult {}
 array set ::anOutstanding {}
@@ -6,7 +9,7 @@ set       ::zStatus {}
 
 set ::template {
 HTTP/1.1 200 OK
-Content-type: text/html
+Content-type: text/html %ENCODING%
 Cache-Control: no-cache
 
 <HTML>
@@ -24,8 +27,9 @@ Cache-Control: no-cache
       document.getElementById("testresult").value = res
       document.getElementById("testform").submit()
     }
+
+    window.onload = runtest
   </SCRIPT>
-<BODY onload="runtest()">
 
   %TESTBODY%
 
@@ -70,7 +74,6 @@ proc new_connection {channel clientaddr clientport} {
         user-agent {
           foreach browser $::aBrowser {
             if {[string first $browser $line] >= 0} {
-              log "Connection from $browser"
               set zBrowser $browser
               break
             }
@@ -90,6 +93,9 @@ proc new_connection {channel clientaddr clientport} {
   }
 
   set zPath [lindex [split $request " "] 1]
+  log "$browser : $zPath "
+
+  fconfigure $channel -encoding binary -translation binary
   if {$zPath eq "/"} {
     # Send the first test to the browser.
     #
@@ -97,9 +103,9 @@ proc new_connection {channel clientaddr clientport} {
     send_test $channel 0
     set_status
   } elseif {[string first /next $zPath] == 0} {
+
     set idx [string first ? $zPath]
     set fields [string range $zPath [expr {$idx+1}] end]
-    
     foreach field [split $fields &] {
       foreach {name value} [split $field =] break
       set $name $value
@@ -111,6 +117,22 @@ proc new_connection {channel clientaddr clientport} {
     send_test $channel [expr {$testid+1}]
     incr ::anOutstanding($zBrowser) -1
     set_status
+
+  } elseif {[string first /tcl $zPath] == 0} {
+
+    array set aParam [list]
+
+    set idx [string first ? $zPath]
+    set fields [string range $zPath [expr {$idx+1}] end]
+    foreach field [split $fields &] {
+      foreach {name value} [split $field =] break
+      set aParam([::tkhtml::decode $name]) [::tkhtml::decode $value]
+    }
+
+    eval $aParam(script) $channel
+    return
+  } else {
+    after idle {error "URI NO GOOD!"}
   }
 
   close $channel
@@ -120,7 +142,13 @@ proc send_test {channel testid} {
   if {$testid == [llength $::tests]} {
     puts -nonewline $channel [string trim $::template2]
   } else {
-    set map [list %TESTID% $testid %TESTBODY% [lindex $::tests $testid 1]]
+    set enc [lindex $::tests $testid 1]
+    if {$enc ne ""} {set enc "; charset=$enc"}
+    set map [list \
+      %TESTID% $testid                       \
+      %ENCODING% $enc                        \
+      %TESTBODY% [lindex $::tests $testid 2] \
+    ]
     puts -nonewline $channel [string map $map [string trim $::template]]
   }
 }
@@ -210,14 +238,16 @@ proc set_status {} {
 }
 
 set ::tests [list]
-proc browsertest {name code} {
-  lappend ::tests [list $name $code]
+proc browsertest {name encoding code} {
+  lappend ::tests [list $name $encoding $code]
 }
 proc do_browser_test {name args} {
 
   # Argument processing:
   #
   set opts(-html)     ""
+  set opts(-encoding) ""
+  set opts(-timeout)  1000000
   array set opts $args
   if {![info exists opts(-javascript)]} {
     error "Missing mandatory -javascript option"
@@ -229,13 +259,14 @@ proc do_browser_test {name args} {
       -html         {}
       -javascript   {}
       -expected     {}
+      -encoding     {}
       default {
         error "Unknown option: $option"
       }
     }
   }
 
-  browsertest $name "
+  browsertest $name $opts(-encoding) "
     <SCRIPT>
       function browsertest () { $opts(-javascript) }
     </SCRIPT>

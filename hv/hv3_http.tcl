@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.58 2007/11/12 10:16:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.59 2007/12/08 11:45:28 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -225,7 +225,7 @@ set uri [::tkhtml::escape_uri -query $uri]
     # myInProgressHandles) after the retrieval is complete.
     #
     lappend myWaitingHandles $downloadHandle
-    $downloadHandle destroy_hook [list $self FinishRequest $downloadHandle]
+    $downloadHandle finish_hook [list $self FinishRequest $downloadHandle]
     $self Updatestatusvar
   }
 
@@ -350,7 +350,7 @@ set uri [::tkhtml::escape_uri -query $uri]
       set myWaitingHandles [lreplace $myWaitingHandles $idx $idx]
     }
     if {[info exists myTokenMap($downloadHandle)]} {
-      ::http::reset $myTokenMap($downloadHandle);
+      ::http::reset $myTokenMap($downloadHandle)
       unset myTokenMap($downloadHandle)
     }
     if {[llength $myWaitingHandles]==0 && [llength $myInProgressHandles]==0} {

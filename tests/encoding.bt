@@ -1,0 +1,106 @@
+
+# This test script tests some browser behaviour related to encodings
+# (charsets). Test plan is as follows:
+#
+#     encoding.1.* - Test that charsets specified as both HTTP 
+#                    Content-Type headers or their <meta> tag equivalents
+#                    are handled.
+#
+#     encoding.2.* - Test that Hv3 works around the polipo bug. This is
+#                    only really important for Hv3.
+#
+
+set str "\xC0\xC1"
+
+set encoding.1.javascript {
+  var div = document.getElementById("div");
+  var str = div.firstChild.data
+  return str.charCodeAt(0) + "." + str.charCodeAt(1)
+}
+
+#--------------------------------------------------------------------------
+# START encoding.1.*
+#
+# Test with no <meta> tag and no Content-Type header.
+#
+do_browser_test encoding.1.1 -html [subst {
+  <DIV id="div">[encoding convertto iso8859-1 $str]</DIV>
+}] -javascript ${encoding.1.javascript}
+
+# Test with a <meta> tag only.
+#
+do_browser_test encoding.1.2 -html [subst {
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <DIV id="div">[encoding convertto utf-8 $str]</DIV>
+}] -javascript ${encoding.1.javascript}
+
+# Test with Content-Type header only.
+#
+do_browser_test encoding.1.3 -encoding utf-8 -html [subst {
+  <DIV id="div">[encoding convertto utf-8 $str]</DIV>
+}] -javascript ${encoding.1.javascript}
+
+# Test with Content-Type and matching <meta> tag.
+#
+do_browser_test encoding.1.4 -encoding utf-8 -html [subst {
+  <META http-equiv="Content-Type" content="text/html; charset=utf-8" >
+  <DIV id="div">[encoding convertto utf-8 $str]</DIV>
+}] -javascript ${encoding.1.javascript}
+
+# Test with Content-Type and conflicting <meta> tag. In this case the
+# Content-Type should take precedence. Previous versions of Hv3 had
+# this wrong.
+#
+do_browser_test encoding.1.5 -encoding utf-8 -html [subst {
+  <META http-equiv="Content-Type" content="text/html; charset=windows-1252">
+  <DIV id="div">[encoding convertto utf-8 $str]</DIV>
+}] -javascript ${encoding.1.javascript}
+
+# Test with an incorrect <meta> tag only. In this case firefox does not
+# do any encoding detection - it just uses the explicitly specified
+# one in the same way as Hv3.
+#
+do_browser_test encoding.1.6 -html [subst {
+  <meta http-equiv="Content-Type" content="text/html; charset=windows-1252">
+  <DIV id="div">[encoding convertto utf-8 $str]</DIV>
+}] -javascript ${encoding.1.javascript}
+#
+# END encoding.1.*
+#--------------------------------------------------------------------------
+
+
+proc enc_slow_css {channel} {
+  enc_slow_part1 $channel {
+HTTP/1.1 200 OK
+Content-type: text/css
+Cache-Control: s-maxage=10
+
+.hello { color: green }
+} {
+.tall { height: 500px }
+}
+}
+
+proc enc_slow_part1 {channel data1 data2} {
+  puts -nonewline $channel [string trimleft $data1]
+  flush $channel
+  after 1000 [list enc_slow_part2 $channel $data2]
+}
+
+proc enc_slow_part2 {channel data} {
+  puts -nonewline $channel $data
+  flush $channel
+  close $channel
+}
+
+do_browser_test encoding.2.1 -html {
+
+  <style> @import "/tcl?script=enc_slow_css" ; </style>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+
+  <DIV id="div" class="tall">...
+  </DIV>
+} -javascript {
+  return document.getElementById("div").offsetHeight
+}
+

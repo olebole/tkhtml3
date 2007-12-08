@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.18 2007/11/01 07:06:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.19 2007/12/08 11:45:28 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -6,12 +6,62 @@ namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.18 2007/11/01 07:06:0
 #     ::hv3::download
 #
 
-
 #--------------------------------------------------------------------------
 # Class ::hv3::request
 #
 #     Instances of this class are used to interface between the protocol
 #     implementation and the hv3 widget.
+#
+# OVERVIEW:
+#
+# HOW CHARSETS ARE HANDLED:
+#
+#     The protocol implementation (the thing that calls [$download append] 
+#     and [$download finish]) passes binary data to this object. This
+#     object converts the binary data to utf-8 text, based on the encoding
+#     assigned to the request. An encoding may be assigned either by an
+#     http header or a <meta> tag.
+#
+#     Assuming the source of the data is http (or https), then the
+#     encoding may be specified by way of a Content-Type HTTP header.
+#     In this case, when the protocol configures the -header option
+#     (which it does before calling [append] for the first time) the 
+#     -encoding option will be automatically set.
+#
+#
+# OPTIONS:
+#
+#     The following options are set only by the requestor (the Hv3 widget)
+#     for the protocol to use as request parameters:
+#
+#       -cachecontrol
+#       -uri
+#       -postdata
+#       -requestheader
+#       -enctype
+#       -encoding
+#
+#     This is set by the requestor also to show the origin of the request:
+#
+#       -hv3
+#
+#     These are set by the requestor before the request is made to 
+#     configure callbacks invoked by this object when requested data 
+#     is available:
+#    
+#       -incrscript
+#       -finscript
+#
+#     This is initially set by the requestor. It may be modified by the
+#     protocol implementation before the first invocation of -incrscript
+#     or -finscript is made.
+#
+#       -mimetype
+#
+#     The protocol implementation also sets:
+#
+#       -header
+#       -expectedsize
 #
 # METHODS:
 #
@@ -22,7 +72,7 @@ namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.18 2007/11/01 07:06:0
 #         fail
 #         authority         (return the authority part of the -uri option)
 #
-#     destroy_hook SCRIPT
+#     finish_hook SCRIPT
 #         Configure the object with a script to be invoked just before
 #         the object is about to be destroyed. If more than one of
 #         these is configured, then the scripts are called in the
@@ -46,15 +96,6 @@ snit::type ::hv3::download {
   option -postdata     -default ""
   option -mimetype     -default ""
   option -enctype      -default ""
-
-  # Lifetime of download(request) object is managed like a (flat) tree.
-  # The root of download is remembered by -hv3. All other child downloads
-  # are remembered by the root.
-  #
-  # For child download, when download is finished, it is simply destroyed
-  # and removed from root.
-  #
-  option -root     -default no
 
   # The hv3 widget that issued this request. This is used
   # (a) to notify destruction of root request,
@@ -107,36 +148,40 @@ snit::type ::hv3::download {
   #
   option -encoding -default ""
 
+  # True if the -encoding option has been set by the transport layer. 
+  # If this is true, then any encoding specified via a <meta> element
+  # in the main document is ignored.
+  #
+  option -hastransportencoding -default 0
+
   # END OF OPTIONS
   #----------------------------
 
   variable myData ""
   variable myChunksize 2048
-  variable myRaw  ""; # for encoding conversion.
-  variable readPos 0; # myRaw read pointer.
-  variable isText  1; # Whether mimetype is text/* or not.
 
-  # Transport layer may contain encoding specification.
-  # This should be distinguished from explicitly specified one.
-  variable suggestedEncoding {}
+  # The binary data returned by the protocol implementation is 
+  # accumulated in this variable.
+  variable myRaw  {}
 
-  # To temporarily backup fileevent when reloading.
-  variable freezedReadEvent {}
+  # If this variable is non-zero, then the first $myRawPos bytes of
+  # $myRaw have already been passed to Hv3 via the -incrscript 
+  # callback.
+  variable myRawPos 0
 
-  # To bypass destruction logic when reloading.
-  variable nowReloading   0
+  # These objects are referenced counted. Initially the reference count
+  # is 1. It is increased by calls to the [reference] method and decreased
+  # by the [release] method. The object is deleted when the ref-count 
+  # reaches zero.
+  variable myRefCount 1
 
-  # To avoid queueing of checkPending task.
-  variable nowDestructing 0
-
-  # List of child downloads.
-  variable myChildren [list]
+  variable myIsText  1; # Whether mimetype is text/* or not.
 
   # Make sure finish is processed only once.
-  variable isFinished 0
+  variable myIsFinished 0
 
-  # Destroy-hook scripts configured using the [destroy_hook] method.
-  variable myDestroyHookList [list]
+  # Destroy-hook scripts configured using the [finish_hook] method.
+  variable myFinishHookList [list]
 
   # Constructor and destructor
   constructor {args} {
@@ -144,106 +189,42 @@ snit::type ::hv3::download {
     # puts stderr new\t$self\t[$self cget -uri]\t[clock clicks]
   }
 
-  destructor  {
-    set nowDestructing 1
-      # puts stderr destroy\t$self\t[$self cget -uri]\t[$self cget -encoding]\t[$self cget -finscript]\t[lrange [info level -3] 0 1]
-    if {$options(-root)} {
-	$self checkPending cancel
-    }
-    foreach child $myChildren {
-	if {![$child isFinished]} {
-	    $child finish
-	}
-	# finish can destroy $child.
-	if {[llength [info commands $child]]} {
-	    $child destroy
-	}
-    }
-    foreach hook $myDestroyHookList {
-      eval $hook
-    }
-    if {$options(-root)} {
-	$options(-hv3) Forgetrequest
-    }
+  destructor {
+    foreach hook $myFinishHookList { eval $hook }
   }
 
-  # Milder destruction request.
-  method release {} {
-      # puts stderr release\t$self\t[clock seconds]
-      if {! $options(-root)} {
-	  $self destroy
-      } else {
-	  # Enqueue checkPending task. This may destroy $self later.
-	  # At this time, parsing is not yet finished and
-	  # not all child downloads are created. So we must delay
-	  # destruction.
-	  # puts "release for root $self is requested"
-	  $self checkPending
-      }
+  method data {} {
+    set raw [string range $myRaw 0 [expr {$myRawPos-1}]]
+    if {$myIsText} {
+      return [encoding convertfrom [$self encoding] $raw]
+    }
+    return $raw
   }
 
-  # checkPending task management.
+  # Increment the object refcount.
   #
-  method checkPending {{method "enqueue"}} {
-      set task [list $self checkPending now]
-      switch $method {
-	  now {
-	      # Check pendings immediately and then destroy itself.
-	      if {[$self pending]} return
-	      if {$isFinished} {
-		  $self destroy
-	      } else {
-		  $self finish
-		  # finish can create another download. So reschedule.
-		  $self checkPending
-	      }
-	  }
+  method reference {} {
+    incr myRefCount
+  }
 
-	  cancel {
-	      after cancel $task
-	  }
-
-	  enqueue {
-	      # Reschedule the task, unless under destruction.
-	      after cancel $task
-              if {!$nowDestructing} {
-		  after idle $task
-              }
-	  }
-	  default {
-	      error "Invalid option for checkPending: $method"
-	  }
-      }
+  # Decrement the object refcount.
+  #
+  method release {} {
+    incr myRefCount -1
+    if {$myRefCount == 0} {
+      $self destroy
+    }
   }
 
   # Add a script to be called just before the object is destroyed. See
   # description above.
   #
-  method destroy_hook {script} {
-    lappend myDestroyHookList $script
+  method finish_hook {script} {
+    lappend myFinishHookList $script
   }
 
   method pending {} {
       expr {[llength $myChildren] || [$self hasLivingSocket] || $nowReloading}
-  }
-
-  method addChild {handle} {
-      lappend myChildren $handle
-      $handle destroy_hook [list $self forget $handle]
-  }
-
-  method forget {handle} {
-      set idx [lsearch $myChildren $handle]
-      set has_removed [expr {$idx >= 0}]
-      if {$has_removed} {
-	  set myChildren [lreplace $myChildren $idx $idx]
-      }
-      if {![llength $myChildren]} {
-	  # Now all child downloads are forgotten.
-	  set nowReloading 0
-	  $self checkPending
-      }
-      set has_removed
   }
 
   # This method is called each time the -header option is set. This
@@ -258,12 +239,13 @@ snit::type ::hv3::download {
           ::hv3::the_cookie_manager SetCookie $options(-uri) $value
         }
         content-type {
-           foreach {major minor charset} \
-               [hv3::string::parseContentType $value] break
-            set options(-mimetype) $major/$minor
-           if {$charset ne ""} {
-               $self suggestEncoding $charset
-           }
+          set parsed [hv3::string::parseContentType $value]
+          foreach {major minor charset} $parsed break
+          set options(-mimetype) $major/$minor
+          if {$charset ne ""} {
+            set options(-hastransportencoding) 1
+            set options(-encoding) [::hv3::encoding_resolve $charset]
+          }
         }
         content-length {
           set options(-expectedsize) $value
@@ -274,7 +256,7 @@ snit::type ::hv3::download {
 
   onconfigure -mimetype mimetype {
       set options(-mimetype) $mimetype
-      set isText [string match text* $mimetype]
+      set myIsText [string match text* $mimetype]
   }
 
   onconfigure -encoding enc {
@@ -293,174 +275,61 @@ snit::type ::hv3::download {
   # Interface for returning data.
   method append {raw} {
     append myRaw $raw
-    set decoded [if {$isText} {
-	$self EncodingGetConvertible myRaw
-    } else {
-	set raw
-    }]
-    # if {$isText && $options(-encoding) ne ""} { puts "(($decoded))" }
-    ::append myData $decoded
-    set nData [string length $myData]
-    if {$options(-incrscript) != "" && $nData >= $myChunksize} {
-	# puts stderr incr\t$self\t$nData-[string bytelength $myRaw]-[string bytelength $raw]-$myChunksize\t$options(-incrscript)\t[clock seconds]
-      eval [linsert $options(-incrscript) end $myData]
-      set myData {}
-      if {$myChunksize < 30000} {
-        set myChunksize [expr $myChunksize * 2]
+
+    if {$options(-incrscript) != ""} {
+      # There is an -incrscript callback configured. If enough data is 
+      # available, invoke it.
+      set nLast 0
+      foreach zWhite [list " " "\n" "\t"] {
+        set n [string last $zWhite $myRaw]
+        if {$n>$nLast} {set nLast $n ; break}
+      }
+      set nAvailable [expr {$nLast-$myRawPos}]
+      if {$nAvailable > $myChunksize} {
+
+        set zDecoded [string range $myRaw $myRawPos $nLast]
+        if {$myIsText} {
+          set zDecoded [encoding convertfrom [$self encoding] $zDecoded]
+        }
+        set myRawPos [expr {$nLast+1}]
+        if {$myChunksize < 30000} {
+          set myChunksize [expr $myChunksize * 2]
+        }
+
+        eval [linsert $options(-incrscript) end $zDecoded] 
       }
     }
   }
 
-  method isFinished {} {set isFinished}
   # Called after all data has been passed to [append].
+  #
   method finish {{raw ""}} {
-    if {$isFinished} {error "finish called twice on $self"}
-    set isFinished 1
+    if {$myIsFinished} {error "finish called twice on $self"}
+    set myIsFinished 1
     append myRaw $raw
-    if {$isText && $myRaw ne ""} {
-	append myData [$self EncodingGetConvertible myRaw 1]
-	# puts stderr fin\t$self\t[$self cget -uri]\t[clock seconds]\n[string length $myData]\n[lrange [info level -1] 0 1]\n$myData
-    } else {
-	append myData $myRaw
+
+    set zDecoded [string range $myRaw $myRawPos end]
+    if {$myIsText} {
+      set zDecoded [encoding convertfrom [$self encoding] $zDecoded]
     }
-    eval [linsert $options(-finscript) end $myData] 
+
+    foreach hook $myFinishHookList {
+      eval $hook
+    }
+    set myFinishHookList [list]
+    set myRawPos [string length $myRaw]
+    eval [linsert $options(-finscript) end $zDecoded] 
   }
 
-  method fail {} {puts FAIL}
+  method isFinished {} {set myIsFinished}
 
-  method reload_with_encoding enc {
-
-      # At present, this method is called on the "root" download by
-      # the Hv3 widget when it encounters a tag of the form:
-      #
-      #     <META http-equiv="content-type" content="text/html;charset=ENC">
-      #
-      # where ENC is not the same as the encoding specified by the 
-      # transport layer (or the system encoding, if the transport layer did
-      # not specify an encoding).
-      #
-      # Usually, but not always, this occurs before the widget requests any
-      # other resources (the HTML5 specification at www.whatwg.org suggests
-      # that UA's should ignore such <META> elements in other circumstances,
-      # but this doesn't work on the web in 2007). In this case, all that
-      # is required is to translate the binary data to the new encoding
-      # and reinvoke the -incrscript/-finscript callbacks.
-      #
-      if {[llength $myChildren] == 0} {
-          set options(-encoding) $enc
-          set readPos 0
-          set myData ""
-          if {$isFinished} {
-              set isFinished 0 
-              $self finish
-          } else {
-              $self append ""
-          }
-          return
-      }
-
-      set nowReloading 1
-      # puts "freezing root request."
-      $self freeze
-      foreach child $myChildren {
-	  $child freeze
-      }
-
-      # This is workaround for co-occurence of META-reload and
-      # META-refresh 0. Could be removed future.
-      update idletask
-
-      $self configure -encoding $enc
-      # puts "queueing restart of $self"
-      after idle [list $self restartCallback]
-  }
-
-  method hasLivingSocket {} {
-      upvar 0 $options(-token) state
-      set vn state(sock)
-      info exists $vn
-  }
-
-  method freeze {} {
-      if {$options(-token) ne ""} {
-	  upvar 0 $options(-token) state
-	  set vn state(sock)
-	  if {[info exists $vn]} {
-	      set freezedReadEvent [fileevent [set $vn] readable]
-	      # puts "saving readevent $freezedReadEvent"
-	      fileevent [set $vn] readable {}
-	  } else {
-	      # puts "token $options(-token) is already closed"
-	  }
-      }
-      set readPos 0; # myRaw is kept as is.
-      set myData {}
-  }
-
-  method restartCallback {} {
-      # puts "restart with token $options(-token)"
-      if {$options(-root) && $options(-hv3) ne ""} {
-	  # This is required currently. But why? Who calls [$myHtml parse]
-	  # after meta_node_handler?
-	  [$options(-hv3) html] reset
-      }
-      if {$isFinished} {
-	  # To reset readPos and reinvoke -finscript.
-	  set isFinished 0
-	  $self finish
-      } else {
-	  if {$options(-token) ne ""} {
-	      upvar 0 $options(-token) state
-	      set vn state(sock)
-	      if {[info exists $vn]} {
-		  fileevent [set $vn] readable $freezedReadEvent
-	      }
-	  }
-	  $self append {}
-      }
+  method fail {} {
+    # TODO: Need to do something here...
+    puts FAIL
   }
 
   method encoding {} {
-      if {[set enc [string-or $options(-encoding) \
-			$suggestedEncoding]] ne ""} {
-	  set enc
-      } else {
-	  encoding system
-      }
-  }
-
-  method suggestEncoding enc {
-      puts "suggested encoding $enc"
-      set suggestedEncoding [::hv3::encoding_resolve $enc]
-      if {$options(-root) && $options(-hv3) ne ""} {
-	  puts " -> send it to hv3"
-	  $options(-hv3) setEncoding $enc
-      }
-  }
-
-  method suggestedEncoding {} {
-      set suggestedEncoding
-  }
-
-  method EncodingGetConvertible {varName {all 0}} {
-      upvar 1 $varName raw
-      if {$all} {
-	  set found [string bytelength $raw]
-      } else {
-	  set found -1
-	  foreach ch {\n " " \t} {
-	      if {[set found [string last $ch $raw end]] > 0} break
-	  }
-	  if {$found <= 0} return
-      }
-      set decoded [encoding convertfrom [$self encoding] \
-		       [string range $raw $readPos $found]]
-      if {$options(-root)} {
-	  set readPos [expr {$found+1}]
-      } else {
-	  set raw [string replace $raw 0 $found]
-      }
-      set decoded
+    string-or $options(-encoding) [encoding system]
   }
 
   proc string-or args {
