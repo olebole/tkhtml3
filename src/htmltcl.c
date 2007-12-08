@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.198 2007/12/08 15:33:00 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.199 2007/12/08 15:36:01 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -40,6 +40,7 @@ static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.198 2007/12/08 15:33:00 dan
 #include <errno.h>
 #include <assert.h>
 #include "html.h"
+#include "restrack.h"
 #include "swproc.h"
 
 #include <time.h>

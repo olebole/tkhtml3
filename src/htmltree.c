@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.159 2007/12/08 15:33:00 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.160 2007/12/08 15:36:01 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -2209,12 +2209,9 @@ nodeTextCommand(interp, pNode, objc, objv)
          *     * In the parent node, if this is not an orphan.
          *     * In the orphan node table, if this is an orphan.
          */
-        const char *zCommand;
         const char *zNew;
         int nNew;
-        HtmlTextNode *pNew;
         HtmlTextNode *pOrig;
-        Tcl_CmdInfo info;
 
         pOrig = HtmlNodeAsText(pNode);
         assert(pOrig);
