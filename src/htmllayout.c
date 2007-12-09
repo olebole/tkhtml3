@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.268 2007/12/05 10:11:12 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.269 2007/12/09 10:10:08 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -1052,9 +1052,9 @@ normalFlowLayoutFloat(pLayout, pBox, pNode, pY, pDoNotUse, pNormal)
      *
      * Note: "outer-edge" means including the the top and bottom margins.
      */
-    normalFlowMarginCollapse(pLayout, pNode, pNormal, pY);
-    pBox->height = MAX(pBox->height, *pY);
     y = (*pY);
+    y += normalFlowMarginQuery(pNormal);
+    pBox->height = MAX(pBox->height, *pY);
     y = HtmlFloatListClear(pNormal->pFloat, pV->eClear, y);
     y = HtmlFloatListClearTop(pNormal->pFloat, y);
 
