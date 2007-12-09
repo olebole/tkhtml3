@@ -1983,7 +1983,10 @@ snit::widget ::hv3::hv3 {
   # part of the public interface.
   #
   method stop {} {
-    foreach dl $myActiveHandles { $dl release }
+    foreach dl $myActiveHandles { 
+      if {$dl eq $myDocumentHandle} {set myDocumentHandle ""}
+      $dl release 
+    }
 
     if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
       set myStorevisitedDone 1
@@ -2001,6 +2004,7 @@ snit::widget ::hv3::hv3 {
       if {$m ne ""} {$m reset}
     }
     $myHtml reset
+    $myHtml configure -scrollbarpolicy $options(-scrollbarpolicy)
 
     if {$options(-dom) ne ""} {
       $options(-dom) clear_window $self

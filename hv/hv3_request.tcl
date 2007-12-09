@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.19 2007/12/08 11:45:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.20 2007/12/09 06:43:49 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -78,6 +78,12 @@ namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.19 2007/12/08 11:45:2
 #         these is configured, then the scripts are called in the
 #         same order as they are configured in (i.e. most recently
 #         configured is invoked last).
+#
+#     reference
+#     release
+#
+#     data
+#     encoding
 #
 snit::type ::hv3::download {
 
@@ -221,10 +227,6 @@ snit::type ::hv3::download {
   #
   method finish_hook {script} {
     lappend myFinishHookList $script
-  }
-
-  method pending {} {
-      expr {[llength $myChildren] || [$self hasLivingSocket] || $nowReloading}
   }
 
   # This method is called each time the -header option is set. This
