@@ -61,7 +61,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  *
  */
-static const char rcsid[] = "$Id: restrack.c,v 1.12 2007/12/08 15:33:00 danielk1977 Exp $";
+static const char rcsid[] = "$Id: restrack.c,v 1.13 2007/12/12 04:50:29 danielk1977 Exp $";
 
 #ifdef HTML_RES_DEBUG
 #define RES_DEBUG
@@ -634,7 +634,7 @@ Rt_Free(p)
         memset(z, 0x55, n);
         ckfree((char *)&z[-2]);
         ResFree(RES_ALLOC, &z[-2]);
-        freeMallocHash(z, n);
+        freeMallocHash((char *) z, n);
     }
 }
 

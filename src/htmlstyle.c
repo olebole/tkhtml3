@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlstyle.c,v 1.60 2007/12/08 15:33:00 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlstyle.c,v 1.61 2007/12/12 04:50:29 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -586,7 +586,7 @@ styleApply(pTree, pNode, p)
     }
 
     if (p->doStyle) {
-        redrawmode = styleNode(pTree, pNode, p->isRoot);
+        redrawmode = styleNode(pTree, pNode, (ClientData) ((size_t) p->isRoot));
 
         /* If there has been a style-callback configured (-stylecmd option to
          * the [nodeHandle replace] command) for this node, invoke it now.
