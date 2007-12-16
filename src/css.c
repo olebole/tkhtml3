@@ -29,7 +29,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: css.c,v 1.138 2007/11/16 11:25:53 danielk1977 Exp $";
+static const char rcsid[] = "$Id: css.c,v 1.139 2007/12/16 11:57:43 danielk1977 Exp $";
 
 #define LOG if (pTree->options.logcmd)
 
@@ -861,20 +861,24 @@ propertySetAdd(p, i, v)
     int i;                     /* Property id (i.e CSS_PROPERTY_WIDTH). */
     CssProperty *v;            /* Value for property. */
 {
-    int j;
     int nBytes;
 
     assert( i<128 && i>=0 );
-
     assert(!p->a || p->n > 0);
 
-    for (j = 0; j < p->n; j++) {
-        if (i == p->a[j].eProp) {
-            HtmlFree(p->a[j].pProp);
-            p->a[j].pProp = v;
-            return;
-        }
-    }
+    /* Note: We used to avoid inserting duplicate properties into a
+    ** single property set. But that led to errors with CSS like:
+    **
+    **     <selector> {
+    **       padding: 3em;
+    **       padding: -3em;
+    **     }
+    **
+    ** The code in htmlprop.c needs to see both declarations, as the
+    ** second one is ignored because the value is illegal. TODO: It
+    ** would be better if we could verify the legality of the value
+    ** here.
+    */
 
     nBytes = (p->n + 1) * sizeof(struct CssPropertySetItem);
     p->a = (struct CssPropertySetItem *)HtmlRealloc(
@@ -1045,7 +1049,10 @@ static void propertySetAddShortcutBorder(pParse, p, prop, v)
             if (propertyIsLength(pParse, pProp) || eType == CSS_CONST_THIN || 
                 eType == CSS_CONST_THICK        || eType == CSS_CONST_MEDIUM
             ) {
-                /* TODO: Should be an error if there is already a width */
+                if (pBorderWidth) {
+                    HtmlFree(pProp);
+                    goto parse_error;
+                }
                 pBorderWidth = pProp;
             } else if (
                 eType == CSS_CONST_NONE   || eType == CSS_CONST_HIDDEN ||
@@ -1054,10 +1061,16 @@ static void propertySetAddShortcutBorder(pParse, p, prop, v)
                 eType == CSS_CONST_GROOVE || eType == CSS_CONST_RIDGE  ||
                 eType == CSS_CONST_OUTSET || eType == CSS_CONST_INSET 
             ) {
-                /* TODO: Should be an error if there is already a style */
+                if (pBorderStyle) {
+                    HtmlFree(pProp);
+                    goto parse_error;
+                }
                 pBorderStyle = pProp;
             } else {
-                /* TODO: Should be an error if there is already a color */
+                if (pBorderColor) {
+                    HtmlFree(pProp);
+                    goto parse_error;
+                }
                 pBorderColor = pProp;
             }
             z += n;
@@ -1087,6 +1100,12 @@ static void propertySetAddShortcutBorder(pParse, p, prop, v)
         propertySetAdd(p, aWidth[i], pW);
         propertySetAdd(p, aStyle[i], pS);
     }
+    return;
+
+  parse_error:
+    HtmlFree(pBorderStyle);
+    HtmlFree(pBorderColor);
+    HtmlFree(pBorderWidth);
 }
 
 /*
@@ -3263,7 +3282,7 @@ propertySetToPropertyValues(p, aPropDone, pSet)
     int i;
     assert(pSet);
 
-    for (i = 0; i < pSet->n; i++) {
+    for (i = pSet->n - 1; i >= 0; i--) {
         int eProp = pSet->a[i].eProp;
 	/* eProp may be greater than MAX_PROPERTY if it stores a composite
 	 * property that Tkhtml doesn't handle. In this case just ignore it.
