@@ -12,7 +12,6 @@ proc sourcefile {file} [string map              \
 source [sourcefile hv3_profile.tcl]
 source [sourcefile snit.tcl]
 source [sourcefile hv3_widgets.tcl]
-source [sourcefile hv3_encodings.tcl]
 source [sourcefile hv3_db.tcl]
 source [sourcefile hv3_home.tcl]
 source [sourcefile hv3.tcl]
@@ -27,6 +26,8 @@ source [sourcefile hv3_string.tcl]
 source [sourcefile hv3_bookmarks.tcl]
 source [sourcefile hv3_bugreport.tcl]
 source [sourcefile hv3_debug.tcl]
+source [sourcefile hv3_dom.tcl]
+source [sourcefile hv3_object.tcl]
 
 #--------------------------------------------------------------------------
 # Widget ::hv3::browser_frame
@@ -98,6 +99,10 @@ snit::widget ::hv3::browser_frame {
     # Register a handler command to handle <frameset>.
     set html [$myHv3 html]
     $html handler node frameset [list ::hv3::frameset_handler $self]
+
+    # Register handler commands to handle <object> and kin.
+    $html handler node object   [list hv3_object_handler $self]
+    $html handler node embed    [list hv3_object_handler $self]
 
     $html handler node      iframe [list ::hv3::iframe_handler $self]
     $html handler attribute iframe [list ::hv3::iframe_attr_handler $self]

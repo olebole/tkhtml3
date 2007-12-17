@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.204 2007/11/11 11:00:48 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.205 2007/12/17 07:27:11 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1642,10 +1642,12 @@ printf("%s\n", Tcl_GetString(HtmlNodeCommand(pQuery->pTree, p->pItem->pNode)));
 #endif
 
             if (!p->pixmap) {
+#if 0
                 printf(
                     "TODO: Using %dx%d pixmap for clipping. (performance hit)\n"
                     , p->pmw, p->pmh
                 );
+#endif
                 p->pixmap = Tk_GetPixmap(
     		    Tk_Display(win), Tk_WindowId(win), 
                     p->pmw, p->pmh,

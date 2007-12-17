@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.8 2007/12/08 11:45:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.9 2007/12/17 07:27:11 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -616,4 +616,83 @@ namespace eval ::hv3::console_commands {
   }
 }
 
+
+proc pretty_print_heapdebug {} {
+  set data [lsort -index 2 -integer [::tkhtml::heapdebug]]
+  set ret ""
+  set nTotalS 0
+  set nTotalB 0
+  foreach type $data {
+    foreach {zStruct nStruct nByte} $type {}
+    append ret [format "% -30s % 10d % 10d\n" $zStruct $nStruct $nByte]
+    incr nTotalB $nByte
+    incr nTotalS $nStruct
+  }
+  append ret [format "% -30s % 10d % 10d\n" "Totals" $nTotalS $nTotalB]
+  set ret
+}
+
+proc pretty_print_vars {} {
+  set ret ""
+  foreach e [lsort -integer -index 1 [get_vars]] {
+    append ret [format "% -50s %d\n" [lindex $e 0] [lindex $e 1]]
+  }
+  set ret
+}
+
+proc tree_to_report {tree indent} {
+  set i [string repeat " " $indent]
+  set f [lindex $tree 0]
+
+  set name [$f cget -name]
+  set uri  [[$f hv3] uri get]
+
+  append ret [format "% -40s %s\n" $i\"$name\" $uri]
+  foreach child [lindex $tree 1] {
+    append ret [tree_to_report $child [expr {$indent+4}]] 
+  }
+  set ret
+}
+proc pretty_print_frames {} {
+  tree_to_report [lindex [gui_current frames_tree] 0] 0
+}
+
+proc get_vars {{ns ::}} {
+  set nVar 0
+  set ret [list]
+  set vlist [info vars ${ns}::*]
+  foreach var $vlist {
+    if {[array exists $var]} {
+      incr nVar [llength [array names $var]]
+    } else {
+      incr nVar 1
+    }
+  }
+  lappend ret [list $ns $nVar]
+  foreach child [namespace children $ns] {
+    eval lappend ret [get_vars $child]
+  }
+  set ret
+}
+proc count_vars {{ns ::} {print 0}} {
+  set nVar 0
+  foreach entry [get_vars $ns] {
+    incr nVar [lindex $entry 1]
+  }
+  set nVar
+}
+proc count_commands {{ns ::}} {
+  set nCmd [llength [info commands ${ns}::*]]
+  foreach child [namespace children $ns] {
+    incr nCmd [count_commands $child]
+  }
+  set nCmd
+}
+proc count_namespaces {{ns ::}} {
+  set nNs 1
+  foreach child [namespace children $ns] {
+    incr nNs [count_namespaces $child]
+  }
+  set nNs
+}
 

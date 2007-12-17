@@ -124,11 +124,10 @@
 package require Tkhtml 3.0
 package require snit
 
+source [file join [file dirname [info script]] hv3_encodings.tcl]
+source [file join [file dirname [info script]] hv3_util.tcl]
 source [file join [file dirname [info script]] hv3_form.tcl]
-source [file join [file dirname [info script]] hv3_object.tcl]
-source [file join [file dirname [info script]] hv3_doctype.tcl]
 source [file join [file dirname [info script]] hv3_request.tcl]
-source [file join [file dirname [info script]] hv3_dom.tcl]
 
 #--------------------------------------------------------------------------
 # Class ::hv3::hv3::mousemanager
@@ -766,10 +765,6 @@ snit::type ::hv3::hv3::selectionmanager {
     set T [string range [$myHv3 text text] $stridx_a [expr $stridx_b - 1]]
     set T [string range $T $offset [expr $offset + $maxChars]]
 
-#puts "document text {[$myHv3 text text]}"
-#puts "from -> to {$n1 $i1 -> $n2 $i2}"
-#puts "from -> to {$stridx_a -> $stridx_b}"
-
     return $T
   }
 
@@ -841,6 +836,7 @@ snit::type ::hv3::hv3::hyperlinkmanager {
 
     # Set up the default -targetcmd script to always return $myHv3.
     set options(-targetcmd) [list ::hv3::ReturnWithArgs $hv3]
+    $self SetVisitedCmd -isvisitedcmd [list ::hv3::ReturnWithArgs 0]
 
     $myHv3 Subscribe onclick     [list $self handle_onclick]
   }
@@ -1069,12 +1065,12 @@ snit::widget ::hv3::hv3 {
   #
   variable myActiveHandles [list]
 
-  constructor {} {
+  constructor {args} {
 
     # Create the scrolled html widget and bind it's events to the
     # mega-widget window.
     set myHtml [::hv3::scrolled html ${win}.html]
-    ::hv3::profile::instrument [$myHtml widget]
+    catch {::hv3::profile::instrument [$myHtml widget]}
     bindtags [$self html] [concat [bindtags [$self html]] $self]
     pack $myHtml -fill both -expand 1
 
@@ -1123,14 +1119,12 @@ snit::widget ::hv3::hv3 {
 
     # $myHtml handler script script   [list $self script_script_handler]
 
-    # Register handler commands to handle <object> and kin.
-    $myHtml handler node object   [list hv3_object_handler $self]
-    $myHtml handler node embed    [list hv3_object_handler $self]
-
     # Register handler commands to handle <body>.
     $myHtml handler node body   [list $self body_node_handler]
 
     bind $win <Configure> [list $self goto_fragment]
+
+    $self configurelist $args
   }
 
   destructor {

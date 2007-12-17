@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.21 2007/12/17 04:43:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.22 2007/12/17 07:27:11 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -238,7 +238,9 @@ snit::type ::hv3::request {
     foreach {name value} $option_value {
       switch -- [string tolower $name] {
         set-cookie {
-          ::hv3::the_cookie_manager SetCookie $options(-uri) $value
+          catch {
+            ::hv3::the_cookie_manager SetCookie $options(-uri) $value
+          }
         }
         content-type {
           set parsed [hv3::string::parseContentType $value]
