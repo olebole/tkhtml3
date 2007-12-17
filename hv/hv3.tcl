@@ -1663,7 +1663,27 @@ snit::widget ::hv3::hv3 {
           set myMimetype image
         }
       }
-  
+
+      # If there is a "Location" or "Refresh" header, handle it now.
+      set refreshheader ""
+      foreach {name value} [$handle cget -header] {
+        switch -- [string tolower $name] {
+          location {
+            set refreshheader "0 ; URL=$value"
+          }
+          refresh {
+            set refreshheader $value
+          }
+        }
+      }
+      if {$refreshheader ne ""} {
+	if {[$self Refresh $refreshheader]} {
+	  # Immediate refresh is requested.
+	  # No need to parse body.
+	  $handle release
+	  return
+        }
+      }
   
       if {$myMimetype eq ""} {
         # Neither text nor an image. This is the upper layers problem.
@@ -1692,27 +1712,6 @@ snit::widget ::hv3::hv3 {
       }
 
       set myStyleCount 0
-
-      # If there is a "Location" or "Refresh" header, handle it now.
-      set refreshheader ""
-      foreach {name value} [$handle cget -header] {
-        switch -- [string tolower $name] {
-          location {
-            set refreshheader "0 ; URL=$value"
-          }
-          refresh {
-            set refreshheader $value
-          }
-        }
-      }
-      if {$refreshheader ne ""} {
-	if {[$self Refresh $refreshheader]} {
-	  # Immediate refresh is requested.
-	  # No need to parse body.
-	  $handle release
-	  return
-        }
-      }
     }
 
     if {$myDocumentHandle ne $handle} {
