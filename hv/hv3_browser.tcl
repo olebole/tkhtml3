@@ -561,7 +561,7 @@ snit::widget ::hv3::browser {
   # the specified URI ($uri) to the local file-system.
   #
   method saveuri {uri} {
-    set handle [::hv3::download %AUTO%              \
+    set handle [::hv3::request %AUTO%              \
         -uri         $uri                           \
         -mimetype    application/gzip               \
     ]

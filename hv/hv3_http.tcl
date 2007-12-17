@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.59 2007/12/08 11:45:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.60 2007/12/17 04:43:07 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -776,7 +776,7 @@ snit::type ::hv3::downloadmanager {
   }
 
   # Activate the download manager to save the resource targeted by the
-  # ::hv3::download passed as an argument ($handle) to the local 
+  # ::hv3::request passed as an argument ($handle) to the local 
   # file-system. It is the responsbility of the caller to configure 
   # the download-handle and pass it to the protocol object. The second
   # argument, $data, contains an initial segment of the resource that has

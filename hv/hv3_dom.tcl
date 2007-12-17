@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.90 2007/12/08 11:45:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.91 2007/12/17 04:43:07 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -189,7 +189,7 @@ return
       array set a $attr
       if {[info exists a(src)]} {
         set fulluri [$hv3 resolve_uri $a(src)]
-        set handle [::hv3::download %AUTO%             \
+        set handle [::hv3::request %AUTO%             \
             -uri         $fulluri                      \
             -mimetype    text/javascript               \
             -cachecontrol normal                       \

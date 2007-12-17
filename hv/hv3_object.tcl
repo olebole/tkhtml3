@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.11 2007/11/01 11:48:09 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_object.tcl,v 1.12 2007/12/17 04:43:07 danielk1977 Exp $)} 1 }
 
 #
 # The code in this file handles <object> elements for the hv3 mini-browser.
@@ -106,9 +106,9 @@ proc hv3_object_handler {hv3 node} {
     $node replace $standby_widget
   }
 
-  # Download the data for this object. To do this, create an ::hv3::download
+  # Download the data for this object. To do this, create an ::hv3::request
   # object and pass it to the hv3 widget's -getcmd script.
-  set handle [::hv3::download %AUTO%]
+  set handle [::hv3::request %AUTO%]
   $handle configure \
       -uri       $data                                                       \
       -finscript  [list hv3_object_data_handler $hv3 $node $params $handle]  \

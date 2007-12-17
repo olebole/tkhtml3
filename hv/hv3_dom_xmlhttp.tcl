@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.16 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.17 2007/12/17 04:43:07 danielk1977 Exp $)} 1 }
 
 ::hv3::dom2::stateless Document {
   %NODE%
@@ -84,7 +84,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.16 2007/11/11 11:
     if {$state(downloadHandle) ne ""} {
       $state(downloadHandle) destroy
     }
-    set state(downloadHandle) [::hv3::download %AUTO%]
+    set state(downloadHandle) [::hv3::request %AUTO%]
 
     # Configure the callback scripts "-finscript" and "-incrscript".
     #
@@ -193,7 +193,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.16 2007/11/11 11:
 
 namespace eval ::hv3::DOM {
 
-  # Called as the ::hv3::download -incrscript callback for an 
+  # Called as the ::hv3::request -incrscript callback for an 
   # XMLHttpRequest.
   #
   proc XMLHttpRequest_Incr {dom statevar data} {
@@ -207,7 +207,7 @@ namespace eval ::hv3::DOM {
     XMLHttpRequest_SetState $dom $statevar Receiving
   }
 
-  # Called as the ::hv3::download -finscript callback for an 
+  # Called as the ::hv3::request -finscript callback for an 
   # XMLHttpRequest.
   #
   proc XMLHttpRequest_Finished {dom statevar data} {

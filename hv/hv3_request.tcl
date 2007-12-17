@@ -1,9 +1,9 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.20 2007/12/09 06:43:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.21 2007/12/17 04:43:07 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
 #
-#     ::hv3::download
+#     ::hv3::request
 #
 
 #--------------------------------------------------------------------------
@@ -85,9 +85,9 @@ namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.20 2007/12/09 06:43:4
 #     data
 #     encoding
 #
-snit::type ::hv3::download {
+snit::type ::hv3::request {
 
-  # The requestor (i.e. the creator of the ::hv3::download object) sets the
+  # The requestor (i.e. the creator of the ::hv3::request object) sets the
   # following configuration options. The protocol implementation may set the
   # -mimetype option before returning.
   #

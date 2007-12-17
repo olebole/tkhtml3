@@ -16,7 +16,7 @@
 #         If not an empty string, this option specifies a script to be
 #         invoked for a GET or POST request. The script is invoked with a
 #         download handle appended to it. See the description of class
-#         ::hv3::download for a description.
+#         ::hv3::request for a description.
 #
 #     -targetcmd
 #         If not an empty string, this option specifies a script for
@@ -97,14 +97,14 @@
 # The code in this file is partitioned into the following classes:
 #
 #     ::hv3::hv3
-#     ::hv3::download
+#     ::hv3::request
 #     ::hv3::selectionmanager
 #     ::hv3::dynamicmanager
 #     ::hv3::hyperlinkmanager
 #
 # ::hv3::hv3 is, of course, the main mega-widget class. Class
-# ::hv3::download is part of the public interface to ::hv3::hv3. A
-# single instance of ::hv3::download represents a resource request made
+# ::hv3::request is part of the public interface to ::hv3::hv3. A
+# single instance of ::hv3::request represents a resource request made
 # by the mega-widget package - for document, stylesheet, image or 
 # object data.
 #
@@ -1056,7 +1056,7 @@ snit::widget ::hv3::hv3 {
 
   variable myFragmentSeek ""
 
-  # The ::hv3::download object used to retrieve the main document.
+  # The ::hv3::request object used to retrieve the main document.
   #
   variable myDocumentHandle ""
 
@@ -1261,7 +1261,7 @@ snit::widget ::hv3::hv3 {
       # of image/gif. This should be enough to tell the protocol handler to
       # expect a binary file (of course, this is not correct, the real
       # default mime-type might be some other kind of image).
-      set handle [::hv3::download %AUTO%              \
+      set handle [::hv3::request %AUTO%              \
           -uri          $full_uri                      \
           -mimetype     image/gif                      \
           -cachecontrol $myCacheControl                \
@@ -1296,7 +1296,7 @@ snit::widget ::hv3::hv3 {
       set finscript [$handle cget -finscript]
       $handle release
       set full_location [$self resolve_uri $location]
-      set handle2 [::hv3::download $handle               \
+      set handle2 [::hv3::request $handle               \
           -uri          $full_location                   \
           -mimetype     image/gif                        \
           -cachecontrol $myCacheControl                  \
@@ -1334,7 +1334,7 @@ snit::widget ::hv3::hv3 {
     set urlcmd    [list ::hv3::ss_resolve_uri $full_uri]
     append id .9999
 
-    set handle [::hv3::download %AUTO%              \
+    set handle [::hv3::request %AUTO%              \
         -uri         $full_uri                      \
         -mimetype    text/css                       \
         -cachecontrol $myCacheControl               \
@@ -1772,7 +1772,7 @@ snit::widget ::hv3::hv3 {
 
     event generate $win <<Goto>>
 
-    set handle [::hv3::download %AUTO% -mimetype text/html]
+    set handle [::hv3::request %AUTO% -mimetype text/html]
     set myMimetype ""
     set referer [$self uri get]
     $handle configure                                       \
@@ -1951,7 +1951,7 @@ snit::widget ::hv3::hv3 {
       # document, but at this juncture the URI may legitimately refer
       # to kind of resource.
       #
-      set handle [::hv3::download %AUTO%             \
+      set handle [::hv3::request %AUTO%             \
           -uri         [$uri_obj get]                \
           -mimetype    $mimetype                     \
           -cachecontrol $myCacheControl              \
