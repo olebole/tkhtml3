@@ -1582,7 +1582,6 @@ snit::widget ::hv3::hv3 {
     switch -- [llength $myFragmentSeek] {
       0 { # Do nothing }
       1 {
-        $myHtml _force
         $myHtml yview moveto [lindex $myFragmentSeek 0]
       }
       2 {

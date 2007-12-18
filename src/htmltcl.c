@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.199 2007/12/08 15:36:01 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.200 2007/12/18 04:00:56 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1846,6 +1846,8 @@ viewCommon(pTree, isXview, objc, objv)
         double fraction;
         int count;
         int iNewVal = 0;     /* New value of iScrollY or iScrollX */
+
+        HtmlCallbackForce(pTree);
 
         /* The [widget yview] command also supports "scroll-to-node" */
         if (!isXview && objc == 3) {
