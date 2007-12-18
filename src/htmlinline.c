@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.58 2007/12/09 08:19:30 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.59 2007/12/18 15:05:56 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <stdio.h>
@@ -1423,6 +1423,7 @@ HtmlInlineContextGetLineBox(pLayout, p, flags, pWidth, pCanvas, pVSpace,pAscent)
         if (!ignoreSpace) {
             x += pBox->nSpace;
         }
+
     }
 
     /* If any borders are still in the InlineContext.pBorders list, then

@@ -33,9 +33,9 @@ STARKITRT = ~/bin/tclkit
 #
 JS_SHARED_LIB = libTclsee.so
 
-JSLIB   = $(HOME)/javascript/install/lib/libgc.a
-JSLIB  += $(HOME)/javascript/install/lib/libsee.a -lpthread
-JSFLAGS = -I$(HOME)/javascript/install/include
+JSLIB   = $(HOME)/work/tkhtml/js/lib/libgc.a
+JSLIB  += $(HOME)/work/tkhtml/js/lib/libsee.a -lpthread
+JSFLAGS = -I$(HOME)/work/tkhtml/js/include
 
 #JSLIB  = $(HOME)/javascript/install_nogc/lib/libsee.a
 #JSFLAGS = -I$(HOME)/javascript/install_nogc/include -DNO_HAVE_GC

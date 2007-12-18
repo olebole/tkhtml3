@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.91 2007/12/17 04:43:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.92 2007/12/18 15:05:56 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -1334,6 +1334,7 @@ proc ::hv3::dom_init {{init_docs 0}} {
 #     }
 #
 catch { load [file join tclsee0.1 libTclsee.so] }
+catch { load [file join tclsee0.1 libTclsee.dll] }
 catch { package require Tclsee }
 
 set ::hv3::scriptdir [file dirname [info script]]

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.178 2007/12/09 10:10:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.179 2007/12/18 15:05:56 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -26,9 +26,9 @@ if {[catch { package require Img } errmsg]} {
 }
 
 source [sourcefile hv3_browser.tcl]
-if {![llength [info procs ::console]]} {
-    source [sourcefile hv3_console.tcl]
-}
+# if {![llength [info procs ::console]]} {
+#     source [sourcefile hv3_console.tcl]
+# }
 
 namespace eval ::hv3 {
   set log_source_option 0
@@ -465,8 +465,6 @@ snit::type ::hv3::debug_menu {
       "Debugging Console..." [list ::hv3::launch_console]                 d  \
       "-----"                [list]                                       "" \
       "Exec firefox -remote" [list gui_firefox_remote]                    "" \
-      "-----"                   [list]                                    "" \
-      "Show Tcl Console"     [list ::console show]                        "" \
       "-----"                   [list]                                    "" \
       "Reset Profiling Data..." [list ::hv3::profile::zero]               "" \
       "Save Profiling Data..."  [list ::hv3::profile::report_to_file]     "" \

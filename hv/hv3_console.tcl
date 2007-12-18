@@ -1,9 +1,11 @@
-namespace eval hv3 { set {version($Id: hv3_console.tcl,v 1.1 2007/10/27 12:06:52 hkoba Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_console.tcl,v 1.2 2007/12/18 15:05:56 danielk1977 Exp $)} 1 }
 
 # -*- mode: tcl; tab-width: 8 -*-
 #
 # Make sure [::console show] is available.
 #
+
+return
 
 if {![catch {package require tclreadline}]} {
     proc ::console method {
