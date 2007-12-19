@@ -101,8 +101,8 @@ snit::widget ::hv3::browser_frame {
     $html handler node frameset [list ::hv3::frameset_handler $self]
 
     # Register handler commands to handle <object> and kin.
-    $html handler node object   [list hv3_object_handler $self]
-    $html handler node embed    [list hv3_object_handler $self]
+    $html handler node object   [list hv3_object_handler $myHv3]
+    $html handler node embed    [list hv3_object_handler $myHv3]
 
     $html handler node      iframe [list ::hv3::iframe_handler $self]
     $html handler attribute iframe [list ::hv3::iframe_attr_handler $self]

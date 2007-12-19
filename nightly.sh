@@ -1,6 +1,6 @@
 
-#export VERSION=nightly-`date +"%y_%m%d"`
-export VERSION=alpha-16
+export VERSION=nightly-`date +"%y_%m%d"`
+#export VERSION=alpha-16
 
 HERE=`pwd`
 
