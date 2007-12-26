@@ -1657,6 +1657,10 @@ snit::widget ::hv3::hv3 {
         }
       }
 
+      $myUri load [$handle cget -uri]
+      $myBase load [$myUri get]
+      $self set_location_var
+
       # If there is a "Location" or "Refresh" header, handle it now.
       set refreshheader ""
       foreach {name value} [$handle cget -header] {
@@ -1696,10 +1700,6 @@ snit::widget ::hv3::hv3 {
 
       set myReferrer $referrer
   
-      $myUri load [$handle cget -uri]
-      $myBase load [$myUri get]
-      $self set_location_var
-
       if {$myCacheControl ne "relax-transparency"} {
         $self seek_to_fragment [$myUri fragment]
       }
