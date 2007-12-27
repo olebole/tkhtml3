@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.200 2007/12/18 04:00:56 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.201 2007/12/27 06:07:30 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -53,6 +53,21 @@ static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.200 2007/12/18 04:00:56 dan
     Tcl_AppendResult(interp, str, " invalid in safe interp", 0); \
     return TCL_ERROR; \
 }
+
+/* We need to get at the TkBindEventProc() function, which is in the
+ * internal stubs table for Tk. So create this structure and hope that
+ * it is compatible enough.
+ */
+struct MyTkIntStubs {
+  int magic;
+  void *hooks;
+  void (*zero)(void);
+  void (*one)(void);
+  void (*two)(void);
+  void (*three)(void);
+  void (*tkBindEventProc)(Tk_Window winPtr, XEvent *eventPtr);  /* 4 */
+};
+extern struct MyTkIntStubs *tkIntStubsPtr;
 
 #ifndef NDEBUG
 static int 
@@ -1208,8 +1223,7 @@ docwinEventHandler(clientData, pEvent)
             pEvent->xmotion.window = Tk_WindowId(pTree->tkwin);
             pEvent->xmotion.x += Tk_X(pTree->docwin);
             pEvent->xmotion.y += Tk_Y(pTree->docwin);
-            Tk_HandleEvent(pEvent);
-
+            tkIntStubsPtr->tkBindEventProc(pTree->tkwin, pEvent);
             pEvent->type = EnterNotify;
             pEvent->xcrossing.detail = NotifyInferior;
             break;
