@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.201 2007/12/27 06:07:30 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.202 2007/12/30 07:19:02 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1319,9 +1319,9 @@ configureCmd(clientData, interp, objc, objv)
     #define STRING(v, s1, s2, s3) \
         {TK_OPTION_STRING, "-" #v, s1, s2, s3, \
          Tk_Offset(HtmlOptions, v), -1, TK_OPTION_NULL_OK, 0, 0}
-    #define XCOLOR(v, s1, s2, s3) \
-        {TK_OPTION_COLOR, "-" #v, s1, s2, s3, -1, \
-         Tk_Offset(HtmlOptions, v), 0, 0, 0}
+    #define STRINGT(v, s1, s2, s3, t) \
+        {TK_OPTION_STRING_TABLE, "-" #v, s1, s2, s3, \
+         Tk_Offset(HtmlOptions, v), -1, 0, (ClientData)t, 0}
     #define BOOLEAN(v, s1, s2, s3, flags) \
         {TK_OPTION_BOOLEAN, "-" #v, s1, s2, s3, -1, \
          Tk_Offset(HtmlOptions, v), 0, 0, flags}
@@ -1335,49 +1335,36 @@ configureCmd(clientData, interp, objc, objv)
     /* Option table definition for the html widget. */
     static Tk_OptionSpec htmlOptionSpec[] = {
 
-        /* Standard geometry interface */
-        GEOMETRY(height, "height", "Height", "600"),
-        GEOMETRY(width, "width", "Width", "800"),
+/* Standard geometry and scrolling interface - same as canvas, text */
+GEOMETRY(height, "height", "Height", "600"),
+GEOMETRY(width, "width", "Width", "800"),
+PIXELS  (yscrollincrement, "yScrollIncrement", "ScrollIncrement", "20"),
+PIXELS  (xscrollincrement, "xScrollIncrement", "ScrollIncrement", "20"),
+STRING  (xscrollcommand, "xScrollCommand", "ScrollCommand", ""),
+STRING  (yscrollcommand, "yScrollCommand", "ScrollCommand", ""),
 
-BOOLEAN(shrink, "shrink", "Shrink", "0", S_MASK),
-BOOLEAN(layoutcache, "layoutCache", "LayoutCache", "1", S_MASK),
-BOOLEAN(forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", F_MASK),
-BOOLEAN(forcewidth, "forceWidth", "ForceWidth", "0", L_MASK),
+/* Non-debugging, non-standard options in alphabetical order. */
+OBJ     (defaultstyle, "defaultStyle", "DefaultStyle", HTML_DEFAULT_CSS, 0),
+DOUBLE  (fontscale, "fontScale", "FontScale", "1.0", F_MASK),
+OBJ     (fonttable, "fontTable", "FontTable", "8 9 10 11 13 15 17", FT_MASK),
+BOOLEAN (forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", F_MASK),
+BOOLEAN (forcewidth, "forceWidth", "ForceWidth", "0", L_MASK),
+BOOLEAN (imagecache, "imageCache", "ImageCache", "1", S_MASK),
+STRING  (imagecmd, "imageCmd", "ImageCmd", ""),
+STRINGT (mode, "mode", "Mode", "standards", azModes),
+STRINGT (parsemode, "parsemode", "Parsemode", "html", azParseModes),
+BOOLEAN (shrink, "shrink", "Shrink", "0", S_MASK),
+DOUBLE  (zoom, "zoom", "Zoom", "1.0", F_MASK),
 
-        DOUBLE(fontscale, "fontScale", "FontScale", "1.0", F_MASK),
-        DOUBLE(zoom, "zoom", "Zoom", "1.0", F_MASK),
+/* Debugging options */
+BOOLEAN (layoutcache, "layoutCache", "LayoutCache", "1", S_MASK),
+STRING  (logcmd, "logCmd", "LogCmd", ""),
+STRING  (timercmd, "timerCmd", "TimerCmd", ""),
 
-        /* Standard scroll interface - same as canvas, text */
-        PIXELS(yscrollincrement, "yScrollIncrement", "ScrollIncrement", "20"),
-        PIXELS(xscrollincrement, "xScrollIncrement", "ScrollIncrement", "20"),
-        STRING(xscrollcommand, "xScrollCommand", "ScrollCommand", ""),
-        STRING(yscrollcommand, "yScrollCommand", "ScrollCommand", ""),
-
-        /* Non-debugging widget specific options */
-        OBJ(defaultstyle, "defaultStyle", "DefaultStyle", 
-            HTML_DEFAULT_CSS, 0),
-        STRING(imagecmd, "imageCmd", "ImageCmd", ""),
-        BOOLEAN(imagecache, "imageCache", "ImageCache", "1", S_MASK),
-    
-        /* Options for logging info to debugging scripts */
-        STRING(logcmd, "logCmd", "LogCmd", ""),
-        STRING(timercmd, "timerCmd", "TimerCmd", ""),
-
-        OBJ(fonttable, "fontTable", "FontTable", "8 9 10 11 13 15 17", FT_MASK),
-
-        {TK_OPTION_STRING_TABLE, "-mode", "mode", "Mode", "standards", 
-             -1, Tk_Offset(HtmlOptions, mode), 0, (ClientData)azModes, 0
-        },
-        {TK_OPTION_STRING_TABLE, "-parsemode", "parsemode", "Parsemode", 
-             "html", -1, Tk_Offset(HtmlOptions, parsemode), 0, 
-             (ClientData)azParseModes, 0
-        },
-    
         {TK_OPTION_END, 0, 0, 0, 0, 0, 0, 0, 0}
     };
     #undef PIXELS
     #undef STRING
-    #undef XCOLOR
     #undef BOOLEAN
 
     HtmlTree *pTree = (HtmlTree *)clientData;

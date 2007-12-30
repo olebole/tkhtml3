@@ -40,13 +40,12 @@
 		passed to [SQ ::tkhtml::htmlstyle] then the returned document
 		includes some extra rules used when rendering legacy documents.
 
+		If the value of the -defaultstyle option is changed, the new
+		value does not take effect until after the next call to the
+		widget [SQ reset] method.
+
 		The default value of this option is the same as the string
 		returned by the [SQ ::tkhtml::htmlstyle] command.
-	}]
-	[Option doublebuffer {
-		This is a boolean option. If true, use a double buffered
-		window to improve performance. The default is true for
-		windows systems, and false for others.
 	}]
 	[Option fontscale {
 		This option is set to a floating point number, default 1.0.
@@ -64,7 +63,7 @@
 		'xx-small', 'x-small', 'small', 'medium', 'large', 'x-large' or
 		'xx-large', respectively.
 
-		The default value is {7 8 9 10 12 14 16}.
+		The default value is {8 9 10 11 13 15 17}.
         }]
 	[Option forcefontmetrics {
 		This is a boolean option. If true, the font-metrics returned
@@ -85,6 +84,20 @@
 		window is used.
 
 		The default value is false.
+	}]
+	[Option imagecache {
+		This boolean option (default true) determines whether or not
+		Tkhtml3 caches the images returned to it by the -imagecmd
+		callback script. If true, all images are cached until the
+		next time the [SQ reset] sub-command is invoked. If false,
+		images are discarded as soon as they are not in use.
+
+		For simple applications, or applications that retrieve 
+		images from local sources, false is usually a better value
+		for this option (since it may save memory). However for
+		web-browser applications where the background images of
+		elements may be modified by mouseover events and so on, 
+		true is a better choice.
 	}]
 	[Option imagecmd {
 		As well as for replacing entire document nodes (i.e. <img>),
@@ -108,26 +121,28 @@
 		If the size or content of the image are modified while it is in
 		use the widget display is updated automatically.
 	}]
-	[Option imagecache {
-		This boolean option (default true) determines whether or not
-		Tkhtml3 caches the images returned to it by the -imagecmd
-		callback script. If true, all images are cached until the
-		next time the [SQ reset] sub-command is invoked. If false,
-		images are discarded as soon as they are not in use.
-
-		For simple applications, or applications that retrieve 
-		images from local sources, false is usually a better value
-		for this option (since it may save memory). However for
-		web-browser applications where the background images of
-		elements may be modified by mouseover events and so on, 
-		true is a better choice.
-	}]
 	[Option mode {
 		This option may be set to "quirks", "standards" or 
 		"almost standards", to set the rendering engine mode. The
 		default value is "standards".
 
 		TODO: List the differences between the three modes in Tkhtml.
+	}]
+	[Option parsemode {
+		This option may be set to "html", "xhtml" or "xml", to set 
+		the parser mode. The default value is "html".
+
+		In "html" mode, the parser attempts to mimic the tag-soup
+		approach inherited by modern web-browsers from the bad old
+		days. Explicit XML style self-closing tags (i.e. closing
+		a markup tag with "/>" instead of ">") are not handled
+		specially. Unknown tags are ignored.
+
+		"xhtml" mode is the same as "html" mode except that explicit
+		self-closing tags are recognized.
+
+		"xml" mode is the same as "xhtml" mode except that unknown
+		tag names and XML CDATA sections are recognized.
 	}]
 	[Option shrink {
 		This boolean option governs the way the widgets requested width
@@ -916,5 +931,4 @@
 	refer to the CSS and CSS 2 specifications (www.w3.org).
 
 [Section Orphan Nodes]
-
 
