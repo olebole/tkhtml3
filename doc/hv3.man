@@ -3,11 +3,74 @@
 [Section Name]
 	hv3 - Mega-widget building on Tkhtml.
 
+	THIS IS A WORK IN PROGRESS. IT IS POSSIBLE TO USE THE HV3 WIDGET, BUT
+	IT IS NOT YET PROPERLY PACKAGED. POST ON THE MAILING LIST IF YOU WISH
+	TO USE IT NOW.
+
+	Comments and feedback also welcome.
+
 [Section Synopsis]
 	[Code {
+		package require snit
 		package require hv3
-		hv3 pathName ?options?
+		::hv3::hv3 pathName ?options?
 	}]
+
+[Section Description]
+
+	The [SQ hv3] command creates a new window (given by the pathName
+	argument) and makes it into hv3 widget. The hv3 command
+	returns its pathName argument. At the time this command is invoked,
+	there must not exist a window named pathName, but pathName's parent
+	must exist. Hv3 is a pure Tcl widget implemented using Tkhtml3 and
+	the excellent mega-widget framework Snit.
+
+	An [SQ hv3] widget is not a web-browser. If it were to be used as
+	a component in a web-browser application it would represent a single
+	browser frame (or iframe). The API described in this document is
+	not the whole API offered by the snit object ::hv3::hv3. Instead,
+	it is the subset of that API that is expected not to change. No
+	guarantees of course.
+
+	There are two 'objects' involved in using the [SQ hv3] widget. One
+	is the widget itself ([SQ ::hv3::hv3]). The other is the 
+	request-handle ([SQ ::hv3::request]). A request-handle is the 
+	interface between the hv3 widget and wherever it is getting its
+	data from (i.e. your implementation of http://, https:// etc.).
+	Many users will also wish to understand the Tkhtml3 "node-handle"
+	interface, documented as part of the Tkhtml3 manpage.
+
+	An [SQ hv3] widget provides the following features on top of the
+	[SQ html] widget:
+
+[Bulletlist {
+		Built-in scrollbars.
+} {
+		Support for selecting text with the pointer.
+} {
+		Support for loading linked images and stylesheets from URIs.
+} {
+		Support for HTML forms and submission thereof.
+} {
+		Support for CSS configured hover (mouseover) effects.
+} {
+		Support for loading a new document by clicking on a hyper-link.
+}]
+
+	The two most important interfaces are the [SQ goto] method and the
+	[SQ -requestcmd] option. The [SQ goto] method tells the widget to
+	load the document identified by the specified absolute or relative
+	URI.
+
+	The [SQ -requestcmd] must be configured with a callback script that
+	the widget invokes to request the requested document. It is the
+	users responsibility to retrieve the document and pass it back to
+	the widget. If the document contains links to external resources
+	(images or CSS stylesheets), then the widget invokes the 
+	[SQ -requestcmd] to request these. The -requestcmd callback may
+	choose to implement handling for one or more of http:// URIs, 
+	file:// URIs or any other existing or invented URI scheme. See
+	the "Example Usage" section below for an example.
 
 [Section Standard Options]
 	[Code {
@@ -20,55 +83,67 @@
 	this mega-widget.
 
 	[Code {
-		-logcmd
+		-fontscale
 		-fonttable
+		-forcefontmetrics
+		-zoom
+	}]
+
+[Section Html Commands]
+	The following Tkhtml commands are exposed as public options of 
+	this mega-widget.
+
+	[Code {
+		node ? ?-index? _x_ _y_?
 	}]
 
 [Section Widget-Specific Options]
-	[Option statusvar {
-		If not set to an empty string (the default value), this 
-		option is set to the name of a Tcl variable in which the
-		widget stores an English language message describing the
-		outstanding downloads the widget is waiting on. The 
-		description is dynamically updated as download status 
-		changes.
+
+	[Option enableimages {
+		Boolean option (default true). True for image support, false
+		otherwise. If this option is set to false, then the 
+		[SQ -requestcmd] script will never be invoked to request an
+		image resource.
 	}]
-	[Option cursorvar {
-		If not set to an empty string (the default value), this 
-		option is set to the name of a Tcl variable in which the
-		widget stores an English language message based on the
-		node currently under the pointer. If the node is a 
-		hyper-link, the message displays the link target. Otherwise
-		it displays the node element type, and the element types of
-		the parent and ancestor nodes. The description is dynamically
-		updated as the cursor moves. 
+	[Option isvisitedcmd {
+		If not an empty string, this option specifies a script for
+		the widget to invoke to determine if a hyperlink (&lt;A&gt;) 
+		node should be styled with the :link or :visited 
+		pseudo-class. The script is invoked with the node handle 
+		appended to it. If true is returned, :visited is used, 
+		otherwise :link.
+	}]
+	[Option requestcmd {
+		If this option is not set by the user code, then the Hv3
+		widget will be unable to display anything.
+
+		It should be set to a script that may be invoked by the hv3
+		widget to request a resource required to display a URI 
+		requested via the [SQ goto] method. Each time a resource
+		is required, the [SQ -requestcmd] script is invoked with
+		a single argument appended to it, the name of a request
+		handle object. See section "Request Handles" for details.
+	}]
+	[Option targetcmd {
+		If this option is not set to an empty string (the default),
+		it should be set to a script that will be invoked each time
+		a hyper-link is clicked or a form submitted in the hv3 widget
+		by the end-user. A single argument is appended to the script
+		before it is evaluated, the Tkhtml3 node-handle for the 
+		relevant &lt;FORM&gt; (in the case of form submittal) or 
+		&lt;A&gt; (if the end user clicked a hyperlink) node. The
+		script should return the path of an hv3 widget into which
+		the new resource should be loaded. This is useful for
+		implementing browsers that support HTML frames and iframes.
+
+		If the script returns an empty string the request is 
+		abandoned and the new resource never loaded and the
+		form data (if any) not submitted.
+
+		If the option is set to an empty string the new resource is
+		always loaded into the hv3 widget itself.
 	}]
 
-[Section Description]
-
-	The [SQ hv3] command creates a new window (given by the pathName
-	argument) and makes it into hv3 widget. The hv3 command
-	returns its pathName argument. At the time this command is invoked,
-	there must not exist a window named pathName, but pathName's parent
-	must exist.
-
-	An [SQ hv3] widget provides the following features on top of the
-	[SQ html] widget:
-
-[Bulletlist {
-		Built-in scrollbars.
-} {
-		Support for selecting text with the pointer.
-} {
-		Built-in support for the file:// protocol and an API to 
-		allow further protocols (http://, https:// ...) to be added.
-} {
-		Support for loading linked images and stylesheets from URIs.
-} {
-		Support for loading a new document by clicking on a 
-		hyper-link.
-}]
-	
 [Section Widget Command]
 	The [SQ hv3] command creates a new Tcl command whose name is
 	pathName. This command may be used to invoke various operations on
@@ -98,57 +173,129 @@
 }]
 
 [Subcommand {
-	pathName goto _url_ _?options?_
-		Where available options are:
+	pathName goto _uri_
+		Load the resource at _uri_ into the widget. If _uri_ is 
+		not an absolute URI, it is resolved with respect to 
+		the widget's current document URI (or &lt;BASE&gt; element
+		contents, if present).
+}]
+
+[Section Request Handles]
+	To be useful, the user must provide the hv3 with some way to
+	request resources ((X)HTML documents, CSS stylesheets and binary 
+	image files) identified by URI for display. To this end, the
+	user configures a [SQ -requestcmd] script with the hv3 widget.
+	Each time a resource is required, the [SQ -requestcmd] script
+	is evaluated with a single argument, a request handle object
+	identifier, appended to it.
+
+	A request handle object is a snit object. The [SQ -requestcmd]
+	script can query the object to determine the parameters of the
+	request and then invoke object methods to return data and
+	meta data. The key APIs are the [SQ -uri] option and the 
+	[SQ finish] method.
+
+	Data may be returned asynchronously. That is, it is not necessary
+	to return data from within the [SQ -requestcmd] evaluation, the
+	request handle may be stored and data returned at some later time.
+
+[Subsection Request Handle Options]
+
+[Option enctype {
+	This option is used by "POST" requests, which may be made by an
+	hv3 widget if the loaded document contains a form and the end-user
+	submits it. For a "GET" request (all other requests, the usual
+	case) it is set to an empty string.
+
+	The cannonical test to check if a given request is a POST or GET
+	request is:
+	
 	[Code {
-		-noresolve
-		-nocallback
+		if {[$handle cget -postdata] ne ""} {
+		  # This is a POST request.
+		} else {
+		  # This is a GET request.
+		}
 	}]
+
+	For POST requests, this option may be set by the Hv3 widget to
+	contain the Content-Type of the data stored in the [SQ -postdata]
+	option. For example "application/x-www-form-urlencoded".
+}]
+
+[Option header {
+	The Hv3 widget sets this option to an empty string before passing
+	the request handle to the user code.
+
+	The user code may set this option to a list containing data to
+	be handled by the hv3 widget as if it had been returned as the
+	HTTP header for an HTTP request. The list consists of alternating
+	HTTP header-names and values. This is the same format as the 
+	"meta" element of the "state array" interface used by Tcl's 
+	built-in http package. 
+
+	The Hv3 widget interprets the following HTTP headers:
+
+[Bulletlist {
+		TODO.
+}]
+}]
+[Option mimetype {
+	The Hv3 widget sets this option to the expected mime type of the
+	resource requested.
+
+	If the user code knows the mime type of the resource being returned,
+	it should set this option before the first invocation of the 
+	[SQ append] method. Useful values recognized by the hv3 widget 
+	include "text/xhtml" and "image/gif".
+}]
+[Option postdata {
+	This option is used by "POST" requests, which may be made by an
+	hv3 widget if the loaded document contains a form and the end-user
+	submits it.
+
+	It contains the data to be posted.
+}]
+[Option requestheader {
+	The Hv3 widget sets this option to a list of HTTP header-names and
+	values to be handled as request parameters for an HTTP request (i.e.
+	the "referrer" header). 
+
+	The user code should not change the value of this option.
+}]
+[Option uri {
+	This option is always set by the Hv3 widget before passing the
+	request handle to the user code. It contains the absolute URI
+	of the resource required by the widget.
+
+	The user code should not change the value of this option.
+}]
+
+[Subsection Request Handle Methods]
+
+[Subcommand {
+	requestHandle append _data_
+		This method should be invoked one or more times to return 
+		data to the hv3 widget. 
+
+		The data passed to this method should always be binary data.
+		If the data is actually text data for a document or stylesheet,
+		it's encoding is determined based on either a HTTP header
+		returned via the [SQ header] option, or a &lt;meta&gt; 
+		element in the header section of an HTML or XHTML document.
+		If neither of these are present, the assumed encoding is
+		either the document encoding in the case of linked CSS
+		stylesheet, or the value returned by [SQ encoding system] for
+		an HTML or XHTML document.
 }]
 
 [Subcommand {
-	pathName protocol _protocol_ _script_
-		Register a new protocol handler with the widget. The 
-		protocol parameter is the name of the new protocol to 
-		handle, for example "http" or "https". When hv3 requires 
-		data from a URI matching the specified protocol it appends
-		a download-handle to the supplied script and evaluates the
-		result. See the "download-handle" section below for a
-		description of the interface a protocol-handler script 
-		uses to return downloaded data to the widget.
+	requestHandle finish
+		This method should be called after all data has been 
+		obtained. The request handle object is deleted by the
+		system from within this call, so the object may not be used
+		after this method has been invoked.
 }]
 
-[Section Download Handle]
-	A download handle is passed to a protocol-handler script. It's 
-	job is to retrieve the data for a specified URI and pass it on
-	to the hv3 widget. A download-handle is itself a Tcl command
-	implementing the following sub-commands:
-
-[Subcommand {
-	downloadHandle append _data_
-}]
-
-[Subcommand {
-	downloadHandle binary
-		Return true if binary data is expected, false if UTF-8.
-}]
-
-[Subcommand {
-	downloadHandle finish _data_
-}]
-
-[Subcommand {
-	downloadHandle redirect _uri_
-}]
-
-[Subcommand {
-	downloadHandle uri
-		Return the URI to be retrieved. The URI is never relative 
-		and never includes a fragment (a URI fragment is the bit on 
-		the end after a # character).
-}]
-
-[Subcommand {
-	downloadHandle cancelvar _varname_
-}]
+[Section Example Usage]
 

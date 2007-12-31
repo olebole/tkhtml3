@@ -48,9 +48,12 @@ proc getTabs {idx} {
     Home       index.html   "Front page of this site"                        \
     Standards  support.html "Summary of support for CSS and HTML standards"  \
     "Tkhtml3"  tkhtml.html  "Unix style manual page for the Tkhtml3 widget." \
-    Hv3        hv3.html     {
+    "Hv3"      hv3.html     {
 		 Page for the web browser application hv3. Screenshots and
                  starpacks for windows and linux are available here. }       \
+    "Hv3&nbsp;Widget" hv3_widget.html     {
+		 Page for the Hv3 mega-widget, a Snit based pure Tcl widget
+                 that adds some commonly requested functionality to Tkhtml3. } \
     FFAQ       ffaq.html     "tkhtml.tcl.tk FFAQ"                            \
     Cvstrac      http://tkhtml.tcl.tk/cvstrac/timeline {
 		  Cvstrac is used for project change-log, wiki and bug

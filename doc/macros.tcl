@@ -277,7 +277,7 @@ proc Section {args} {
 proc Subsection {args} {
   set n [incr ::HtmlMacros::N]
   lappend ::HtmlMacros::Index [list SUBSECTION $args]
-  return [Block "<a name=\"section$n\"><h3$args</h3></a>"]
+  return [Block "<a name=\"section$n\"><h3>$args</h3></a>"]
 }
 
 proc Code {args} {
@@ -351,7 +351,11 @@ close $fd
 set ::TABS ""
 catch {
   source [file join [file dirname $file] .. webpage common.tcl]
-  set ::TABS [getTabs 2]
+  if {[string match *hv3* $file]} {
+    set ::TABS [getTabs 4]
+  } else {
+    set ::TABS [getTabs 2]
+  }
 } msg
 # puts stderr "ERROR $msg"
 

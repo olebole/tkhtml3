@@ -1163,7 +1163,7 @@ snit::widget ::hv3::hv3 {
   #
   method referrer {} { return $myReferrer }
 
-  method forget {handle} {
+  method Forget {handle} {
     set idx [lsearch $myActiveHandles $handle]
     set myActiveHandles [lreplace $myActiveHandles $idx $idx]
   }
@@ -1174,10 +1174,10 @@ snit::widget ::hv3::hv3 {
   # This method is used by hv3 and it's component objects (i.e. code in
   # hv3_object_handler). Also the dom code, for XMLHTTPRequest.
   #
-  method makerequest {downloadHandle} {
+  method makerequest {downloadHandle} {            # PRIVATE
 
     lappend myActiveHandles $downloadHandle
-    $downloadHandle finish_hook [list $self forget $downloadHandle]
+    $downloadHandle finish_hook [list $self Forget $downloadHandle]
 
     # Execute the -requestcmd script. Fail the download and raise
     # an exception if an error occurs during script evaluation.
@@ -1193,7 +1193,7 @@ snit::widget ::hv3::hv3 {
   # Based on the current contents of instance variable $myUri, set the
   # variable identified by the -locationvar option, if any.
   #
-  method set_location_var {} {
+  method SetLocationVar {} {
     if {$options(-locationvar) ne ""} {
       uplevel #0 [list set $options(-locationvar) [$myUri get]]
     }
@@ -1220,6 +1220,8 @@ snit::widget ::hv3::hv3 {
 
   method onload_fired {} { return $myOnloadFired }
 
+  # PUBLIC METHOD.
+  #
   method resolve_uri {uri} {
     if {$uri eq ""} {
       set ret "[$myBase scheme]://[$myBase authority][$myBase path]"
@@ -1659,7 +1661,7 @@ snit::widget ::hv3::hv3 {
 
       $myUri load [$handle cget -uri]
       $myBase load [$myUri get]
-      $self set_location_var
+      $self SetLocationVar
 
       # If there is a "Location" or "Refresh" header, handle it now.
       set refreshheader ""
@@ -1688,7 +1690,7 @@ snit::widget ::hv3::hv3 {
           # Remove the download handle from the list of handles to cancel
           # if [$hv3 stop] is invoked (when the user clicks the "stop" button
           # we don't want to cancel pending save-file operations).
-          $self forget $handle
+          $self Forget $handle
           eval [linsert $options(-downloadcmd) end $handle $data $final]
         } else {
           $handle release
@@ -1909,7 +1911,7 @@ snit::widget ::hv3::hv3 {
       }
       $self goto_fragment
 
-      $self set_location_var
+      $self SetLocationVar
       return [$myUri get]
     }
 
