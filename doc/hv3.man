@@ -180,6 +180,13 @@
 		contents, if present).
 }]
 
+[Subcommand {
+	pathName stop
+		Abandon all pending requests. All request handle objects 
+		that are still outstanding are destroyed (it is an error
+		to use such a request handle after calling [SQ stop]).
+}]
+
 [Section Request Handles]
 	To be useful, the user must provide the hv3 with some way to
 	request resources ((X)HTML documents, CSS stylesheets and binary 

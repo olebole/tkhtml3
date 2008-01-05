@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.202 2007/12/30 07:19:02 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.203 2008/01/05 08:54:24 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1320,8 +1320,8 @@ configureCmd(clientData, interp, objc, objv)
         {TK_OPTION_STRING, "-" #v, s1, s2, s3, \
          Tk_Offset(HtmlOptions, v), -1, TK_OPTION_NULL_OK, 0, 0}
     #define STRINGT(v, s1, s2, s3, t) \
-        {TK_OPTION_STRING_TABLE, "-" #v, s1, s2, s3, \
-         Tk_Offset(HtmlOptions, v), -1, 0, (ClientData)t, 0}
+        {TK_OPTION_STRING_TABLE, "-" #v, s1, s2, s3, -1, \
+         Tk_Offset(HtmlOptions, v), 0, (ClientData)t, 0}
     #define BOOLEAN(v, s1, s2, s3, flags) \
         {TK_OPTION_BOOLEAN, "-" #v, s1, s2, s3, -1, \
          Tk_Offset(HtmlOptions, v), 0, 0, flags}
