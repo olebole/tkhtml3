@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.1 2008/01/06 08:45:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.2 2008/01/06 09:11:56 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of three snit widgets:
 #
@@ -291,7 +291,7 @@ snit::widget ::hv3::notebook {
     # Create a tabs header to paint the tab control in.
     #
     set myHeader [::hv3::notebook_header ${win}.header]
-    $myHeader configure -selectcmd [list $self select]
+    $myHeader configure -selectcmd [mymethod select]
 
     place $myHeader -x 0 -y 0 -relwidth 1.0
 
@@ -369,8 +369,8 @@ snit::widget ::hv3::notebook {
     if {[llength $myWidgets] == 1} {
       $self Place [lindex $myWidgets 0]
     }
-    after cancel [list event generate $self <<NotebookTabChanged>>]
-    after idle   [list event generate $self <<NotebookTabChanged>>]
+    after cancel [list event generate $win <<NotebookTabChanged>>]
+    after idle   [list event generate $win <<NotebookTabChanged>>]
   }
 
   # select ?WIDGET?
@@ -386,8 +386,8 @@ snit::widget ::hv3::notebook {
       if {$myCurrent != $idx} {
         set myCurrent $idx
         $myHeader select $widget
-        after cancel [list event generate $self <<NotebookTabChanged>>]
-        after idle   [list event generate $self <<NotebookTabChanged>>]
+        after cancel [list event generate $win <<NotebookTabChanged>>]
+        after idle   [list event generate $win <<NotebookTabChanged>>]
         raise $widget
       }
     }
@@ -420,7 +420,7 @@ snit::widget ::hv3::notebook {
 #     $notebook get_title WIDGET
 #     $notebook tabs
 #
-snit::widget ::hv3::tabset {
+snit::widgetadaptor ::hv3::tabset {
 
   option -newcmd      -default ""
   option -switchcmd   -default ""
@@ -439,22 +439,21 @@ snit::widget ::hv3::tabset {
   }
 
   constructor {args} {
+    installhull [::hv3::notebook $win -width 700 -height 500]
     $self configurelist $args
-    ::hv3::notebook ${win}.notebook -width 700 -height 500 
-    ${win}.notebook configure -closecmd destroy
-    bind ${win}.notebook <<NotebookTabChanged>> [list $self Switchcmd]
-    pack ${win}.notebook -fill both -expand true
+    $hull configure -closecmd destroy
+    bind $win <<NotebookTabChanged>> [list $self Switchcmd]
   }
 
   method Addcommon {switchto args} {
-    set widget ${win}.notebook.tab_[incr myNextId]
+    set widget ${win}.tab_[incr myNextId]
 
     set myPendingTitle Blank
     eval [concat [linsert $options(-newcmd) 1 $widget] $args]
-    ${win}.notebook add $widget $myPendingTitle
+    $hull add $widget $myPendingTitle 1
 
     if {$switchto} {
-      ${win}.notebook select $widget
+      $hull select $widget
       $self Switchcmd
     }
 
@@ -470,23 +469,18 @@ snit::widget ::hv3::tabset {
   }
 
   method set_title {widget title} {
-    if {[catch {${win}.notebook title $widget $title}]} {
+    if {[catch {$hull title $widget $title}]} {
       set myPendingTitle $title
     }
   }
 
   method get_title {widget} {
-    if {[catch {set title [${win}.notebook title $widget]}]} {
+    if {[catch {set title [$hull title $widget]}]} {
       set title $myPendingTitle
     }
     return $title
   }
 
-  method current {} {
-    ${win}.notebook select
-  }
-
-  method tabs {} {
-    return [${win}.notebook tabs]
-  }
+  method current {} { $hull select }
+  method tabs    {} { $hull tabs }
 }
