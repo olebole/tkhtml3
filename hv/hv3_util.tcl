@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.1 2007/12/17 08:02:48 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.2 2008/01/06 08:45:28 danielk1977 Exp $)} 1 }
 
 
 namespace eval hv3 {
@@ -91,6 +91,7 @@ namespace eval hv3 {
     }
   
     method scrollcallback {scrollbar first last} {
+
       $scrollbar set $first $last
       set ismapped   [expr [winfo ismapped $scrollbar] ? 1 : 0]
   

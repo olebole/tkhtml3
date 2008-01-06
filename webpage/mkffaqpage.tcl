@@ -91,7 +91,7 @@ puts [subst {
 </head>
 <body>
 
-[getTabs 4]
+[getTabs 5]
 
 <div id="body">
 <h1>tkhtml.tcl.tk FFAQ</h1>

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.203 2008/01/05 08:54:24 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.204 2008/01/06 08:45:28 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -319,6 +319,8 @@ doScrollCallback(pTree)
     int iOffScreen;
     int iTotal;
     int iPage;
+
+    if (!Tk_IsMapped(win)) return;
 
     pScrollCommand = pTree->options.yscrollcommand;
     iOffScreen = pTree->iScrollY;

@@ -12,6 +12,7 @@ proc sourcefile {file} [string map              \
 source [sourcefile hv3_profile.tcl]
 source [sourcefile snit.tcl]
 source [sourcefile hv3_widgets.tcl]
+source [sourcefile hv3_notebook.tcl]
 source [sourcefile hv3_db.tcl]
 source [sourcefile hv3_home.tcl]
 source [sourcefile hv3.tcl]

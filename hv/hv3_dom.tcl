@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.92 2007/12/18 15:05:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.93 2008/01/06 08:45:28 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -809,7 +809,7 @@ snit::widget ::hv3::dom::logwin {
     panedwindow ${win}.pan -orient horizontal
     panedwindow ${win}.pan.right -orient vertical
 
-    set nb [::hv3::tile_notebook ${win}.pan.left]
+    set nb [::hv3::notebook ${win}.pan.left]
     set myFileList [::hv3::scrolled listbox ${win}.pan.left.files]
 
     set mySearchbox [::hv3::dom::searchbox ${win}.pan.left.search $self]

@@ -4,7 +4,6 @@ Widget Wrappers
 
     ::hv3::scrolledwidget
     ::hv3::toolbutton
-    ::hv3::pretend_tile_notebook
 
     ::hv3::scrollbar
     ::hv3::button

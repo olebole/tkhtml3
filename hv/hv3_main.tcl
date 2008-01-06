@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.179 2007/12/18 15:05:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.180 2008/01/06 08:45:28 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -557,7 +557,7 @@ snit::type ::hv3::debug_menu {
 #         back_button          The "back" button
 #         forward_button       The "forward" button
 #         location_entry       The location bar
-#         notebook             The ::hv3::notebook instance
+#         notebook             The ::hv3::tabset instance
 #         status_label         The label used for a status bar
 #         history_menu         The pulldown menu used for history
 #
@@ -603,7 +603,7 @@ proc gui_build {widget_array} {
 
   # Create the middle bit - the browser window
   #
-  ::hv3::notebook .notebook              \
+  ::hv3::tabset .notebook              \
       -newcmd    gui_new                 \
       -switchcmd gui_switch
 
@@ -773,6 +773,7 @@ proc gui_switch {new} {
   $new configure -stopbutton    $G(stop_button)
   $new configure -forwardbutton $G(forward_button)
   $new configure -locationentry $G(location_entry)
+  $new populatehistorymenu
 
   # Attach some other GUI elements to the new current tab.
   #

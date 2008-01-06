@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.65 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.66 2008/01/06 08:45:28 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -696,7 +696,7 @@ snit::widget HtmlDebug {
   variable myStyleReport        ;# The style engine report.
   variable myFormsReport        ;# The forms engine report.
 
-  variable myReports            ;# The ::hv3::tile_notebook widget.
+  variable myReports            ;# The ::hv3::notebook widget.
 
   constructor {HTML} {
     set myHtml $HTML
@@ -721,7 +721,7 @@ snit::widget HtmlDebug {
     ::hv3::debug::tree $myTree $HTML
 
     # The tabs in the right-hand pane:
-    ::hv3::tile_notebook $myReports -width 600
+    ::hv3::notebook $myReports -width 600
     ::hv3::debug::report $myEventsReport \
         -reportcmd ::hv3::debug::EventsReport -fonttable $fonttable
     ::hv3::debug::report $myHtmlReport \
@@ -732,11 +732,11 @@ snit::widget HtmlDebug {
         -title "Style Engine Log" -fonttable $fonttable
     ::hv3::debug::FormReport $myFormsReport -fonttable $fonttable
 
-    $myReports add $myHtmlReport    -text "Tkhtml"
-    $myReports add $myLayoutReport  -text "Layout Engine"
-    $myReports add $myStyleReport   -text "Style Engine"
-    $myReports add $myEventsReport  -text "DOM Event Listeners"
-    $myReports add $myFormsReport   -text "HTML Forms"
+    $myReports add $myHtmlReport    "Tkhtml"
+    $myReports add $myLayoutReport  "Layout Engine"
+    $myReports add $myStyleReport   "Style Engine"
+    $myReports add $myEventsReport  "DOM Event Listeners"
+    $myReports add $myFormsReport   "HTML Forms"
   
     $win.hpan add $win.hpan.vpan
     $win.hpan.vpan add $myTree
