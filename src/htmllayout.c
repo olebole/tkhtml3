@@ -47,7 +47,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmllayout.c,v 1.269 2007/12/09 10:10:08 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmllayout.c,v 1.270 2008/01/07 04:48:02 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <assert.h>
@@ -3988,6 +3988,12 @@ HtmlLayout(pTree)
 
         BoxContext sBox;
         NormalFlow sNormal;
+
+        if (pTree->options.shrink) {
+            int iMaxWidth = 0;
+            blockMinMaxWidth(&sLayout, pBody, 0, &iMaxWidth);
+            nWidth = MIN(iMaxWidth, nWidth);
+        }
 
         nodeGetMargins(&sLayout, pBody, nWidth, &margin);
         nodeGetBoxProperties(&sLayout, pBody, nWidth, &box);
