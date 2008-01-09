@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmldecode.c,v 1.8 2007/12/08 15:36:00 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmldecode.c,v 1.9 2008/01/09 06:49:37 danielk1977 Exp $";
 
 
 #include "html.h"
@@ -189,6 +189,76 @@ HtmlDecode(clientData, interp, objc, objv)
     return TCL_OK;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlEncode --
+ *
+ *         ::tkhtml::encode DATA
+ *
+ *         - _ . ! ~ * ' ( )
+ *
+ * Results:
+ *     Returns the encoded data.
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlEncode(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    int map[128] = { 
+        0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,    /* 0   */
+        0, 0, 0, 0, 0, 0, 0, 0,   0, 0, 0, 0, 0, 0, 0, 0,    /* 16  */
+        0, 1, 0, 0, 0, 0, 0, 1,   1, 1, 1, 0, 0, 1, 1, 0,    /* 32  */
+        1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 0, 0, 0, 0, 0, 0,    /* 48  */
+
+        0, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 1,    /* 64  */
+        1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 0, 0, 0, 0, 1,    /* 80  */
+        0, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 1, 1, 1, 1, 1,    /* 96  */
+        1, 1, 1, 1, 1, 1, 1, 1,   1, 1, 1, 0, 0, 0, 1, 0     /* 112 */
+    };
+
+    char hex[16] = { 
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+    };
+
+    unsigned char *zOut;
+    int iOut;
+
+    int iIn;
+    int nData;
+    char *zData;
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(interp, 1, objv, "DATA");
+        return TCL_ERROR;
+    }
+    zData = Tcl_GetStringFromObj(objv[1], &nData);
+
+    zOut = (unsigned char *)HtmlAlloc("temp", nData*3);
+    iOut = 0;
+    for(iIn = 0; iIn < nData; iIn++){
+        char c = zData[iIn];
+        if( !(c&0x80) && map[(int)c] ){
+            zOut[iOut++] = c;
+        } else {
+            zOut[iOut++] = '%';
+            zOut[iOut++] = hex[(int)((c>>4)&0x0F)];
+            zOut[iOut++] = hex[(int)(c&0x0F)];
+        }
+    }
+
+    Tcl_SetObjResult(interp, Tcl_NewStringObj(zOut, iOut));
+    return TCL_OK;
+}
 
 static char * 
 allocEscapedComponent(zInput, nInput, isQuery)

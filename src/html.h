@@ -703,6 +703,7 @@ Tcl_ObjCmdProc HtmlWidgetBboxCmd;
 
 Tcl_ObjCmdProc HtmlDebug;
 Tcl_ObjCmdProc HtmlDecode;
+Tcl_ObjCmdProc HtmlEncode;
 Tcl_ObjCmdProc HtmlEscapeUriComponent;
 Tcl_ObjCmdProc HtmlResolveUri;
 Tcl_ObjCmdProc HtmlCreateUri;

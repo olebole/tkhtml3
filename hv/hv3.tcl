@@ -1375,7 +1375,7 @@ snit::widget ::hv3::hv3 {
 
       content-type {
         foreach {a b enc} [::hv3::string::parseContentType $content] {}
-	if {
+        if {
            ![$myDocumentHandle cget -hastransportencoding] &&
            ![::hv3::encoding_isequal $enc [$self encoding]]
         } {

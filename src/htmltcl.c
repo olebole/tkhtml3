@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.204 2008/01/06 08:45:28 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.205 2008/01/09 06:49:37 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -2777,6 +2777,15 @@ htmlDecodeCmd(clientData, interp, objc, objv)
 {
     return HtmlDecode(clientData, interp, objc, objv);
 }
+static int 
+htmlEncodeCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlEncode(clientData, interp, objc, objv);
+}
 
 static int 
 htmlEscapeCmd(clientData, interp, objc, objv)
@@ -2917,7 +2926,9 @@ DLL_EXPORT int Tkhtml_Init(interp)
 
     Tcl_CreateObjCommand(interp, "::tkhtml::htmlstyle",  htmlstyleCmd, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::version",    htmlVersionCmd, 0, 0);
+
     Tcl_CreateObjCommand(interp, "::tkhtml::decode",     htmlDecodeCmd, 0, 0);
+    Tcl_CreateObjCommand(interp, "::tkhtml::encode",     htmlEncodeCmd, 0, 0);
     Tcl_CreateObjCommand(interp, "::tkhtml::escape_uri", htmlEscapeCmd, 0, 0);
 
     Tcl_CreateObjCommand(interp, "::tkhtml::uri", htmlUriCmd, 0, 0);
