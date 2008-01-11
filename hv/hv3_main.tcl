@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.180 2008/01/06 08:45:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.181 2008/01/11 06:26:21 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -806,7 +806,7 @@ proc gui_new {path args} {
   trace add variable $var write [list gui_settitle $new $var]
 
   if {[llength $args] == 0} {
-    $new goto $::hv3::homeuri
+    $new goto $::hv3::newuri
   } else {
     $new goto [lindex $args 0]
   }
@@ -1002,7 +1002,7 @@ proc main {args} {
   ::hv3::dbinit
 
   if {[llength $docs] == 0} {set docs [list home://bookmarks/]}
-  # set ::hv3::homeuri [lindex $docs 0]
+  set ::hv3::newuri [lindex $docs 0]
   set ::hv3::homeuri home://bookmarks/
 
   # Build the GUI

@@ -9,7 +9,6 @@ proc sourcefile {file} [string map              \
   return [file join {%HV3_DIR%} $file] 
 }]
 
-source [sourcefile hv3_profile.tcl]
 source [sourcefile snit.tcl]
 source [sourcefile hv3_widgets.tcl]
 source [sourcefile hv3_notebook.tcl]

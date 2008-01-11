@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.9 2007/12/17 07:27:11 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.10 2008/01/11 06:26:21 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -603,6 +603,10 @@ namespace eval ::hv3::console_commands {
     set zRet
   }
 
+  proc heapdebug {} {
+    pretty_print_heapdebug
+  }
+
   proc breakpoints {} {
   }
   
@@ -624,9 +628,10 @@ proc pretty_print_heapdebug {} {
   set nTotalB 0
   foreach type $data {
     foreach {zStruct nStruct nByte} $type {}
-    append ret [format "% -30s % 10d % 10d\n" $zStruct $nStruct $nByte]
     incr nTotalB $nByte
     incr nTotalS $nStruct
+    append ret [
+      format "% -30s % 10d % 10d %10d\n" $zStruct $nStruct $nByte $nTotalB]
   }
   append ret [format "% -30s % 10d % 10d\n" "Totals" $nTotalS $nTotalB]
   set ret
@@ -634,9 +639,28 @@ proc pretty_print_heapdebug {} {
 
 proc pretty_print_vars {} {
   set ret ""
+  set nTotal 0
+  set nNamespace 0
   foreach e [lsort -integer -index 1 [get_vars]] {
+    incr nTotal [lindex $e 1]
+    incr nNamespace 1
     append ret [format "% -50s %d\n" [lindex $e 0] [lindex $e 1]]
   }
+  append ret [format "% -50s %d\n" TOTAL($nNamespace) $nTotal]
+  set ret
+}
+proc pretty_print_cmds {} {
+  set ret ""
+  set nTotal 0
+  set nNamespace 0
+  count_commands :: ::pretty_print_cmds_report
+  foreach e [lsort -integer -index 1 $::pretty_print_cmds_report] {
+    incr nTotal [lindex $e 1]
+    incr nNamespace 1
+    append ret [format "% -50s %d\n" [lindex $e 0] [lindex $e 1]]
+  }
+  unset ::pretty_print_cmds_report
+  append ret [format "% -50s %d\n" TOTAL($nNamespace) $nTotal]
   set ret
 }
 
@@ -681,10 +705,13 @@ proc count_vars {{ns ::} {print 0}} {
   }
   set nVar
 }
-proc count_commands {{ns ::}} {
+proc count_commands {{ns ::} {reportvar ""}} {
   set nCmd [llength [info commands ${ns}::*]]
+  if {$reportvar ne ""} {
+    uplevel #0 [list lappend $reportvar [list $ns $nCmd]]
+  }
   foreach child [namespace children $ns] {
-    incr nCmd [count_commands $child]
+    incr nCmd [count_commands $child $reportvar]
   }
   set nCmd
 }

@@ -124,10 +124,10 @@
 package require Tkhtml 3.0
 package require snit
 
-#source [file join [file dirname [info script]] hv3_encodings.tcl]
-#source [file join [file dirname [info script]] hv3_util.tcl]
-#source [file join [file dirname [info script]] hv3_form.tcl]
-#source [file join [file dirname [info script]] hv3_request.tcl]
+source [file join [file dirname [info script]] hv3_encodings.tcl]
+source [file join [file dirname [info script]] hv3_util.tcl]
+source [file join [file dirname [info script]] hv3_form.tcl]
+source [file join [file dirname [info script]] hv3_request.tcl]
 
 #--------------------------------------------------------------------------
 # Class ::hv3::hv3::mousemanager
@@ -1723,8 +1723,6 @@ snit::widget ::hv3::hv3 {
 
 
     if {$final} {
-      #$handle release
-
       if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
         set myStorevisitedDone 1
         eval $options(-storevisitedcmd) 1
