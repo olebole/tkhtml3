@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.33 2007/10/26 09:31:15 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.34 2008/01/11 06:22:38 danielk1977 Exp $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -184,7 +184,21 @@ all: binaries libraries doc
 
 binaries: $(BINARIES) pkgIndex.tcl
 
-libraries:
+HV3_VERSION = 0.1
+HV3_LIB = hv3-$(HV3_VERSION).tm
+
+HV3_TCL_SOURCE =          \
+  $(srcdir)/hv/hv3.tcl              \
+  $(srcdir)/hv/hv3_encodings.tcl    \
+  $(srcdir)/hv/hv3_util.tcl         \
+  $(srcdir)/hv/hv3_form.tcl         \
+  $(srcdir)/hv/hv3_request.tcl
+
+$(HV3_LIB): $(HV3_TCL_SOURCE)
+	echo "package provide $(HV3_LIB)" > $@
+	cat $(HV3_TCL_SOURCE) >> $@
+
+libraries: $(HV3_LIB)
 
 
 #========================================================================
@@ -212,6 +226,8 @@ install-libraries: libraries
 	    echo "Installing $(srcdir)/$$i" ; \
 	    $(INSTALL_DATA) $(srcdir)/$$i $(DESTDIR)$(includedir) ; \
 	done;
+	echo "Installing $(HV3_LIB)"
+	@$(INSTALL_DATA) $(HV3_LIB) $(DESTDIR)$(pkglibdir)
 
 #========================================================================
 # Install documentation.  Unix manpages should go in the $(mandir)
@@ -317,6 +333,7 @@ cssprop.c: cssprop.h
 
 pkgIndex.tcl:
 	echo 'package ifneeded $(PACKAGE_NAME) $(PACKAGE_VERSION) [list load [file join $$dir $(PKG_LIB_FILE)]]' > pkgIndex.tcl
+	echo 'package ifneeded hv3 $(HV3_VERSION) [list source [file join $$dir $(HV3_LIB)]]' >> pkgIndex.tcl
 
 #========================================================================
 # Distribution creation
