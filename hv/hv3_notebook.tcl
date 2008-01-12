@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.3 2008/01/12 14:23:05 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.4 2008/01/12 16:35:06 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of three snit widgets:
 #
@@ -8,6 +8,7 @@ namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.3 2008/01/12 14:23:0
 #
 # ::hv3::notebook_header is only used directly by code in this file.
 #
+
 
 
 #-------------------------------------------------------------------------
@@ -44,17 +45,9 @@ snit::widget ::hv3::notebook_header {
   # Map from current identifiers to display titles.
   variable myIdMap -array [list]
 
-  # The two images used for the small X icon on each tab.
-  variable myCloseTabImage
-  variable myCloseTabImage2
-
   variable myTabHeight 0
 
-  constructor {args} {
-    canvas ${win}.tabs
-    ${win}.tabs configure -borderwidth 0 
-    ${win}.tabs configure -highlightthickness 0 
-    ${win}.tabs configure -selectborderwidth 0
+  proc init_bitmaps {} {
 
     # Set up the two images used for the "close tab" buttons positioned
     # on the tabs themselves. The image data was created by me using an 
@@ -69,8 +62,17 @@ snit::widget ::hv3::notebook_header {
         0x01, 0x20, 0xff, 0x3f
       };
     }
-    set myCloseTabImage  [image create bitmap -data $BitmapData -background ""]
-    set myCloseTabImage2 [image create bitmap -data $BitmapData -background red]
+    image create bitmap notebook_close_img -data $BitmapData -background ""
+    image create bitmap notebook_close_img2 -data $BitmapData -background red
+  }
+
+  constructor {args} {
+    canvas ${win}.tabs
+    ${win}.tabs configure -borderwidth 0 
+    ${win}.tabs configure -highlightthickness 0 
+    ${win}.tabs configure -selectborderwidth 0
+
+    init_bitmaps
 
     set myTabHeight [expr [font metrics Hv3DefaultFot -linespace] * 1.5]
 
@@ -104,8 +106,25 @@ snit::widget ::hv3::notebook_header {
     if {![info exists myIdMap($id)]} { error "No nothing about id $id" }
     if {[llength $args] > 1} { error "Wrong args to notebook_header.title" }
     if {[llength $args] == 1} {
-      set myIdMap($id) [lindex $args 0]
-      $self Redraw
+      set zTitle [lindex $args 0]
+      set myIdMap($id) $zTitle
+      foreach {polygon text line} [${win}.tabs find withtag $id] break
+      if {[info exists text]} {
+        set bbox [${win}.tabs bbox $polygon]
+        set font Hv3DefaultFont
+        set iTextWidth [expr {
+          [lindex $bbox 2] - [lindex $bbox 0] - 25 - [font measure $font ...]
+        }]
+        for {set n 0} {$n <= [string length $zTitle]} {incr n} {
+          if {[font measure $font [string range $zTitle 0 $n]] > $iTextWidth} {
+            break;
+          }
+        }
+
+        set newtext [string range $zTitle 0 $n]
+        if {$n+1 < [string length $zTitle]} {append newtext ...}
+        ${win}.tabs itemconfigure $text -text $newtext
+      }
     }
     return $myIdMap($id)
   }
@@ -146,8 +165,6 @@ snit::widget ::hv3::notebook_header {
   }
 
   destructor {
-    image delete $myCloseTabImage
-    image delete $myCloseTabImage2
     after cancel [list $self RedrawCallback]
   }
 
@@ -246,9 +263,9 @@ snit::widget ::hv3::notebook_header {
   method CreateButton {idx x y size} {
     set c ${win}.tabs              ;# Canvas widget to draw on
     set tag [$c create image $x $y -anchor nw]
-    $c itemconfigure $tag -image $myCloseTabImage
-    $c bind $tag <Enter> [list $c itemconfigure $tag -image $myCloseTabImage2]
-    $c bind $tag <Leave> [list $c itemconfigure $tag -image $myCloseTabImage]
+    $c itemconfigure $tag -image notebook_close_img
+    $c bind $tag <Enter> [list $c itemconfigure $tag -image notebook_close_img2]
+    $c bind $tag <Leave> [list $c itemconfigure $tag -image notebook_close_img]
     $c bind $tag <ButtonRelease-1> [list $self ButtonRelease $tag $idx %x %y]
   }
 
