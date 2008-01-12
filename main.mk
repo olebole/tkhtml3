@@ -89,6 +89,8 @@ htmltokens.c: htmltokens.h
 hwish: $(OBJS) $(TOP)/src/main.c
 	$(COMPILE) $^ $(TCLLIB) -o $@
 
+ENCODINGS = cp1251
+
 hv3_img.vfs: binaries
 	mkdir -p ./hv3_img.vfs
 	mkdir -p ./hv3_img.vfs/lib
@@ -107,10 +109,12 @@ hv3_img.vfs: binaries
 	if test -d $(TCL)/lib/*tls*/ ; then \
 	  cp -R $(TCL)/lib/*tls* ./hv3_img.vfs/lib ; \
 	fi
-	# if test -d $(TCL)/lib/tcl8.5/encoding/ ; then \
-        #   mkdir ./hv3_img.vfs/lib/tcl8.5 ;             \
-	#   cp -R $(TCL)/lib/tcl8.5/encoding ./hv3_img.vfs/lib/tcl8.5 ; \
-	# fi
+	if test -d $(TCL)/lib/tcl8.5/encoding/ ; then    \
+          mkdir -p ./hv3_img.vfs/lib/tcl8.5/encoding ;   \
+	  for a in $(ENCODINGS) ; do                     \
+	    cp -R $(TCL)/lib/tcl8.5/encoding/$$a.enc ./hv3_img.vfs/lib/tcl8.5/encoding ; \
+	  done \
+	fi
 	if test -d $(TCL)/lib/*sqlite3*/ ; then \
 	  cp -R $(TCL)/lib/*sqlite3* ./hv3_img.vfs/lib ; \
 	fi
