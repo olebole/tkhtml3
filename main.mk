@@ -89,7 +89,7 @@ htmltokens.c: htmltokens.h
 hwish: $(OBJS) $(TOP)/src/main.c
 	$(COMPILE) $^ $(TCLLIB) -o $@
 
-ENCODINGS = cp1251
+ENCODINGS = cp1251 cp1253 cp1254 cp1255 cp1255 cp1257 cp1258
 
 hv3_img.vfs: binaries
 	mkdir -p ./hv3_img.vfs
