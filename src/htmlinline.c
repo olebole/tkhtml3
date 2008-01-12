@@ -32,7 +32,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlinline.c,v 1.59 2007/12/18 15:05:56 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlinline.c,v 1.60 2008/01/12 14:23:05 danielk1977 Exp $";
 
 #include "htmllayout.h"
 #include <stdio.h>
@@ -731,7 +731,7 @@ inlineContextAddNewLine(p, nHeight, isLast)
  *
  *---------------------------------------------------------------------------
  */
-static void 
+static void
 inlineContextDrawBorder(
 pLayout, pCanvas, pBorder, x1, x2, iVerticalOffset, drb, aRepX, nRepX)
     LayoutContext *pLayout;
@@ -755,6 +755,18 @@ pLayout, pCanvas, pBorder, x1, x2, iVerticalOffset, drb, aRepX, nRepX)
     int mmt = pLayout->minmaxTest;
     HtmlNode *pNode = pBorder->pNode;
     HtmlElementNode *pElem = HtmlNodeAsElement(pNode);
+
+#if 0
+    HtmlComputedValues *pComputed = pElem->pPropertyValues;
+    if( pComputed->eTextDecoration == CSS_CONST_NONE &&
+        pComputed->eBorderTopStyle == CSS_CONST_NONE &&
+        pComputed->eBorderBottomStyle == CSS_CONST_NONE &&
+        pComputed->eBorderRightStyle == CSS_CONST_NONE &&
+        pComputed->eBorderLeftStyle == CSS_CONST_NONE &&
+        pComputed->cBackgroundColor->xcolor == 0 &&
+        pComputed->imBackgroundImage == 0
+    ) return;
+#endif
 
     assert(pNode && pElem);
     assert(!pBorder->isReplaced);

@@ -412,6 +412,7 @@ struct HtmlOptions {
     int      forcewidth;
     Tcl_Obj *imagecmd;
     int      imagecache;
+    int      imagepixmapify;
     int      mode;                      /* One of the HTML_MODE_XXX values */
     int      shrink;                    /* Boolean */
     double   zoom;                      /* Universal scaling factor. */
@@ -700,6 +701,7 @@ Tcl_ObjCmdProc HtmlLayoutPrimitives;
 Tcl_ObjCmdProc HtmlCssStyleConfigDump;
 Tcl_ObjCmdProc Rt_AllocCommand;
 Tcl_ObjCmdProc HtmlWidgetBboxCmd;
+Tcl_ObjCmdProc HtmlImageServerReport;
 
 Tcl_ObjCmdProc HtmlDebug;
 Tcl_ObjCmdProc HtmlDecode;
@@ -824,9 +826,12 @@ void HtmlImageServerInit(HtmlTree *);
 void HtmlImageServerShutdown(HtmlTree *);
 HtmlImage2 *HtmlImageServerGet(HtmlImageServer *, const char *);
 HtmlImage2 *HtmlImageScale(HtmlImage2 *, int *, int *, int);
+void HtmlImageSize(HtmlImage2 *, int *, int *);
 Tcl_Obj *HtmlImageUnscaledName(HtmlImage2 *);
 Tk_Image HtmlImageImage(HtmlImage2 *);
-Tk_Image HtmlImageTile(HtmlImage2 *);
+Tk_Image HtmlImageTile(HtmlImage2 *, int*, int *);
+Pixmap HtmlImageTilePixmap(HtmlImage2 *, int*, int *);
+Pixmap HtmlImagePixmap(HtmlImage2 *);
 void HtmlImageFree(HtmlImage2 *);
 void HtmlImageRef(HtmlImage2 *);
 const char *HtmlImageUrl(HtmlImage2 *);

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.2 2008/01/06 09:11:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.3 2008/01/12 14:23:05 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of three snit widgets:
 #
@@ -111,6 +111,10 @@ snit::widget ::hv3::notebook_header {
   }
 
   method select {id} {
+    # Optimization: When there is only one tab in the list, do not bother
+    # to configure any bindings or colors.
+    if {[array size myIdMap]<=1} return
+    
     if {$id ne "" && ![info exists myIdMap($id)]} { 
       error "Know nothing about id $id" 
     }
@@ -153,6 +157,10 @@ snit::widget ::hv3::notebook_header {
   }
 
   method RedrawCallback {} {
+    # Optimization: When there is only one tab in the list, do not bother
+    # to draw anything. It won't be visible anyway.
+    if {[array size myIdMap]<=1} return
+
     set font Hv3DefaultFont
 
     set iPadding  2

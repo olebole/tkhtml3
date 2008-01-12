@@ -20,8 +20,8 @@ TCLVERSION = 8.5
 
 TCL_RELEASE  = $(HOME)/tcl
 TCL_DEBUG    = $(HOME)/tcl
-TCL_PROFILE  = $(HOME)/tcl_profile
-#TCL_PROFILE  = $(HOME)/tcl
+#TCL_PROFILE  = $(HOME)/tcl_profile
+TCL_PROFILE  = $(HOME)/tcl
 TCL_MEMDEBUG = $(HOME)/memtcl
 TCL = $(TCL_$(BUILD))
 
@@ -45,8 +45,8 @@ JSFLAGS = -I$(HOME)/work/tkhtml/js/include
 # TCLLIB_DEBUG   = -L$(TCL)/lib -ltcl$(TCLVERSION)g -ltk$(TCLVERSION)g 
 TCLLIB_RELEASE  = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
 TCLLIB_DEBUG    = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
-#TCLLIB_PROFILE    = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
-TCLLIB_PROFILE  = $(TCL)/lib/libtcl8.5.a $(TCL)/lib/libtk8.5.a -lXft -lXss
+TCLLIB_PROFILE    = -L$(TCL)/lib -ltcl$(TCLVERSION) -ltk$(TCLVERSION)   
+#TCLLIB_PROFILE  = $(TCL)/lib/libtcl8.5.a $(TCL)/lib/libtk8.5.a -lXft -lXss
 
 TCLLIB_MEMDEBUG = $(TCLLIB_DEBUG)
 TCLLIB_MEMDEBUG += $(TCL)/lib/libtclstub$(TCLVERSION).a

@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.205 2008/01/09 06:49:37 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.206 2008/01/12 14:23:05 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -1352,6 +1352,7 @@ OBJ     (fonttable, "fontTable", "FontTable", "8 9 10 11 13 15 17", FT_MASK),
 BOOLEAN (forcefontmetrics, "forceFontMetrics", "ForceFontMetrics", "1", F_MASK),
 BOOLEAN (forcewidth, "forceWidth", "ForceWidth", "0", L_MASK),
 BOOLEAN (imagecache, "imageCache", "ImageCache", "1", S_MASK),
+BOOLEAN (imagepixmapify, "imagePixmapify", "ImagePixmapify", "0", 0),
 STRING  (imagecmd, "imageCmd", "ImageCmd", ""),
 STRINGT (mode, "mode", "Mode", "standards", azModes),
 STRINGT (parsemode, "parsemode", "Parsemode", "html", azParseModes),
@@ -2439,6 +2440,15 @@ primitivesCmd(clientData, interp, objc, objv)
     return HtmlLayoutPrimitives(clientData, interp, objc, objv);
 }
 static int 
+imagesCmd(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    return HtmlImageServerReport(clientData, interp, objc, objv);
+}
+static int 
 searchCmd(clientData, interp, objc, objv)
     ClientData clientData;             /* The HTML widget data structure */
     Tcl_Interp *interp;                /* Current interpreter. */
@@ -2568,6 +2578,7 @@ int widgetCmd(clientData, interp, objc, objv)
          */
         {"_delay",       delayCmd},
         {"_force",       forceCmd},
+        {"_images",      imagesCmd},
         {"_primitives",  primitivesCmd},
         {"_relayout",    relayoutCmd},
         {"_styleconfig", styleconfigCmd},

@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.66 2008/01/11 06:22:39 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.67 2008/01/12 14:23:05 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -70,11 +70,13 @@ static const char rcsid[] = "$Id: htmlimage.c,v 1.66 2008/01/11 06:22:39 danielk
  *    
  *         HtmlImageUnscaledName()
  *         HtmlImageScale()
- *         HtmlImageTile()
  *         HtmlImageFree()
  *         HtmlImageAlphaChannel()
  *
+ *         HtmlImageTile()
  *         HtmlImageImage()
+ *         HtmlImagePixmap()
+ *         HtmlImageTilePixmap()
  *
  * IMAGE CONVERSION ROUTINES
  *
@@ -109,6 +111,15 @@ struct HtmlImage2 {
     int width;                       /* Width of HtmlImage2.image */
     int height;                      /* Height of HtmlImage2.image */
     Tk_Image image;                  /* Scaled (or unscaled) image */
+
+    int iTileWidth;                  /* Width of tile image (if it exists) */
+    int iTileHeight;                 /* Height of tile image (if it exists) */
+
+    Pixmap pixmap;                   /* Pixmap of image */
+    Pixmap tilepixmap;               /* Tile pixmap of image */
+    Tcl_Obj *pCompressed;            /* Compressed image data */
+
+    int nIgnoreChange;
 
     Tcl_Obj *pTileName;              /* Name of Tk tile image */
     Tk_Image tile;                   /* Tiled image, or zero */
@@ -227,17 +238,23 @@ freeTile(pImage)
     HtmlTree *pTree = pImage->pImageServer->pTree;
     int flags = TCL_GLOBAL_ONLY;
     Tcl_Obj *pScript;
-    if (!pImage->pTileName) return;
-
-    pScript = Tcl_NewStringObj("image delete", -1);
-    Tcl_IncrRefCount(pScript);
-    Tcl_ListObjAppendElement(0, pScript, pImage->pTileName);
-    Tcl_EvalObjEx(pTree->interp, pScript, flags);
-    Tcl_DecrRefCount(pScript);
-
-    Tcl_DecrRefCount(pImage->pTileName);
-    pImage->tile = 0;
-    pImage->pTileName = 0;
+    if (pImage->pTileName) {
+        pScript = Tcl_NewStringObj("image delete", -1);
+        Tcl_IncrRefCount(pScript);
+        Tcl_ListObjAppendElement(0, pScript, pImage->pTileName);
+        Tcl_EvalObjEx(pTree->interp, pScript, flags);
+        Tcl_DecrRefCount(pScript);
+    
+        Tcl_DecrRefCount(pImage->pTileName);
+        pImage->tile = 0;
+        pImage->pTileName = 0;
+    }
+    if (pImage->tilepixmap) {
+        assert(pImage->pixmap);
+        Tk_FreePixmap(
+            Tk_Display(pImage->pImageServer->pTree->tkwin), pImage->tilepixmap);
+        pImage->tilepixmap = 0;
+    }
 }
 
 #define UNSCALED(pImage) (                                       \
@@ -295,17 +312,27 @@ imageChanged(clientData, x, y, width, height, imgWidth, imgHeight)
     int imgHeight;
 {
     HtmlImage2 *pImage = (HtmlImage2 *)clientData;
-    if (pImage && !pImage->pUnscaled) {
+    if (pImage && !pImage->pUnscaled && !pImage->nIgnoreChange) {
         HtmlImage2 *p;
         HtmlTree *pTree = pImage->pImageServer->pTree;
         assert(pImage->image);
+
         for (p = pImage->pNext; p; p = p->pNext) {
             p->isValid = 0;
             assert(!p->pTileName);
         }
         freeTile(pImage);
+        pImage->eAlpha = ALPHA_CHANNEL_UNKNOWN;
 
-        if (imgWidth!=pImage->width && imgHeight!=pImage->height) {
+        /* Regenerate pixmap. */
+        if( pImage->pixmap ){
+            Tk_FreePixmap(Tk_Display(pTree->tkwin), pImage->pixmap);
+            Tcl_DecrRefCount(pImage->pCompressed);
+            pImage->pixmap = 0;
+            pImage->pCompressed = 0;
+        }
+
+        if (imgWidth!=pImage->width || imgHeight!=pImage->height) {
             pImage->width = imgWidth;
             pImage->height = imgHeight;
             HtmlWalkTree(pTree, 0, imageChangedCb, (ClientData)pImage);
@@ -318,8 +345,6 @@ imageChanged(clientData, x, y, width, height, imgWidth, imgHeight)
          * efficient.
          */
         HtmlCallbackDamage(pTree, 0, 0, 1000000, 1000000);
-
-        pImage->eAlpha = ALPHA_CHANNEL_UNKNOWN;
     }
 }
 
@@ -424,6 +449,7 @@ HtmlImageServerGet(p, zUrl)
             pImage->image = img;
             Tk_SizeOfImage(pImage->image, &pImage->width, &pImage->height);
             pImage->isValid = 1;
+            HtmlImagePixmap(pImage);
         }
     }
 
@@ -467,6 +493,16 @@ Tcl_Obj *HtmlImageUnscaledName(pImage)
     }
     assert(pRet);
     return pRet;
+}
+
+void
+HtmlImageSize(pImage, pWidth, pHeight)
+    HtmlImage2 *pImage;    /* Image object */
+    int *pWidth;           /* OUT: Image width */
+    int *pHeight;          /* OUT: Image height */
+{
+    if (pWidth) *pWidth = pImage->width;
+    if (pHeight) *pHeight = pImage->height;
 }
 
 /*
@@ -594,6 +630,29 @@ HtmlImageImage(pImage)
         Tcl_Interp *interp = pImage->pImageServer->pTree->interp;
         HtmlImage2 *pUnscaled = pImage->pUnscaled;
 
+        if (pUnscaled->pixmap) {
+            Tcl_Obj *apObj[4];
+            int rc;
+
+printf("TODO: BAD. Have to recreate image to make scaled copy.\n");
+
+            apObj[0] = pUnscaled->pImageName;
+            apObj[1] = Tcl_NewStringObj("configure", -1);
+            apObj[2] = Tcl_NewStringObj("-data", -1);
+            apObj[3] = pUnscaled->pCompressed;
+
+            Tcl_IncrRefCount(apObj[1]);
+            Tcl_IncrRefCount(apObj[2]);
+            Tcl_IncrRefCount(apObj[3]);
+            pUnscaled->nIgnoreChange++;
+            rc = Tcl_EvalObjv(interp, 4, apObj, TCL_EVAL_GLOBAL);
+            pUnscaled->nIgnoreChange--;
+            assert(rc==TCL_OK);
+            Tcl_IncrRefCount(apObj[3]);
+            Tcl_DecrRefCount(apObj[2]);
+            Tcl_DecrRefCount(apObj[1]);
+        }
+
         assert(pUnscaled);
         if (!pImage->pImageName) {
             /* If pImageName is still NULL, then create a new photo
@@ -674,9 +733,199 @@ HtmlImageImage(pImage)
         }
 
         pImage->isValid = 1;
+        if (pUnscaled->pixmap) {
+            Tcl_Obj *apObj[4];
+
+            apObj[0] = Tcl_NewStringObj("image", -1);
+            apObj[1] = Tcl_NewStringObj("create", -1);
+            apObj[2] = Tcl_NewStringObj("photo", -1);
+            apObj[4] = pUnscaled->pImageName;
+
+            Tcl_IncrRefCount(apObj[0]);
+            Tcl_IncrRefCount(apObj[1]);
+            Tcl_IncrRefCount(apObj[2]);
+            pUnscaled->nIgnoreChange++;
+            Tcl_EvalObjv(interp, 4, apObj, TCL_EVAL_GLOBAL);
+            pUnscaled->nIgnoreChange--;
+            Tcl_DecrRefCount(apObj[2]);
+            Tcl_DecrRefCount(apObj[1]);
+            Tcl_IncrRefCount(apObj[0]);
+        }
     }
 
     return pImage->image;
+}
+
+#define N_TILE_PIXELS 4000
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * tilesize --
+ *
+ * Results:
+ *     True if the image should use a tile, false otherwise. If true
+ *     is returned, *pW and *pH are set to the pixel height and width
+ *     of the required tile.
+ *
+ * Side effects:
+ *     
+ *
+ *---------------------------------------------------------------------------
+ */
+static int tilesize(pImage, pW, pH)
+    HtmlImage2* pImage;
+    int *pW;
+    int *pH;
+{
+    int iImageWidth = pImage->width;
+    int iImageHeight = pImage->height;
+
+    int xmul = 1;
+    int ymul = 1;
+
+    if (iImageWidth * iImageHeight > N_TILE_PIXELS) return 0;
+
+    /* Figure out the eventual width and height of the tile. */
+    while ((iImageWidth * iImageHeight * xmul * ymul) < N_TILE_PIXELS) {
+        xmul = xmul + xmul;
+        ymul = ymul + ymul;
+    }
+
+    *pW = pImage->width * xmul;
+    *pH = pImage->height * ymul;
+    return 1;
+}
+
+Pixmap
+HtmlImageTilePixmap(pImage, pW, pH)
+    HtmlImage2* pImage;
+    int *pW;
+    int *pH;
+{
+    if (HtmlImagePixmap(pImage)) {
+        Tk_Window win;
+        XGCValues gc_values;
+        GC gc;
+        int i, j;
+
+        if( pImage->tilepixmap ){
+            goto return_tile; 
+        }
+
+        if (!tilesize(pImage, &pImage->iTileWidth, &pImage->iTileHeight)) {
+            goto return_original;
+        }
+
+        win = pImage->pImageServer->pTree->tkwin;
+        pImage->tilepixmap = Tk_GetPixmap(Tk_Display(win), Tk_WindowId(win),
+            pImage->iTileWidth, pImage->iTileHeight, Tk_Depth(win)
+        );
+
+        memset(&gc_values, 0, sizeof(XGCValues));
+        gc = Tk_GetGC(win, 0, &gc_values);
+        for (i = 0; i < pImage->iTileWidth; i += pImage->width){
+            for (j = 0; j < pImage->iTileHeight; j += pImage->height){
+                XCopyArea(Tk_Display(win), 
+                     pImage->pixmap, pImage->tilepixmap, gc, 0, 0, 
+                     pImage->width, pImage->height, 
+                     pImage->width * i, pImage->height * j
+                );
+            }
+        }
+        Tk_FreeGC(Tk_Display(win), gc);
+    }
+
+return_tile:
+    *pW = pImage->iTileWidth;
+    *pH = pImage->iTileHeight;
+    return pImage->tilepixmap;
+
+return_original:
+    *pW = pImage->width;
+    *pH = pImage->height;
+    return pImage->pixmap;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlImagePixmap --
+ *
+ * Results:
+ *     Pixmap. Or zero.
+ *
+ * Side effects:
+ *     May change the image storage to pixmap.
+ *
+ *---------------------------------------------------------------------------
+ */
+Pixmap
+HtmlImagePixmap(pImage)
+    HtmlImage2* pImage;
+{
+    if (!pImage->pImageServer->pTree->options.imagepixmapify) {
+        return 0;
+    }
+    if (!pImage->isValid) {
+        HtmlImageImage(pImage);
+    }
+    if (
+       !pImage->pixmap &&
+       pImage->pImageName &&
+       pImage->width>0 &&
+       pImage->height>0 &&
+       !HtmlImageAlphaChannel(pImage->pImageServer->pTree, pImage)
+    ) {
+        Tk_Window win = pImage->pImageServer->pTree->tkwin;
+        Tcl_Interp *interp = pImage->pImageServer->pTree->interp;
+
+        Pixmap pix;
+        Tcl_Obj *pData;
+        int nData;
+        int rc;
+
+        Tcl_Obj *pGetData = Tcl_NewObj();
+        Tcl_IncrRefCount(pGetData);
+        Tcl_ListObjAppendElement(0, pGetData, pImage->pImageName);
+        Tcl_ListObjAppendElement(0, pGetData, Tcl_NewStringObj("cget", -1));
+        Tcl_ListObjAppendElement(0, pGetData, Tcl_NewStringObj("-data", -1));
+
+        rc = Tcl_EvalObjEx(interp, pGetData, TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT);
+        pData = Tcl_GetObjResult(interp);
+        Tcl_DecrRefCount(pGetData);
+        Tcl_GetStringFromObj(pData, &nData);
+        if (rc!=TCL_OK || nData==0){
+            return 0;
+        }
+#if 0
+printf("Pixmapifying - nData = %d\n", nData);
+#endif
+
+        pix = Tk_GetPixmap(Tk_Display(win), Tk_WindowId(win),
+            pImage->width, pImage->height, Tk_Depth(win)
+        );
+        Tk_RedrawImage(
+            pImage->image, 0, 0, pImage->width, pImage->height, pix, 0, 0
+        );
+
+        pImage->pixmap = pix;
+        pImage->pCompressed = pData;
+        Tcl_IncrRefCount(pData);
+
+        pGetData = Tcl_NewObj();
+        Tcl_IncrRefCount(pGetData);
+        Tcl_ListObjAppendElement(0, pGetData, Tcl_NewStringObj("image",-1));
+        Tcl_ListObjAppendElement(0, pGetData, Tcl_NewStringObj("create",-1));
+        Tcl_ListObjAppendElement(0, pGetData, Tcl_NewStringObj("photo",-1));
+        Tcl_ListObjAppendElement(0, pGetData, pImage->pImageName);
+        pImage->nIgnoreChange++;
+        rc = Tcl_EvalObjEx(interp, pGetData, TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT);
+        pImage->nIgnoreChange--;
+        Tcl_DecrRefCount(pGetData);
+        assert(rc==TCL_OK);
+    }
+    return pImage->pixmap;
 }
 
 void 
@@ -699,6 +948,14 @@ HtmlImageFree(pImage)
          */
         assert(pImage->pUnscaled || 0 == pImage->pNext);
 
+        if (pImage->pixmap) {
+            HtmlTree *pTree = pImage->pImageServer->pTree;
+            XFreePixmap(Tk_Display(pTree->tkwin), pImage->pixmap);
+            pImage->pixmap = 0;
+            if (pImage->pCompressed) {
+                Tcl_DecrRefCount(pImage->pCompressed);
+            }
+        }
         if (pImage->image) {
             Tk_FreeImage(pImage->image);
         }
@@ -787,7 +1044,6 @@ HtmlImageAlphaChannel(pTree, pImage)
 {
 
     HtmlImage2 *p = (pImage->pUnscaled ? pImage->pUnscaled : pImage);
-
     if (p->eAlpha == ALPHA_CHANNEL_UNKNOWN) {
         Tk_PhotoHandle photo;
         Tk_PhotoImageBlock block;
@@ -799,7 +1055,7 @@ HtmlImageAlphaChannel(pTree, pImage)
         /* If the image consists of more than 40,000 pixels, assume
          * it contains a semi-translucent pixel.
          */ 
-        if ((w * h) > 100) {
+        if (0 && (w * h) > 100) {
             p->eAlpha = ALPHA_CHANNEL_TRUE;
             return 1;
         }
@@ -811,16 +1067,14 @@ HtmlImageAlphaChannel(pTree, pImage)
 
         if (!block.pixelPtr) return 0;
 
-        for (x = 0; x < w; x++) {
-            for (y = 0; y < h; y++) {
-                unsigned char *z = &block.pixelPtr[
-                    x * block.pixelSize + y * block.pitch + block.offset[3]
-                ];
-
+        for (y = 0; y < h; y++) {
+            unsigned char *z = &block.pixelPtr[block.pitch*y+block.offset[3]];
+            for (x = 0; x < w; x++) {
                 if (*z != 255) {
                     p->eAlpha = ALPHA_CHANNEL_TRUE;
                     return 1;
                 }
+		z += block.pixelSize;
             }
         }
     }
@@ -840,10 +1094,11 @@ HtmlImageAlphaChannel(pTree, pImage)
  *
  *---------------------------------------------------------------------------
  */
-#define N_TILE_PIXELS 4000
 Tk_Image 
-HtmlImageTile(pImage)
+HtmlImageTile(pImage, pW, pH)
     HtmlImage2 *pImage;    /* Image object */
+    int *pW;
+    int *pH;
 {
     HtmlTree *pTree = pImage->pImageServer->pTree;
     Tcl_Interp *interp = pTree->interp;
@@ -857,27 +1112,24 @@ HtmlImageTile(pImage)
     Tk_PhotoHandle origphoto;
     Tk_PhotoImageBlock origblock;
 
-    int xmul;
-    int ymul;
-
     int x;
     int y;
 
     /* The tile has already been generated. Return it. */
     if (pImage->pTileName) {
-        return pImage->tile;
+        goto return_tile;
     }
 
     /* The image is too big to bother with a tile. Return the original. */
-    if ((pImage->width * pImage->height) >= N_TILE_PIXELS) {
-        return HtmlImageImage(pImage);
+    if (!tilesize(pImage, &iTileWidth, &iTileHeight)) {
+        goto return_original;
     }
 
     /* Retrieve the block for the original image */
     origphoto = Tk_FindPhoto(interp, Tcl_GetString(pImage->pImageName));
-    if (!origphoto) return HtmlImageImage(pImage);
+    if (!origphoto) goto return_original;
     Tk_PhotoGetImage(origphoto, &origblock);
-    if (!origblock.pixelPtr) return HtmlImageImage(pImage);
+    if (!origblock.pixelPtr) goto return_original;
 
     /* Create the tile image. Surely there is a way to do this without
      * invoking a script, but I haven't found it yet.
@@ -891,16 +1143,6 @@ HtmlImageTile(pImage)
     pImage->tile = Tk_GetImage(
             interp, pTree->tkwin, Tcl_GetString(pTileName), imageChanged, 0
     );
-
-    /* Figure out the eventual width and height of the tile. */
-    xmul = 1;
-    ymul = 1;
-    while ((pImage->width * pImage->height * xmul * ymul) < N_TILE_PIXELS) {
-        xmul = xmul + xmul;
-        ymul = ymul + ymul;
-    }
-    iTileWidth = pImage->width * xmul;
-    iTileHeight = pImage->height * ymul;
 
     /* Allocate a block to write the tile data into. */
     tileblock.pixelPtr = (unsigned char *)HtmlAlloc(
@@ -933,8 +1175,17 @@ HtmlImageTile(pImage)
 
     photoputblock(interp,tilephoto,&tileblock,0,0,iTileWidth,iTileHeight,0);
     HtmlFree(tileblock.pixelPtr);
+    pImage->iTileWidth = iTileWidth;
+    pImage->iTileHeight = iTileHeight;
 
+return_tile:
+    *pW = pImage->iTileWidth;
+    *pH = pImage->iTileHeight;
     return pImage->tile;
+
+return_original:
+    HtmlImageSize(pImage, pW, pH);
+    return HtmlImageImage(pImage);
 }
 
 /*
@@ -1118,3 +1369,73 @@ Tcl_Obj *HtmlXImageToImage(pTree, pXImage, w, h)
     return 0;
 }
 #endif
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * HtmlImageServerReport --
+ *
+ *     For performance analysis. Returns a listing of the image server
+ *     contents.
+ *
+ * Results:
+ * 
+ *     A list containing a single element for each HtmlImage2 structure
+ *     managed by this image server. The format of each element is itself
+ *     a list of the following form:
+ *     
+ *       { <url> <image name> <pixmapified> <width> <height> <alpha> <refs>}
+ *
+ * Side effects:
+ *     None.
+ *
+ *---------------------------------------------------------------------------
+ */
+int 
+HtmlImageServerReport(clientData, interp, objc, objv)
+    ClientData clientData;             /* The HTML widget data structure */
+    Tcl_Interp *interp;                /* Current interpreter. */
+    int objc;                          /* Number of arguments. */
+    Tcl_Obj *CONST objv[];             /* Argument strings. */
+{
+    HtmlTree *pTree = (HtmlTree *)clientData;
+
+    Tcl_HashSearch search;
+    Tcl_HashEntry *pEntry;
+    Tcl_Obj *pRet = Tcl_NewObj();
+  
+    for (
+        pEntry = Tcl_FirstHashEntry(&pTree->pImageServer->aImage, &search); 
+        pEntry; 
+        pEntry = Tcl_NextHashEntry(&search)
+    ) {
+      HtmlImage2 *pImage = (HtmlImage2 *)Tcl_GetHashValue(pEntry);
+      for( ; pImage; pImage = pImage->pNext){
+        Tcl_Obj *p = Tcl_NewObj();
+        const char *zUrl = "";
+        if( !pImage->pUnscaled ){
+          zUrl = pImage->zUrl;
+        }
+        Tcl_ListObjAppendElement(interp, p, Tcl_NewStringObj(zUrl, -1));
+	if (pImage->pImageName) {
+            Tcl_ListObjAppendElement(interp, p, pImage->pImageName);
+        } else {
+            Tcl_ListObjAppendElement(interp, p, Tcl_NewStringObj("", -1));
+        }
+        Tcl_ListObjAppendElement(interp, p, Tcl_NewStringObj(
+            pImage->pixmap?"PIX":"", -1));
+        Tcl_ListObjAppendElement(interp, p, Tcl_NewIntObj(pImage->width));
+        Tcl_ListObjAppendElement(interp, p, Tcl_NewIntObj(pImage->height));
+        Tcl_ListObjAppendElement(interp, p, Tcl_NewStringObj(
+          pImage->eAlpha==ALPHA_CHANNEL_UNKNOWN?"unknown":
+          pImage->eAlpha==ALPHA_CHANNEL_TRUE?"true":
+          pImage->eAlpha==ALPHA_CHANNEL_FALSE?"false":"internal error!", -1));
+        Tcl_ListObjAppendElement(interp, p, Tcl_NewIntObj(pImage->nRef));
+
+        Tcl_ListObjAppendElement(interp, pRet, p);
+      }
+    }
+
+    Tcl_SetObjResult(interp, pRet);
+    return TCL_OK;
+}

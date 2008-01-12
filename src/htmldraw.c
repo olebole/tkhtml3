@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.205 2007/12/17 07:27:11 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.206 2008/01/12 14:23:05 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -1823,7 +1823,8 @@ pQuery, drawable, d_w, d_h, pImage, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
     int clip_x2 = MIN(d_w, bg_x + bg_w);
     int clip_y2 = MIN(d_h, bg_y + bg_h);
 
-    Tk_Image img;
+    Tk_Image img = 0;
+    Pixmap pix = 0;
     int i_w;
     int i_h;
 
@@ -1843,11 +1844,17 @@ pQuery, drawable, d_w, d_h, pImage, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
     }
 #endif
 
-    img = HtmlImageImage(pImage);
-    Tk_SizeOfImage(img, &i_w, &i_h);
+    HtmlImageSize(pImage, &i_w, &i_h);
     if (bg_h > (i_h * 2) && bg_w > (i_w * 2)) {
-        img = HtmlImageTile(pImage);
-        Tk_SizeOfImage(img, &i_w, &i_h);
+        pix = HtmlImageTilePixmap(pImage, &i_w, &i_h);
+        if (!pix) {
+            img = HtmlImageTile(pImage, &i_w, &i_h);
+	}
+    } else {
+        pix = HtmlImagePixmap(pImage);
+        if (!pix) {
+            img = HtmlImageImage(pImage);
+        }
     }
     if (i_w <= 0 || i_h <= 0) return;
 
@@ -1889,7 +1896,19 @@ pQuery, drawable, d_w, d_h, pImage, bg_x, bg_y, bg_w, bg_h, iPosX, iPosY)
             }
 
             if (w > 0 && h > 0) {
-                Tk_RedrawImage(img, im_x, im_y, w, h, drawable, x, y);
+                if (pix) {
+                    Tk_Window win = pQuery->pTree->tkwin;
+                    XGCValues gc_values;
+                    GC gc;
+                    memset(&gc_values, 0, sizeof(XGCValues));
+                    gc = Tk_GetGC(win, 0, &gc_values);
+                    XCopyArea(Tk_Display(win), 
+                        pix, drawable, gc, im_x, im_y, w, h, x, y
+                    );
+                    Tk_FreeGC(Tk_Display(win), gc);
+                } else {
+                    Tk_RedrawImage(img, im_x, im_y, w, h, drawable, x, y);
+                }
             }
         }
     }
@@ -2069,7 +2088,6 @@ drawBox(pQuery, pItem, pBox, drawable, x, y, w, h, xview, yview, flags)
 
     /* Image background, if required. */
     if (0 == (flags & DRAWBOX_NOBACKGROUND) && pV->imZoomedBackgroundImage) {
-        Tk_Image img;
 #if 0
         Pixmap ipix;
         GC gc;
@@ -2085,8 +2103,7 @@ drawBox(pQuery, pItem, pBox, drawable, x, y, w, h, xview, yview, flags)
         int eR = pV->eBackgroundRepeat;
 
  
-        img = HtmlImageImage(pV->imZoomedBackgroundImage);
-        Tk_SizeOfImage(img, &iWidth, &iHeight);
+        HtmlImageSize(pV->imZoomedBackgroundImage, &iWidth, &iHeight);
 
         if (iWidth > 0 && iHeight > 0) {
             int iPosX;
@@ -2244,10 +2261,8 @@ drawImage(pQuery, pI2, drawable, x, y, w, h)
     if (pI2->pImage) {
         int imW;                   /* Image width */
         int imH;                   /* Image height */
-        Tk_Image img;              /* Tk Image */
 
-        img = HtmlImageImage(pI2->pImage);
-        Tk_SizeOfImage(img, &imW, &imH);
+        HtmlImageSize(pI2->pImage, &imW, &imH);
 
         tileimage(
             pQuery, drawable, w, h, 

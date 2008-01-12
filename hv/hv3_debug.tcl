@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.10 2008/01/11 06:26:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.11 2008/01/12 14:23:05 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -603,6 +603,33 @@ namespace eval ::hv3::console_commands {
     set zRet
   }
 
+  proc images {} {
+    set nPix 0
+    set nImg 0
+
+    set header [list URL "Tk image" pixmap width height alpha references]
+    foreach record [concat [list $header] [hv3 _images]] {
+      foreach $header $record break
+      if {[string length $URL] > 15} {
+        set URL "...[string range $URL [expr [string length $URL]-12] end]"
+      }
+      append ret [format "%-15s %7s %9s %6s  %6s  %8s  %11s\n" \
+        $URL $pixmap ${Tk image} $width $height $alpha $references
+      ]
+      if {$width ne "width"} {
+        if {$pixmap eq "PIX"} {
+          incr nPix [expr $width * $height]
+        } else {
+          incr nImg [expr $width * $height]
+        }
+      }
+    }
+    append ret "\n"
+    append ret "    total pixmap pixels: $nPix\n"
+    append ret "    total image pixels: $nImg"
+    set ret
+  }
+
   proc heapdebug {} {
     pretty_print_heapdebug
   }
@@ -630,8 +657,9 @@ proc pretty_print_heapdebug {} {
     foreach {zStruct nStruct nByte} $type {}
     incr nTotalB $nByte
     incr nTotalS $nStruct
+    set avg [expr {$nByte/$nStruct}]
     append ret [
-      format "% -30s % 10d % 10d %10d\n" $zStruct $nStruct $nByte $nTotalB]
+      format "% -30s % 10d % 10d %12s %10d\n" $zStruct $nStruct $nByte "($avg/alloc)" $nTotalB]
   }
   append ret [format "% -30s % 10d % 10d\n" "Totals" $nTotalS $nTotalB]
   set ret

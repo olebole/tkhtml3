@@ -1069,7 +1069,7 @@ snit::widget ::hv3::hv3 {
 
     # Create the scrolled html widget and bind it's events to the
     # mega-widget window.
-    set myHtml [::hv3::scrolled html ${win}.html]
+    set myHtml [::hv3::scrolled html ${win}.html -imagepixmapify 1]
     catch {::hv3::profile::instrument [$myHtml widget]}
     bindtags [$self html] [concat [bindtags [$self html]] $self]
     pack $myHtml -fill both -expand 1
