@@ -837,7 +837,7 @@ void HtmlImageRef(HtmlImage2 *);
 const char *HtmlImageUrl(HtmlImage2 *);
 void HtmlImageCheck(HtmlImage2 *);
 Tcl_Obj *HtmlXImageToImage(HtmlTree *, XImage *, int, int);
-int HtmlImageAlphaChannel(HtmlTree *, HtmlImage2 *);
+int HtmlImageAlphaChannel(HtmlImage2 *);
 
 void HtmlImageServerSuspendGC(HtmlTree *);
 void HtmlImageServerDoGC(HtmlTree *);

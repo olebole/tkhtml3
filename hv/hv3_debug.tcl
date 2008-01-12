@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.11 2008/01/12 14:23:05 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.12 2008/01/12 19:40:21 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -603,16 +603,29 @@ namespace eval ::hv3::console_commands {
     set zRet
   }
 
-  proc images {} {
+  proc gimages {} {
+    images 1
+  }
+  proc images {{all_tabs 0}} {
     set nPix 0
     set nImg 0
 
+    if {$all_tabs} {
+      set data [list]
+      foreach browser [.notebook tabs] {
+        eval lappend data [[$browser hv3] _images]
+      }
+    } else {
+      set data [hv3 _images]
+    }
+
     set header [list URL "Tk image" pixmap width height alpha references]
-    foreach record [concat [list $header] [hv3 _images]] {
+    foreach record [concat [list $header] $data] {
       foreach $header $record break
       if {[string length $URL] > 15} {
         set URL "...[string range $URL [expr [string length $URL]-12] end]"
       }
+      if {$URL eq ""} {set alpha ""}
       append ret [format "%-15s %7s %9s %6s  %6s  %8s  %11s\n" \
         $URL $pixmap ${Tk image} $width $height $alpha $references
       ]

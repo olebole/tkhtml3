@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.67 2008/01/12 14:23:05 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.68 2008/01/12 19:40:21 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -286,6 +286,48 @@ imageChangedCb(pTree, pNode, clientData)
     return HTML_WALK_DESCEND;
 }
 
+static void asyncPixmapify(clientData)
+    ClientData clientData;
+{
+    HtmlImage2 *pImage = (HtmlImage2 *)clientData;
+    HtmlImagePixmap(pImage);
+}
+
+static Tcl_Obj*
+getImageCompressed(pImage)
+    HtmlImage2 *pImage;
+{
+    if (!pImage->pCompressed) {
+        Tcl_Interp *interp = pImage->pImageServer->pTree->interp;
+        Tcl_Obj *apObj[3];
+        apObj[0] = pImage->pImageName;
+        apObj[1] = Tcl_NewStringObj("cget", -1);
+        apObj[2] = Tcl_NewStringObj("-data", -1);
+    
+        Tcl_IncrRefCount(apObj[0]);
+        Tcl_IncrRefCount(apObj[1]);
+        Tcl_IncrRefCount(apObj[2]);
+        if (TCL_OK == Tcl_EvalObjv(interp, 3, apObj, TCL_EVAL_GLOBAL)) {
+            pImage->pCompressed = Tcl_GetObjResult(interp);
+            Tcl_IncrRefCount(pImage->pCompressed);
+        }
+        Tcl_DecrRefCount(apObj[2]);
+        Tcl_DecrRefCount(apObj[1]);
+        Tcl_DecrRefCount(apObj[0]);
+    }
+    return pImage->pCompressed;
+}
+
+static void
+freeImageCompressed(pImage)
+    HtmlImage2 *pImage;
+{
+    if (pImage->pCompressed) {
+        Tcl_DecrRefCount(pImage->pCompressed);
+        pImage->pCompressed = 0;
+    }
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -324,19 +366,20 @@ imageChanged(clientData, x, y, width, height, imgWidth, imgHeight)
         freeTile(pImage);
         pImage->eAlpha = ALPHA_CHANNEL_UNKNOWN;
 
-        /* Regenerate pixmap. */
+        /* Delete the pixmap/compressed-data representation */
         if( pImage->pixmap ){
             Tk_FreePixmap(Tk_Display(pTree->tkwin), pImage->pixmap);
-            Tcl_DecrRefCount(pImage->pCompressed);
             pImage->pixmap = 0;
-            pImage->pCompressed = 0;
         }
+        freeImageCompressed(pImage);
 
         if (imgWidth!=pImage->width || imgHeight!=pImage->height) {
             pImage->width = imgWidth;
             pImage->height = imgHeight;
             HtmlWalkTree(pTree, 0, imageChangedCb, (ClientData)pImage);
         }
+
+        Tcl_DoWhenIdle(asyncPixmapify, (ClientData)pImage);
 
         /* If the image contents have been modified but the size is
          * constant, then just redraw the display. This is lazy. If
@@ -739,7 +782,7 @@ printf("TODO: BAD. Have to recreate image to make scaled copy.\n");
             apObj[0] = Tcl_NewStringObj("image", -1);
             apObj[1] = Tcl_NewStringObj("create", -1);
             apObj[2] = Tcl_NewStringObj("photo", -1);
-            apObj[4] = pUnscaled->pImageName;
+            apObj[3] = pUnscaled->pImageName;
 
             Tcl_IncrRefCount(apObj[0]);
             Tcl_IncrRefCount(apObj[1]);
@@ -864,40 +907,25 @@ Pixmap
 HtmlImagePixmap(pImage)
     HtmlImage2* pImage;
 {
-    if (!pImage->pImageServer->pTree->options.imagepixmapify) {
+    if (!pImage->pImageServer->pTree->options.imagepixmapify ||
+        !pImage->pImageName ||
+        !getImageCompressed(pImage) ||
+        pImage->width<=0 ||
+        pImage->height<=0
+    ) {
         return 0;
     }
     if (!pImage->isValid) {
         HtmlImageImage(pImage);
     }
-    if (
-       !pImage->pixmap &&
-       pImage->pImageName &&
-       pImage->width>0 &&
-       pImage->height>0 &&
-       !HtmlImageAlphaChannel(pImage->pImageServer->pTree, pImage)
-    ) {
+    if (!pImage->pixmap && !HtmlImageAlphaChannel(pImage)) {
         Tk_Window win = pImage->pImageServer->pTree->tkwin;
         Tcl_Interp *interp = pImage->pImageServer->pTree->interp;
 
         Pixmap pix;
-        Tcl_Obj *pData;
-        int nData;
         int rc;
+        Tcl_Obj *pGetData;
 
-        Tcl_Obj *pGetData = Tcl_NewObj();
-        Tcl_IncrRefCount(pGetData);
-        Tcl_ListObjAppendElement(0, pGetData, pImage->pImageName);
-        Tcl_ListObjAppendElement(0, pGetData, Tcl_NewStringObj("cget", -1));
-        Tcl_ListObjAppendElement(0, pGetData, Tcl_NewStringObj("-data", -1));
-
-        rc = Tcl_EvalObjEx(interp, pGetData, TCL_EVAL_GLOBAL|TCL_EVAL_DIRECT);
-        pData = Tcl_GetObjResult(interp);
-        Tcl_DecrRefCount(pGetData);
-        Tcl_GetStringFromObj(pData, &nData);
-        if (rc!=TCL_OK || nData==0){
-            return 0;
-        }
 #if 0
 printf("Pixmapifying - nData = %d\n", nData);
 #endif
@@ -910,8 +938,6 @@ printf("Pixmapifying - nData = %d\n", nData);
         );
 
         pImage->pixmap = pix;
-        pImage->pCompressed = pData;
-        Tcl_IncrRefCount(pData);
 
         pGetData = Tcl_NewObj();
         Tcl_IncrRefCount(pGetData);
@@ -948,13 +974,11 @@ HtmlImageFree(pImage)
          */
         assert(pImage->pUnscaled || 0 == pImage->pNext);
 
+        freeImageCompressed(pImage);
         if (pImage->pixmap) {
             HtmlTree *pTree = pImage->pImageServer->pTree;
-            XFreePixmap(Tk_Display(pTree->tkwin), pImage->pixmap);
+            Tk_FreePixmap(Tk_Display(pTree->tkwin), pImage->pixmap);
             pImage->pixmap = 0;
-            if (pImage->pCompressed) {
-                Tcl_DecrRefCount(pImage->pCompressed);
-            }
         }
         if (pImage->image) {
             Tk_FreeImage(pImage->image);
@@ -995,6 +1019,7 @@ HtmlImageFree(pImage)
 
         freeTile(pImage);
         HtmlFree(pImage);
+        Tcl_CancelIdleCall(asyncPixmapify, (ClientData)pImage);
     }
 }
 
@@ -1029,7 +1054,7 @@ void HtmlImageCheck(pImage)
  *
  * Results:
  *
- *     1 if there are one or more pixels in the image with an 
+ *     1 if there are one or more pixels in the image with an alpha
  *     alpha-channel value of other than 100%. Otherwise 0.
  *
  * Side effects:
@@ -1038,13 +1063,12 @@ void HtmlImageCheck(pImage)
  *---------------------------------------------------------------------------
  */
 int 
-HtmlImageAlphaChannel(pTree, pImage)
-    HtmlTree *pTree;
+HtmlImageAlphaChannel(pImage)
     HtmlImage2 *pImage;
 {
-
     HtmlImage2 *p = (pImage->pUnscaled ? pImage->pUnscaled : pImage);
     if (p->eAlpha == ALPHA_CHANNEL_UNKNOWN) {
+        HtmlTree *pTree= pImage->pImageServer->pTree;
         Tk_PhotoHandle photo;
         Tk_PhotoImageBlock block;
         int x, y;
@@ -1052,12 +1076,22 @@ HtmlImageAlphaChannel(pTree, pImage)
         int w = p->width;
         int h = p->height;
 
-        /* If the image consists of more than 40,000 pixels, assume
-         * it contains a semi-translucent pixel.
-         */ 
-        if (0 && (w * h) > 100) {
-            p->eAlpha = ALPHA_CHANNEL_TRUE;
-            return 1;
+        Tcl_Obj *pCompressed = getImageCompressed(pImage);
+        unsigned char *zCompressed;
+        int nCompressed;
+        int i;
+        assert(pCompressed);
+
+        zCompressed = Tcl_GetByteArrayFromObj(pCompressed, &nCompressed);
+        for(i = 0; 1 && i < 16 && i < (nCompressed-4); i++){
+            if (zCompressed[i] == 'J' && 
+                zCompressed[i+1] == 'F' && 
+                zCompressed[i+2] == 'I' && 
+                zCompressed[i+3] == 'F'
+            ) {
+                p->eAlpha = ALPHA_CHANNEL_FALSE;
+                return 0;
+            }
         }
  
         p->eAlpha = ALPHA_CHANNEL_FALSE;
