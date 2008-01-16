@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.206 2008/01/12 14:23:05 danielk1977 Exp $";
+static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.207 2008/01/16 06:29:27 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <stdlib.h>
@@ -446,6 +446,8 @@ INSTRUMENTED(runLayoutEngine, HTML_INSTRUMENT_LAYOUT_ENGINE)
     HtmlDamage *pD;
 
     assert(pTree->cb.pSnapshot);
+
+    if (!pTree->options.enablelayout) return;
 
     pD = pTree->cb.pDamage;
     HtmlLayout(pTree);
@@ -1360,7 +1362,8 @@ BOOLEAN (shrink, "shrink", "Shrink", "0", S_MASK),
 DOUBLE  (zoom, "zoom", "Zoom", "1.0", F_MASK),
 
 /* Debugging options */
-BOOLEAN (layoutcache, "layoutCache", "LayoutCache", "1", S_MASK),
+BOOLEAN (enablelayout, "enableLayout", "EnableLayout", "1", S_MASK),
+BOOLEAN (layoutcache, "layoutCache", "LayoutCache", "1", L_MASK),
 STRING  (logcmd, "logCmd", "LogCmd", ""),
 STRING  (timercmd, "timerCmd", "TimerCmd", ""),
 

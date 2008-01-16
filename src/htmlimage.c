@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.68 2008/01/12 19:40:21 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.69 2008/01/16 06:29:27 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -308,8 +308,13 @@ getImageCompressed(pImage)
         Tcl_IncrRefCount(apObj[1]);
         Tcl_IncrRefCount(apObj[2]);
         if (TCL_OK == Tcl_EvalObjv(interp, 3, apObj, TCL_EVAL_GLOBAL)) {
-            pImage->pCompressed = Tcl_GetObjResult(interp);
-            Tcl_IncrRefCount(pImage->pCompressed);
+	    int nData;
+	    Tcl_Obj *pData = Tcl_GetObjResult(interp);
+	    Tcl_GetByteArrayFromObj(pData, &nData);
+	    if (nData>0){
+                pImage->pCompressed = pData;
+                Tcl_IncrRefCount(pData);
+	    }
         }
         Tcl_DecrRefCount(apObj[2]);
         Tcl_DecrRefCount(apObj[1]);

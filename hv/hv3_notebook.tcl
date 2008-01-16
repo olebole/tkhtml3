@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.4 2008/01/12 16:35:06 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.5 2008/01/16 06:29:27 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of three snit widgets:
 #
@@ -130,6 +130,8 @@ snit::widget ::hv3::notebook_header {
   }
 
   method select {id} {
+    set myCurrent $id
+
     # Optimization: When there is only one tab in the list, do not bother
     # to configure any bindings or colors.
     if {[array size myIdMap]<=1} return
@@ -137,7 +139,6 @@ snit::widget ::hv3::notebook_header {
     if {$id ne "" && ![info exists myIdMap($id)]} { 
       error "Know nothing about id $id" 
     }
-    set myCurrent $id
     foreach ident $myIdList {
       foreach {polygon text line} [${win}.tabs find withtag $ident] break
       if {![info exists polygon]} return

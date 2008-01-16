@@ -420,6 +420,7 @@ struct HtmlOptions {
     int      parsemode;                 /* One of the HTML_PARSEMODE values */
 
     /* Debugging options. Not part of the official interface. */
+    int      enablelayout;
     int      layoutcache;
     Tcl_Obj *logcmd;
     Tcl_Obj *timercmd;

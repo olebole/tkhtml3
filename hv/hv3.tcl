@@ -1122,7 +1122,8 @@ snit::widget ::hv3::hv3 {
     # Register handler commands to handle <body>.
     $myHtml handler node body   [list $self body_node_handler]
 
-    bind $win <Configure> [list $self goto_fragment]
+    bind $win <Configure>  [list $self goto_fragment]
+    #bind [$win html].document <Visibility> [list $self VisibilityChange %s]
 
     $self configurelist $args
   }
@@ -1152,6 +1153,24 @@ snit::widget ::hv3::hv3 {
     if {$myRefreshEventId ne ""} {
       after cancel $myRefreshEventId
       set myRefreshEventId ""
+    }
+  }
+
+  method VisibilityChange {state} {
+puts "visiblity $win = $state"
+    switch -- $state {
+      VisibilityUnobscured {
+        set enablelayout 1
+      }
+      VisibilityPartiallyObscured {
+        set enablelayout 1
+      }
+      VisibilityFullyObscured {
+        set enablelayout 0
+      }
+    }
+    if {[$myHtml cget -enablelayout] != $enablelayout} {
+      $myHtml configure -enablelayout $enablelayout
     }
   }
 
