@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.5 2008/01/16 06:29:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.6 2008/01/17 06:37:18 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of three snit widgets:
 #
@@ -68,22 +68,19 @@ snit::widget ::hv3::notebook_header {
 
   constructor {args} {
     canvas ${win}.tabs
-    ${win}.tabs configure -borderwidth 0 
-    ${win}.tabs configure -highlightthickness 0 
+    ${win}.tabs configure -borderwidth 0
+    ${win}.tabs configure -highlightthickness 0
     ${win}.tabs configure -selectborderwidth 0
 
     init_bitmaps
 
-    set myTabHeight [expr [font metrics Hv3DefaultFot -linespace] * 1.5]
-
-    ${win}.tabs configure -height $myTabHeight -width 100
-    pack ${win}.tabs -expand true -fill both
+    set myTabHeight [expr [font metrics Hv3DefaultFont -linespace] * 1.5]
 
     $self configurelist $args
 
     bind ${win}.tabs <Configure> [list $self Redraw]
     place ${win}.tabs -relwidth 1.0 -relheight 1.0
-    $hull configure -height $myTabHeight
+    $hull configure -height 0
   }
 
   method add_tab {id} {
@@ -177,7 +174,12 @@ snit::widget ::hv3::notebook_header {
   method RedrawCallback {} {
     # Optimization: When there is only one tab in the list, do not bother
     # to draw anything. It won't be visible anyway.
-    if {[array size myIdMap]<=1} return
+    if {[array size myIdMap]<=1} {
+	    puts "configure $hull height 0"
+      $hull configure -height 1
+      return
+    }
+    $hull configure -height $myTabHeight
 
     set font Hv3DefaultFont
 
@@ -319,7 +321,10 @@ snit::widget ::hv3::notebook {
     set myHeader [::hv3::notebook_header ${win}.header]
     $myHeader configure -selectcmd [mymethod select]
 
-    place $myHeader -x 0 -y 0 -relwidth 1.0
+    grid columnconfigure $win 0 -weight 1
+    grid rowconfigure $win 1 -weight 1
+    grid propagate $win 0
+    grid $myHeader -row 0 -column 0 -sticky ew
 
     $self configurelist $args
   }
@@ -351,16 +356,7 @@ snit::widget ::hv3::notebook {
   }
 
   method Place {w} {
-    if {[llength $myWidgets]>1} {
-      set tabheight [winfo reqheight $myHeader]
-    } else {
-      set tabheight 0
-    }
-    place $w                              \
-        -x 0 -y $tabheight                \
-        -relwidth 1.0 -relheight 1.0      \
-        -height [expr -1 * $tabheight]    \
-        -anchor nw
+    grid $w -row 1 -column 0 -sticky nsew
   }
 
   method HandleDestroy {widget w} {
@@ -378,7 +374,7 @@ snit::widget ::hv3::notebook {
     set idx [lsearch $myWidgets $widget]
     if {$idx < 0} { error "$widget is not managed by $self" }
 
-    place forget $widget
+    grid forget $widget
     bind $widget <Destroy> ""
 
     set myWidgets [lreplace $myWidgets $idx $idx]
@@ -386,15 +382,13 @@ snit::widget ::hv3::notebook {
 
     if {$myCurrent == [llength $myWidgets]} {
       incr myCurrent -1
-      if {$myCurrent >= 0} {
-        set w [lindex $myWidgets $myCurrent]
-        raise $w
-        $myHeader select $w
-      }
     }
-    if {[llength $myWidgets] == 1} {
-      $self Place [lindex $myWidgets 0]
+    if {$myCurrent >= 0} {
+      set w [lindex $myWidgets $myCurrent]
+      raise $w
+      $myHeader select $w
     }
+
     after cancel [list event generate $win <<NotebookTabChanged>>]
     after idle   [list event generate $win <<NotebookTabChanged>>]
   }
