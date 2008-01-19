@@ -128,6 +128,7 @@ source [file join [file dirname [info script]] hv3_encodings.tcl]
 source [file join [file dirname [info script]] hv3_util.tcl]
 source [file join [file dirname [info script]] hv3_form.tcl]
 source [file join [file dirname [info script]] hv3_request.tcl]
+#source [file join [file dirname [info script]] hv3_request.tcl.bak]
 
 #--------------------------------------------------------------------------
 # Class ::hv3::hv3::mousemanager
@@ -1070,6 +1071,7 @@ snit::widget ::hv3::hv3 {
     # Create the scrolled html widget and bind it's events to the
     # mega-widget window.
     set myHtml [::hv3::scrolled html ${win}.html -imagepixmapify 1]
+    #set myHtml [::hv3::scrolled html ${win}.html]
     catch {::hv3::profile::instrument [$myHtml widget]}
     bindtags [$self html] [concat [bindtags [$self html]] $self]
     pack $myHtml -fill both -expand 1

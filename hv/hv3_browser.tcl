@@ -810,7 +810,7 @@ snit::widget ::hv3::browser {
   delegate method locationvar to myHistory
   delegate method populatehistorymenu to myHistory
 
-  delegate method debug_cookies  to myProtocol
+  delegate method debug_cookies to myProtocol
 
   delegate option * to myMainFrame
   delegate method * to myMainFrame

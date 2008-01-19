@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.22 2007/12/17 07:27:11 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.23 2008/01/19 05:59:31 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -85,261 +85,285 @@ namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.22 2007/12/17 07:27:1
 #     data
 #     encoding
 #
-snit::type ::hv3::request {
 
-  # The requestor (i.e. the creator of the ::hv3::request object) sets the
-  # following configuration options. The protocol implementation may set the
-  # -mimetype option before returning.
-  #
-  # The -cachecontrol option may be set to the following values:
-  #
-  #     * normal             (try to be clever about caching)
-  #     * no-cache           (never return cached resources)
-  #     * relax-transparency (return cached resources even if stale)
-  #
-  option -cachecontrol -default normal
-  option -uri          -default ""
-  option -postdata     -default ""
-  option -mimetype     -default ""
-  option -enctype      -default ""
+namespace eval ::hv3::request {
 
-  # The hv3 widget that issued this request. This is used
-  # (a) to notify destruction of root request,
-  # (b) by the handler for home:// uris and
-  # (c) to call [$myHtml reset] in restartCallback.
-  #
-  option -hv3      -default ""
+  proc new {me args} {
 
-  # If a connection is canceled too early (ex. for META triggered reloading),
-  # proxy(polipo) can fall into corrupted state. To avoid this,
-  # canceled connection should be kept open (but fileevent is disabled)
-  # until overall download tree is finished.
-  #
-  option -token    -default ""
+    upvar $me O
 
-  # The protocol implementation sets this option to contain the 
-  # HTTP header (or it's equivalent). The format is a serialised array.
-  # Example:
-  # 
-  #     {Set-Cookie safe-search=on Location http://www.google.com}
-  #
-  # The following http-header types are handled locally by the ConfigureHeader
-  # method, as soon as the -header option is set:
-  #
-  #     Set-Cookie         (Call ::hv3::the_cookie_manager method)
-  #     Content-Type       (Set the -mimetype option)
-  #     Content-Length     (Set the -expectedsize option)
-  #
-  option -header -default "" -configuremethod ConfigureHeader
+    # The requestor (i.e. the creator of the ::hv3::request object) sets the
+    # following configuration options. The protocol implementation may set the
+    # -mimetype option before returning.
+    #
+    # The -cachecontrol option may be set to the following values:
+    #
+    #     * normal             (try to be clever about caching)
+    #     * no-cache           (never return cached resources)
+    #     * relax-transparency (return cached resources even if stale)
+    #
+    set O(-cachecontrol) normal
+    set O(-uri) ""
+    set O(-postdata) ""
+    set O(-mimetype) ""
+    set O(-enctype) ""
 
-  option -requestheader -default ""
+    # The hv3 widget that issued this request. This is used
+    # (a) to notify destruction of root request,
+    # (b) by the handler for home:// uris and
+    # (c) to call [$myHtml reset] in restartCallback.
+    #
+    set O(-hv3) ""
 
-  # Expected size of the resource being requested. This is used
-  # for displaying a progress bar when saving remote resources
-  # to the local filesystem (aka downloadin').
-  #
-  option -expectedsize -default ""
+    # The protocol implementation sets this option to contain the 
+    # HTTP header (or it's equivalent). The format is a serialised array.
+    # Example:
+    # 
+    #     {Set-Cookie safe-search=on Location http://www.google.com}
+    #
+    # The following http-header types are handled locally by the ConfigureHeader
+    # method, as soon as the -header option is set:
+    #
+    #     Set-Cookie         (Call ::hv3::the_cookie_manager method)
+    #     Content-Type       (Set the -mimetype option)
+    #     Content-Length     (Set the -expectedsize option)
+    #
+    set O(-header) ""
+  
+    set O(-requestheader) ""
+  
+    # Expected size of the resource being requested. This is used
+    # for displaying a progress bar when saving remote resources
+    # to the local filesystem (aka downloadin').
+    #
+    set O(-expectedsize) ""
+  
+    # Callbacks configured by the requestor.
+    #
+    set O(-incrscript) ""
+    set O(-finscript) ""
+  
+    # This -encoding option is used to specify explicit conversion of
+    # incoming http/file data.
+    # When this option is set, [http::geturl -binary] is used.
+    # Then [$self append] will call [encoding convertfrom].
+    #
+    # See also [encoding] and [suggestedEncoding] methods.
+    #
+    set O(-encoding) ""
+  
+    # True if the -encoding option has been set by the transport layer. 
+    # If this is true, then any encoding specified via a <meta> element
+    # in the main document is ignored.
+    #
+    set O(-hastransportencoding) 0
 
-  # Callbacks configured by the requestor.
-  #
-  option -incrscript   -default ""
-  option -finscript    -default ""
+    # END OF OPTIONS
+    #----------------------------
 
-  # This -encoding option is used to specify explicit conversion of
-  # incoming http/file data.
-  # When this option is set, [http::geturl -binary] is used.
-  # Then [$self append] will call [encoding convertfrom].
-  #
-  # See also [encoding] and [suggestedEncoding] methods.
-  #
-  option -encoding -default ""
+    set O(myChunksize) 2048
+  
+    # The binary data returned by the protocol implementation is 
+    # accumulated in this variable.
+    set O(myRaw) {}
+  
+    # If this variable is non-zero, then the first $myRawPos bytes of
+    # $myRaw have already been passed to Hv3 via the -incrscript 
+    # callback.
+    set O(myRawPos) 0
+  
+    # These objects are referenced counted. Initially the reference count
+    # is 1. It is increased by calls to the [reference] method and decreased
+    # by the [release] method. The object is deleted when the ref-count 
+    # reaches zero.
+    set O(myRefCount) 1
+  
+    set O(myIsText) 1; # Whether mimetype is text/* or not.
+  
+    # Make sure finish is processed only once.
+    set O(myIsFinished) 0
+  
+    # Destroy-hook scripts configured using the [finish_hook] method.
+    set O(myFinishHookList) [list]
 
-  # True if the -encoding option has been set by the transport layer. 
-  # If this is true, then any encoding specified via a <meta> element
-  # in the main document is ignored.
-  #
-  option -hastransportencoding -default 0
-
-  # END OF OPTIONS
-  #----------------------------
-
-  variable myData ""
-  variable myChunksize 2048
-
-  # The binary data returned by the protocol implementation is 
-  # accumulated in this variable.
-  variable myRaw  {}
-
-  # If this variable is non-zero, then the first $myRawPos bytes of
-  # $myRaw have already been passed to Hv3 via the -incrscript 
-  # callback.
-  variable myRawPos 0
-
-  # These objects are referenced counted. Initially the reference count
-  # is 1. It is increased by calls to the [reference] method and decreased
-  # by the [release] method. The object is deleted when the ref-count 
-  # reaches zero.
-  variable myRefCount 1
-
-  variable myIsText  1; # Whether mimetype is text/* or not.
-
-  # Make sure finish is processed only once.
-  variable myIsFinished 0
-
-  # Destroy-hook scripts configured using the [finish_hook] method.
-  variable myFinishHookList [list]
-
-  # Constructor and destructor
-  constructor {args} {
-    $self configurelist $args
-    # puts stderr new\t$self\t[$self cget -uri]\t[clock clicks]
+    eval configure $me $args
   }
 
-  destructor {
-    foreach hook $myFinishHookList { eval $hook }
+  proc destroy {me} {
+    upvar $me O
+    foreach hook $O(myFinishHookList) { eval $hook }
+    rename $me {}
+    array unset $me
   }
 
-  method data {} {
-    set raw [string range $myRaw 0 [expr {$myRawPos-1}]]
-    if {$myIsText} {
-      return [encoding convertfrom [$self encoding] $raw]
+  proc configure {me args} {
+    upvar $me O
+    foreach {option value} $args {
+      set O($option) $value
+      if {$option eq "-header"} {ConfigureHeader $me}
+      if {$option eq "-encoding"} {ConfigureEncoding $me}
+      if {$option eq "-mimetype"} {ConfigureMimetype $me}
+    }
+  }
+
+  proc cget {me option} {
+    upvar $me O
+    return $O($option)
+  }
+
+  proc data {me} {
+    upvar $me O
+    set raw [string range $O(myRaw) 0 [expr {$O(myRawPos)-1}]]
+    if {$O(myIsText)} {
+      return [::encoding convertfrom [encoding $me] $raw]
     }
     return $raw
   }
 
   # Increment the object refcount.
   #
-  method reference {} {
-    incr myRefCount
+  proc reference {me} {
+    upvar $me O
+    incr O(myRefCount)
   }
 
   # Decrement the object refcount.
   #
-  method release {} {
-    incr myRefCount -1
-    if {$myRefCount == 0} {
-      $self destroy
+  proc release {me} {
+    upvar $me O
+    incr O(myRefCount) -1
+    if {$O(myRefCount) == 0} {
+      destroy $me
     }
   }
 
   # Add a script to be called just before the object is destroyed. See
   # description above.
   #
-  method finish_hook {script} {
-    lappend myFinishHookList $script
+  proc finish_hook {me script} {
+    upvar $me O
+    lappend O(myFinishHookList) $script
   }
 
   # This method is called each time the -header option is set. This
   # is where the locally handled HTTP headers (see comments above the
   # -header option) are handled.
   #
-  method ConfigureHeader {name option_value} {
-    set options($name) $option_value
-    foreach {name value} $option_value {
+  proc ConfigureHeader {me} {
+    upvar $me O
+    foreach {name value} $O(-header) {
       switch -- [string tolower $name] {
         set-cookie {
           catch {
-            ::hv3::the_cookie_manager SetCookie $options(-uri) $value
+            ::hv3::the_cookie_manager SetCookie $O(-uri) $value
           }
         }
         content-type {
           set parsed [hv3::string::parseContentType $value]
           foreach {major minor charset} $parsed break
-          set options(-mimetype) $major/$minor
+          set O(-mimetype) $major/$minor
           if {$charset ne ""} {
-            set options(-hastransportencoding) 1
-            set options(-encoding) [::hv3::encoding_resolve $charset]
+            set O(-hastransportencoding) 1
+            set O(-encoding) [::hv3::encoding_resolve $charset]
           }
         }
         content-length {
-          set options(-expectedsize) $value
+          set O(-expectedsize) $value
         }
       }
     }
   }
 
-  onconfigure -mimetype mimetype {
-      set options(-mimetype) $mimetype
-      set myIsText [string match text* $mimetype]
+  proc ConfigureMimetype {me} {
+    upvar $me O
+    set O(myIsText) [string match text* $O(-mimetype)]
   }
 
-  onconfigure -encoding enc {
-      set options(-encoding) [::hv3::encoding_resolve $enc]
+  proc ConfigureEncoding {me} {
+    upvar $me O
+    set O(-encoding) [::hv3::encoding_resolve $O(-encoding)]
   }
 
   # Return the "authority" part of the URI configured as the -uri option.
   #
-  method authority {} {
-    set obj [::tkhtml::uri $options(-uri)]
+  proc authority {me} {
+    upvar $me O
+    set obj [::tkhtml::uri $O(-uri)]
     set authority [$obj authority]
     $obj destroy
     return $authority
   }
 
   # Interface for returning data.
-  method append {raw} {
-    append myRaw $raw
+  proc append {me raw} {
+    upvar $me O
+    ::append O(myRaw) $raw
 
-    if {$options(-incrscript) != ""} {
+    if {$O(-incrscript) != ""} {
       # There is an -incrscript callback configured. If enough data is 
       # available, invoke it.
       set nLast 0
       foreach zWhite [list " " "\n" "\t"] {
-        set n [string last $zWhite $myRaw]
+        set n [string last $zWhite $O(myRaw)]
         if {$n>$nLast} {set nLast $n ; break}
       }
-      set nAvailable [expr {$nLast-$myRawPos}]
-      if {$nAvailable > $myChunksize} {
+      set nAvailable [expr {$nLast-$O(myRawPos)}]
+      if {$nAvailable > $O(myChunksize)} {
 
-        set zDecoded [string range $myRaw $myRawPos $nLast]
-        if {$myIsText} {
-          set zDecoded [encoding convertfrom [$self encoding] $zDecoded]
+        set zDecoded [string range $O(myRaw) $O(myRawPos) $nLast]
+        if {$O(myIsText)} {
+          set zDecoded [::encoding convertfrom [encoding $me] $zDecoded]
         }
-        set myRawPos [expr {$nLast+1}]
-        if {$myChunksize < 30000} {
-          set myChunksize [expr $myChunksize * 2]
+        set O(myRawPos) [expr {$nLast+1}]
+        if {$O(myChunksize) < 30000} {
+          set O(myChunksize) [expr $O(myChunksize) * 2]
         }
 
-        eval [linsert $options(-incrscript) end $zDecoded] 
+        eval [linsert $O(-incrscript) end $zDecoded] 
       }
     }
   }
 
   # Called after all data has been passed to [append].
   #
-  method finish {{raw ""}} {
-    if {$myIsFinished} {error "finish called twice on $self"}
-    set myIsFinished 1
-    append myRaw $raw
+  proc finish {me {raw ""}} {
+    upvar $me O
 
-    set zDecoded [string range $myRaw $myRawPos end]
-    if {$myIsText} {
-      set zDecoded [encoding convertfrom [$self encoding] $zDecoded]
+    if {$O(myIsFinished)} {error "finish called twice on $me"}
+    set O(myIsFinished) 1
+    ::append O(myRaw) $raw
+
+    set zDecoded [string range $O(myRaw) $O(myRawPos) end]
+    if {$O(myIsText)} {
+      set zDecoded [::encoding convertfrom [encoding $me] $zDecoded]
     }
 
-    foreach hook $myFinishHookList {
+    foreach hook $O(myFinishHookList) {
       eval $hook
     }
-    set myFinishHookList [list]
-    set myRawPos [string length $myRaw]
-    eval [linsert $options(-finscript) end $zDecoded] 
+    set O(myFinishHookList) [list]
+    set O(myRawPos) [string length $O(myRaw)]
+    eval [linsert $O(-finscript) end $zDecoded] 
   }
 
-  method isFinished {} {set myIsFinished}
+  proc isFinished {me} {
+    upvar $me O
+    set O(myIsFinished)
+  }
 
-  method fail {} {
+  proc fail {me} {
+    upvar $me O
     # TODO: Need to do something here...
     puts FAIL
   }
 
-  method encoding {} {
-    string-or $options(-encoding) [encoding system]
-  }
-
-  proc string-or args {
-      foreach i $args {
-	  if {$i ne ""} {return $i}
-      }
+  proc encoding {me} {
+    upvar $me O
+    set ret $O(-encoding)
+    if {$ret eq ""} {set ret [::encoding system]}
+    return $ret
   }
 }
+
+::hv3::namespace_to_constructor ::hv3::request
 

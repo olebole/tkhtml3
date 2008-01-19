@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.2 2008/01/06 08:45:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.3 2008/01/19 05:59:31 danielk1977 Exp $)} 1 }
 
 
 namespace eval hv3 {
@@ -137,6 +137,24 @@ namespace eval hv3 {
   proc scrolled {widget name args} {
     return [eval [concat ::hv3::scrolledwidget $name $widget $args]]
   }
+
+  proc namespace_to_constructor {ns} {
+    proc $ns {obj args} [string map [list %NS% $ns] {
+      if {$obj eq "%AUTO%"} {
+        set obj %NS%::inst[incr %NS%::_OBJ_COUNTER]
+      }
+
+      if {[info commands real_proc] ne ""} {
+        real_proc $obj {m args} "namespace eval %NS% \$m $obj \$args"
+      } else {
+        proc $obj {m args} "namespace eval %NS% \$m $obj \$args"
+      }
+
+      eval %NS%::new $obj $args
+      return $obj
+    }]
+  }
+
 }
 
 namespace eval ::hv3::string {

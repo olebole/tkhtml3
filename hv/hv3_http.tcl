@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.60 2007/12/17 04:43:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.61 2008/01/19 05:59:31 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -33,41 +33,39 @@ source [sourcefile hv3_file.tcl]
 #
 #     $protocol destroy
 #
-snit::type ::hv3::protocol {
+namespace eval ::hv3::protocol {
 
-  # Lists of waiting and in-progress http URI download-handles.
-  variable myWaitingHandles    [list]
-  variable myInProgressHandles [list]
+  proc new {me args} { 
+    upvar $me O
 
-  variable myTokenMap -array [list]
- 
-  # If not set to an empty string, contains the name of a global
-  # variable to set to a short string describing the state of
-  # the object. The string is always of the form:
-  #
-  #     "X1 waiting, X2 in progress"
-  #
-  # where X1 and X2 are integers. An http request is said to be "waiting"
-  # until the header identifying the mimetype is received, and "in progress"
-  # from that point on until the resource has been completely retrieved.
-  #
-  option -statusvar -default "" -configuremethod ConfigureStatusvar
-  option -relaxtransparency -default 0
+    # Lists of waiting and in-progress http URI download-handles.
+    set O(myWaitingHandles)    [list]
+    set O(myInProgressHandles) [list]
 
-  # Instance of ::hv3::cookiemanager. Right now this is a global object.
-  # But this may change in the future. Hence this variable.
-  #
-  variable myCookieManager ""
+    # If not set to an empty string, contains the name of a global
+    # variable to set to a short string describing the state of
+    # the object. The string is always of the form:
+    #
+    #     "X1 waiting, X2 in progress"
+    #
+    # where X1 and X2 are integers. An http request is said to be "waiting"
+    # until the header identifying the mimetype is received, and "in progress"
+    # from that point on until the resource has been completely retrieved.
+    #
+    set O(-statusvar) ""
+    set O(-relaxtransparency) 0
 
-  # Both built-in ("http" and "file") and any configured scheme handlers 
-  # (i.e. "home:") are stored in this array.
-  variable mySchemeHandlers -array [list]
+    # Instance of ::hv3::cookiemanager. Right now this is a global object.
+    # But this may change in the future. Hence this variable.
+    #
+    set O(myCookieManager) ""
 
-  variable myBytesExpected 0
-  variable myBytesReceived 0
+    set O(myBytesExpected) 0
+    set O(myBytesReceived) 0
 
-  constructor {args} {
-    $self configurelist $args
+    set O(myGui) ""
+
+    eval configure $me $args
 
     # It used to be that each ::hv3::protocol object would create it's
     # own cookie-manager database. This has now changed so that the
@@ -77,22 +75,22 @@ snit::type ::hv3::protocol {
     #
     # The global cookie-manager object is named "::hv3::the_cookie_manager".
     #
-    set myCookieManager ::hv3::the_cookie_manager
-    if {[info commands $myCookieManager] eq ""} {
-      ::hv3::cookiemanager $myCookieManager
+    set O(myCookieManager) ::hv3::the_cookie_manager
+    if {[info commands $O(myCookieManager)] eq ""} {
+      ::hv3::cookiemanager $O(myCookieManager)
     }
 
     # Register the 4 basic types of URIs the ::hv3::protocol code knows about.
-    $self schemehandler file  ::hv3::request_file
-    $self schemehandler http  [list $self request_http]
-    $self schemehandler data  [list $self request_data]
-    $self schemehandler blank [list $self request_blank]
-    $self schemehandler about [list $self request_blank]
+    schemehandler $me file  ::hv3::request_file
+    schemehandler $me http  [list $me request_http]
+    schemehandler $me data  [list $me request_data]
+    schemehandler $me blank [list $me request_blank]
+    schemehandler $me about [list $me request_blank]
 
     # If the tls package is loaded, we can also support https.
     if {[info commands ::tls::socket] ne ""} {
-      $self schemehandler https [list $self request_https]
-      ::http::register https 443 [list ::hv3::protocol SSocket]
+      schemehandler $me https [list $me request_https]
+      ::http::register https 443 ::hv3::protocol::SSocket
     }
 
     # Configure the Tcl http package to pretend to be Gecko.
@@ -101,19 +99,36 @@ snit::type ::hv3::protocol {
     set ::http::defaultCharset utf-8
   }
 
-  destructor { 
+  proc destroy {me} { 
     # Nothing to do. We used to destroy the $myCookieManager object here,
     # but that object is now global and exists for the lifetime of the
     # application.
+    array unset $me
+    rename $me {}
+  }
+
+  proc configure {me args} {
+    upvar $me O
+    foreach {option value} $args {
+      set O($option) $value
+      if {$option eq "-statusvar"} {ConfigureStatusvar $me}
+    }
+  }
+
+  proc cget {me option} {
+    upvar $me O
+    return $O($option)
   }
 
   # Register a custom scheme handler command (like "home:").
-  method schemehandler {scheme handler} {
-    set mySchemeHandlers($scheme) $handler
+  proc schemehandler {me scheme handler} {
+    upvar $me O
+    set O(scheme.$scheme) $handler
   }
 
   # This method is invoked as the -requestcmd script of an hv3 widget
-  method requestcmd {downloadHandle} {
+  proc requestcmd {me downloadHandle} {
+    upvar $me O
 
     # Extract the URI scheme to figure out what kind of URI we are
     # dealing with. Currently supported are "file" and "http" (courtesy 
@@ -128,8 +143,8 @@ snit::type ::hv3::protocol {
 
     # Execute the scheme-handler, or raise an error if no scheme-handler
     # can be found.
-    if {[info exists mySchemeHandlers($uri_scheme)]} {
-      eval [concat $mySchemeHandlers($uri_scheme) $downloadHandle]
+    if {[info exists O(scheme.$uri_scheme)]} {
+      eval [concat $O(scheme.$uri_scheme) $downloadHandle]
     } else {
       error "Unknown URI scheme: \"$uri_scheme\""
     }
@@ -137,7 +152,9 @@ snit::type ::hv3::protocol {
 
   # Handle an http:// URI.
   #
-  method request_http {downloadHandle} {
+  proc request_http {me downloadHandle} {
+    upvar $me O
+    
     #$downloadHandle finish
     #return
 
@@ -154,7 +171,7 @@ set uri [::tkhtml::escape_uri -query $uri]
 
     # Store the HTTP header containing the cookies in variable $headers
     set headers [$downloadHandle cget -requestheader]
-    set cookies [$myCookieManager Cookie $uri]
+    set cookies [$O(myCookieManager) Cookie $uri]
     if {$cookies ne ""} {
       lappend headers Cookie $cookies
     }
@@ -182,15 +199,15 @@ set uri [::tkhtml::escape_uri -query $uri]
       default {
       }
     }
-    if {$options(-relaxtransparency)} {
+    if {$O(-relaxtransparency)} {
       lappend headers Cache-Control relax-transparency=1
     }
 
     # Fire off a request via the http package.
     # Always uses -binary mode.
     set geturl [list ::http::geturl $uri                     \
-      -command [list $self _DownloadCallback $downloadHandle]  \
-      -handler [list $self _AppendCallback $downloadHandle]    \
+      -command [list $me _DownloadCallback $downloadHandle]  \
+      -handler [list $me _AppendCallback $downloadHandle]    \
       -headers $headers                                      \
       -binary 1                                              \
     ]
@@ -202,31 +219,24 @@ set uri [::tkhtml::escape_uri -query $uri]
     }
 
     set token [eval $geturl]
-    $self AddToWaitingList $downloadHandle
-    set myTokenMap($downloadHandle) $token
+    $me AddToWaitingList $downloadHandle
+    $downloadHandle finish_hook [list ::http::reset $token]
 #puts "REQUEST $geturl -> $token"
   }
 
-  # To get http token for given downloadHandle.
-  # Called from [hv3::hv3::makerequest]
-  #
-  method getToken {downloadHandle} {
-      set vn myTokenMap($downloadHandle)
-      if {![info exists $vn]} return
-      set $vn
-  }
+  proc AddToWaitingList {me downloadHandle} {
+    upvar $me O
 
-  method AddToWaitingList {downloadHandle} {
-    if {[lsearch -exact $myWaitingHandles $downloadHandle] >= 0} return
+    if {[lsearch -exact $O(myWaitingHandles) $downloadHandle] >= 0} return
 
     # Add this handle the the waiting-handles list. Also add a callback
     # to the -failscript and -finscript of the object so that it 
     # automatically removes itself from our lists (myWaitingHandles and
     # myInProgressHandles) after the retrieval is complete.
     #
-    lappend myWaitingHandles $downloadHandle
-    $downloadHandle finish_hook [list $self FinishRequest $downloadHandle]
-    $self Updatestatusvar
+    lappend O(myWaitingHandles) $downloadHandle
+    $downloadHandle finish_hook [list $me FinishRequest $downloadHandle]
+    $me Updatestatusvar
   }
 
   # The following methods:
@@ -239,7 +249,9 @@ set uri [::tkhtml::escape_uri -query $uri]
   # along with the type variable $theWaitingSocket, are part of the
   # https:// support implementation.
   # 
-  method request_https {downloadHandle} {
+  proc request_https {me downloadHandle} {
+    upvar $me O
+
     set obj [::tkhtml::uri [$downloadHandle cget -uri]]
     set host [$obj authority]
     $obj destroy
@@ -250,24 +262,28 @@ set uri [::tkhtml::escape_uri -query $uri]
     set proxyhost [::http::config -proxyhost]
     set proxyport [::http::config -proxyport]
 
-    $self AddToWaitingList $downloadHandle
+    AddToWaitingList $me $downloadHandle
 
     if {$proxyhost eq ""} {
       set fd [socket -async $host $port]
-      fileevent $fd writable [list $self SSocketReady $fd $downloadHandle]
+      fileevent $fd writable [list $me SSocketReady $fd $downloadHandle]
     } else {
       set fd [socket $proxyhost $proxyport]
       fconfigure $fd -blocking 0 -buffering full
       puts $fd "CONNECT $host:$port HTTP/1.1"
       puts $fd ""
       flush $fd
-      fileevent $fd readable [list $self SSocketProxyReady $fd $downloadHandle]
+      fileevent $fd readable [list $me SSocketProxyReady $fd $downloadHandle]
     }
   }
-  method SSocketReady {fd downloadHandle} {
+
+  proc SSocketReady {me fd downloadHandle} {
+    upvar $me O
+    ::variable theWaitingSocket
+
     # There is now a tcp/ip socket connection to the https server ready 
     # to use. Invoke ::tls::import to add an SSL layer to the channel
-    # stack. Then call [$self request_http] to format the HTTP request
+    # stack. Then call [$me request_http] to format the HTTP request
     # as for a normal http server.
     fileevent $fd writable ""
     fileevent $fd readable ""
@@ -278,10 +294,12 @@ set uri [::tkhtml::escape_uri -query $uri]
       close $fd
     } else {
       set theWaitingSocket [::tls::import $fd]
-      $self request_http $downloadHandle
+      $me request_http $downloadHandle
     }
   }
-  method SSocketProxyReady {fd downloadHandle} {
+  proc SSocketProxyReady {me fd downloadHandle} {
+    upvar $me O
+
     set str [gets $fd line]
     if {$line ne ""} {
       if {! [regexp {^HTTP/.* 200} $line]} {
@@ -290,16 +308,19 @@ set uri [::tkhtml::escape_uri -query $uri]
         return
       } 
       while {[gets $fd r] > 0} {}
-      $self SSocketReady $fd $downloadHandle
+      $me SSocketReady $fd $downloadHandle
     }
   }
 
-  typevariable theWaitingSocket ""
-  typemethod SSocket {host port} {
+  # Namespace variable and proc.
+  ::variable theWaitingSocket ""
+  proc SSocket {host port} {
+    ::variable theWaitingSocket
     set ss $theWaitingSocket
     set theWaitingSocket ""
     return $ss
   }
+
   # End of code for https://
   #-------------------------
 
@@ -312,7 +333,9 @@ set uri [::tkhtml::escape_uri -query $uri]
   #    data       := *urlchar
   #    parameter  := attribute "=" value
   #
-  method request_data {downloadHandle} {
+  proc request_data {me downloadHandle} {
+    upvar $me O
+
     set uri [$downloadHandle cget -uri]
     set iData [expr [string first , $uri] + 1]
 
@@ -333,7 +356,9 @@ set uri [::tkhtml::escape_uri -query $uri]
     $downloadHandle finish
   }
 
-  method request_blank {downloadHandle} {
+  # Namespace proc.
+  proc request_blank {me downloadHandle} {
+    upvar $me O
     # Special case: blank://
     if {[string first blank: [$downloadHandle cget -uri]] == 0} {
       $downloadHandle append ""
@@ -342,113 +367,117 @@ set uri [::tkhtml::escape_uri -query $uri]
     }
   }
 
-  method FinishRequest {downloadHandle} {
-    if {[set idx [lsearch $myInProgressHandles $downloadHandle]] >= 0} {
-      set myInProgressHandles [lreplace $myInProgressHandles $idx $idx]
+  proc FinishRequest {me downloadHandle} {
+    upvar $me O
+
+    if {[set idx [lsearch $O(myInProgressHandles) $downloadHandle]] >= 0} {
+      set O(myInProgressHandles) [lreplace $O(myInProgressHandles) $idx $idx]
     }
-    if {[set idx [lsearch $myWaitingHandles $downloadHandle]] >= 0} {
-      set myWaitingHandles [lreplace $myWaitingHandles $idx $idx]
+    if {[set idx [lsearch $O(myWaitingHandles) $downloadHandle]] >= 0} {
+      set O(myWaitingHandles) [lreplace $O(myWaitingHandles) $idx $idx]
     }
-    if {[info exists myTokenMap($downloadHandle)]} {
-      ::http::reset $myTokenMap($downloadHandle)
-      unset myTokenMap($downloadHandle)
+    if {[llength $O(myWaitingHandles)]==0 && [llength $O(myInProgressHandles)]==0} {
+      set O(myBytesExpected) 0
+      set O(myBytesReceived) 0
     }
-    if {[llength $myWaitingHandles]==0 && [llength $myInProgressHandles]==0} {
-      set myBytesExpected 0
-      set myBytesReceived 0
-    }
-    $self Updatestatusvar
+    $me Updatestatusvar
   }
 
   # Update the value of the -statusvar variable, if the -statusvar
   # option is not set to an empty string.
-  method Updatestatusvar {} {
-    if {$options(-statusvar) ne ""} {
-      set nWait [llength $myWaitingHandles]
-      set nProgress [llength $myInProgressHandles]
+  proc Updatestatusvar {me} {
+    upvar $me O
+
+    if {$O(-statusvar) ne ""} {
+      set nWait [llength $O(myWaitingHandles)]
+      set nProgress [llength $O(myInProgressHandles)]
       if {$nWait > 0 || $nProgress > 0} {
         set f ?
-        if {$myBytesExpected > 0} {
-          set f [expr {$myBytesReceived*100/$myBytesExpected}]
+        if {$O(myBytesExpected) > 0} {
+          set f [expr {$O(myBytesReceived)*100/$O(myBytesExpected)}]
         }
         set value [list $nWait $nProgress $f]
       } else {
         set value [list]
       }
 
-      uplevel #0 [list set $options(-statusvar) $value]
+      uplevel #0 [list set $O(-statusvar) $value]
     }
-    catch {$myGui populate}
+    catch {$O(myGui) populate}
   }
   
-  method busy {} {
-    return [expr [llength $myWaitingHandles] + [llength $myInProgressHandles]]
+  proc busy {me} {
+    upvar $me O
+    return [expr [llength $O(myWaitingHandles)] + [llength $O(myInProgressHandles)]]
   }
 
   # Invoked to set the value of the -statusvar option
-  method ConfigureStatusvar {option value} {
-    set options($option) $value
-    $self Updatestatusvar
+  proc ConfigureStatusvar {me} {
+    Updatestatusvar $me
   }
 
   # Invoked when data is available from an http request. Pass the data
   # along to hv3 via the downloadHandle.
   #
-  method _AppendCallback {downloadHandle socket token} {
+  proc _AppendCallback {me downloadHandle socket token} {
+    upvar $me O
+
     upvar \#0 $token state 
 
     # If this download-handle is still in the myWaitingHandles list,
     # process the http header and move it to the in-progress list.
-    if {0 <= [set idx [lsearch $myWaitingHandles $downloadHandle]]} {
+    if {0 <= [set idx [lsearch $O(myWaitingHandles) $downloadHandle]]} {
 
       # Remove the entry from myWaitingHandles.
-      set myWaitingHandles [lreplace $myWaitingHandles $idx $idx]
+      set O(myWaitingHandles) [lreplace $O(myWaitingHandles) $idx $idx]
 
       # Copy the HTTP header to the -header option of the download handle.
       $downloadHandle configure -header $state(meta)
 
       # Add the handle to the myInProgressHandles list and update the
       # status report variable.
-      lappend myInProgressHandles $downloadHandle 
+      lappend O(myInProgressHandles) $downloadHandle 
 
       set nExpected [$downloadHandle cget -expectedsize]
       if {$nExpected ne ""} {
-        incr myBytesExpected $nExpected
+        incr O(myBytesExpected) $nExpected
       }
     }
 
-    set data [read $socket 2048]
+    set data [read $socket]
     set rc [catch [list $downloadHandle append $data] msg]
     if {$rc} { puts "Error: $msg $::errorInfo" }
     set nbytes [string length $data]
 
     set nExpected [$downloadHandle cget -expectedsize]
     if {$nExpected ne ""} {
-      incr myBytesReceived $nbytes
+      incr O(myBytesReceived) $nbytes
     }
 
-    $self Updatestatusvar
+    $me Updatestatusvar
+
     return $nbytes
   }
 
   # Invoked when an http request has concluded.
   #
-  method _DownloadCallback {downloadHandle token} {
-#puts "FINISH [$downloadHandle uri]"
+  proc _DownloadCallback {me downloadHandle token} {
+    upvar $me O
 
     if {
-      [lsearch $myInProgressHandles $downloadHandle] >= 0 ||
-      [lsearch $myWaitingHandles $downloadHandle] >= 0
+      [lsearch $O(myInProgressHandles) $downloadHandle] >= 0 ||
+      [lsearch $O(myWaitingHandles) $downloadHandle] >= 0
     } {
-      catch {$myGui uri_done [$downloadHandle cget -uri]}
+      catch {$O(myGui) uri_done [$downloadHandle cget -uri]}
       $downloadHandle finish
     }
 
     ::http::cleanup $token
   }
 
-  method debug_cookies {} {
-    $myCookieManager debug
+  proc debug_cookies {me} {
+    upvar $me O
+    $O(myCookieManager) debug
   }
 
   # gui --
@@ -458,20 +487,24 @@ set uri [::tkhtml::escape_uri -query $uri]
   #     window named $name suitable to [pack] in with the main browser 
   #     window.
   #
-  variable myGui ""
-  method gui {name} {
-    catch {destroy $myGui}
-    ::hv3::protocol_gui $name $self
-    set myGui $name
+  proc gui {me name} {
+    upvar $me O
+    catch {destroy $O(myGui)}
+    ::hv3::protocol_gui $name $me
+    set O(myGui) $name
   }
 
-  method waiting_handles {} {
-    return $myWaitingHandles
+  proc waiting_handles {me} {
+    upvar $me O
+    return $O(myWaitingHandles)
   }
-  method inprogress_handles {} {
-    return $myInProgressHandles
+  proc inprogress_handles {me} {
+    upvar $me O
+    return $O(myInProgressHandles)
   }
 }
+
+::hv3::namespace_to_constructor ::hv3::protocol
 
 snit::widget ::hv3::protocol_gui {
   

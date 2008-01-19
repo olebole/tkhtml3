@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.6 2008/01/17 06:37:18 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.7 2008/01/19 05:59:31 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of three snit widgets:
 #
@@ -175,7 +175,6 @@ snit::widget ::hv3::notebook_header {
     # Optimization: When there is only one tab in the list, do not bother
     # to draw anything. It won't be visible anyway.
     if {[array size myIdMap]<=1} {
-	    puts "configure $hull height 0"
       $hull configure -height 1
       return
     }
