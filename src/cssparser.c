@@ -27,7 +27,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: cssparser.c,v 1.7 2007/11/03 11:23:16 danielk1977 Exp $";
+static const char rcsid[] = "$Id: cssparser.c,v 1.8 2008/01/19 06:08:13 danielk1977 Exp $";
 
 #include <ctype.h>
 #include <assert.h>
@@ -724,6 +724,9 @@ static int parseSelector(pInput, pParse)
             }
 
             case CT_COMMA: {
+	        if( !pParse->pSelector ){
+                  goto syntax_error;
+                }
                 HtmlCssSelectorComma(pParse);
                 if (CT_SPACE == eNext) inputNextToken(pInput);
                 break;
