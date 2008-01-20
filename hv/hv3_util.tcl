@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.3 2008/01/19 05:59:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.4 2008/01/20 05:59:13 danielk1977 Exp $)} 1 }
 
 
 namespace eval hv3 {
@@ -138,22 +138,6 @@ namespace eval hv3 {
     return [eval [concat ::hv3::scrolledwidget $name $widget $args]]
   }
 
-  proc namespace_to_constructor {ns} {
-    proc $ns {obj args} [string map [list %NS% $ns] {
-      if {$obj eq "%AUTO%"} {
-        set obj %NS%::inst[incr %NS%::_OBJ_COUNTER]
-      }
-
-      if {[info commands real_proc] ne ""} {
-        real_proc $obj {m args} "namespace eval %NS% \$m $obj \$args"
-      } else {
-        proc $obj {m args} "namespace eval %NS% \$m $obj \$args"
-      }
-
-      eval %NS%::new $obj $args
-      return $obj
-    }]
-  }
 
 }
 
@@ -422,3 +406,54 @@ proc ::hv3::configure_doctype_mode {html text pIsXhtml} {
 
   return $mode
 }
+
+namespace eval ::hv3 {
+  proc construct_object {ns obj arglist} {
+    if {$obj eq "%AUTO%"} {
+      set obj ${ns}::inst[incr ${ns}::_OBJ_COUNTER]
+    }
+
+    if {[info commands real_proc] ne ""} {
+      real_proc $obj {m args} "namespace eval $ns \$m $obj \$args"
+    } else {
+      proc $obj {m args} "namespace eval $ns \$m $obj \$args"
+    }
+
+    namespace eval $ns new $obj $arglist
+    return $obj
+  }
+
+  proc make_constructor {ns} {
+
+    # Create the constructor
+    #
+    proc $ns {obj args} "::hv3::construct_object $ns \$obj \$args"
+
+    # Create the [cget] method.
+    #
+    namespace eval $ns "
+      proc cget {me option} {
+        upvar \$me O
+        return \$O(\$option)
+      }
+    "
+    # Create the [configure] method.
+    #
+    set cc ""
+    foreach cmd [info commands ${ns}::configure*] {
+      set key [string range $cmd [string length ${ns}::configure] end]
+      append cc "if {\$option eq {$key}} {configure$key \$me}\n"
+    }
+    namespace eval $ns "
+      proc configure {me args} {
+        upvar \$me O
+        foreach {option value} \$args {
+          if {!\[info exists O(\$option)\]} {error \"unknown option: \$option\"}
+          set O(\$option) \$value
+          $cc
+        }
+      }
+    "
+  }
+}
+

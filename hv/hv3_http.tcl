@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.61 2008/01/19 05:59:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.62 2008/01/20 05:59:13 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -105,19 +105,6 @@ namespace eval ::hv3::protocol {
     # application.
     array unset $me
     rename $me {}
-  }
-
-  proc configure {me args} {
-    upvar $me O
-    foreach {option value} $args {
-      set O($option) $value
-      if {$option eq "-statusvar"} {ConfigureStatusvar $me}
-    }
-  }
-
-  proc cget {me option} {
-    upvar $me O
-    return $O($option)
   }
 
   # Register a custom scheme handler command (like "home:").
@@ -412,7 +399,7 @@ set uri [::tkhtml::escape_uri -query $uri]
   }
 
   # Invoked to set the value of the -statusvar option
-  proc ConfigureStatusvar {me} {
+  proc configure-statusvar {me} {
     Updatestatusvar $me
   }
 
@@ -504,7 +491,7 @@ set uri [::tkhtml::escape_uri -query $uri]
   }
 }
 
-::hv3::namespace_to_constructor ::hv3::protocol
+::hv3::make_constructor ::hv3::protocol
 
 snit::widget ::hv3::protocol_gui {
   

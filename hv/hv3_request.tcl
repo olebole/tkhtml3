@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.23 2008/01/19 05:59:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.24 2008/01/20 05:59:13 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -121,8 +121,8 @@ namespace eval ::hv3::request {
     # 
     #     {Set-Cookie safe-search=on Location http://www.google.com}
     #
-    # The following http-header types are handled locally by the ConfigureHeader
-    # method, as soon as the -header option is set:
+    # The following http-header types are handled locally by the 
+    # configure-header method, as soon as the -header option is set:
     #
     #     Set-Cookie         (Call ::hv3::the_cookie_manager method)
     #     Content-Type       (Set the -mimetype option)
@@ -196,21 +196,6 @@ namespace eval ::hv3::request {
     array unset $me
   }
 
-  proc configure {me args} {
-    upvar $me O
-    foreach {option value} $args {
-      set O($option) $value
-      if {$option eq "-header"} {ConfigureHeader $me}
-      if {$option eq "-encoding"} {ConfigureEncoding $me}
-      if {$option eq "-mimetype"} {ConfigureMimetype $me}
-    }
-  }
-
-  proc cget {me option} {
-    upvar $me O
-    return $O($option)
-  }
-
   proc data {me} {
     upvar $me O
     set raw [string range $O(myRaw) 0 [expr {$O(myRawPos)-1}]]
@@ -249,7 +234,7 @@ namespace eval ::hv3::request {
   # is where the locally handled HTTP headers (see comments above the
   # -header option) are handled.
   #
-  proc ConfigureHeader {me} {
+  proc configure-header {me} {
     upvar $me O
     foreach {name value} $O(-header) {
       switch -- [string tolower $name] {
@@ -274,12 +259,12 @@ namespace eval ::hv3::request {
     }
   }
 
-  proc ConfigureMimetype {me} {
+  proc configure-mimetype {me} {
     upvar $me O
     set O(myIsText) [string match text* $O(-mimetype)]
   }
 
-  proc ConfigureEncoding {me} {
+  proc configure-encoding {me} {
     upvar $me O
     set O(-encoding) [::hv3::encoding_resolve $O(-encoding)]
   }
@@ -365,5 +350,5 @@ namespace eval ::hv3::request {
   }
 }
 
-::hv3::namespace_to_constructor ::hv3::request
+::hv3::make_constructor ::hv3::request
 
