@@ -36,7 +36,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-static const char rcsid[] = "$Id: htmlimage.c,v 1.69 2008/01/16 06:29:27 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmlimage.c,v 1.70 2008/01/20 06:17:49 danielk1977 Exp $";
 
 #include <assert.h>
 #include "html.h"
@@ -877,7 +877,7 @@ HtmlImageTilePixmap(pImage, pW, pH)
                 XCopyArea(Tk_Display(win), 
                      pImage->pixmap, pImage->tilepixmap, gc, 0, 0, 
                      pImage->width, pImage->height, 
-                     pImage->width * i, pImage->height * j
+                     i, j
                 );
             }
         }
@@ -980,6 +980,7 @@ HtmlImageFree(pImage)
         assert(pImage->pUnscaled || 0 == pImage->pNext);
 
         freeImageCompressed(pImage);
+        freeTile(pImage);
         if (pImage->pixmap) {
             HtmlTree *pTree = pImage->pImageServer->pTree;
             Tk_FreePixmap(Tk_Display(pTree->tkwin), pImage->pixmap);
@@ -1022,7 +1023,6 @@ HtmlImageFree(pImage)
             Tcl_DeleteHashEntry(pEntry);
         }
 
-        freeTile(pImage);
         HtmlFree(pImage);
         Tcl_CancelIdleCall(asyncPixmapify, (ClientData)pImage);
     }
