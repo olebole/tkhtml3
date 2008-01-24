@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.182 2008/01/24 08:05:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.183 2008/01/24 10:29:21 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -98,9 +98,10 @@ snit::type ::hv3::config {
     set myPollActive 1
     $myDb transaction {
       foreach n [array names options] {
-        set v [$myDb one { SELECT value FROM cfg_options1 WHERE name = $n }]
-        if {$options($n) ne $v} {
-          $self configure $n $v
+        $myDb eval { SELECT value AS v FROM cfg_options1 WHERE name = $n } {
+          if {$options($n) ne $v} {
+            $self configure $n $v
+          }
         }
       }
     }
@@ -222,6 +223,7 @@ snit::type ::hv3::config {
     if {![string is integer $value]} { error "Bad integer value: $value" }
   }
   method Icons {option value} {
+    if {[info commands ::hv3::$value] eq ""} { error "Bad icon scheme: $value" }
   }
   method SevenIntegers {option value} {
     set len [llength $value]

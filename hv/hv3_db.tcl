@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.21 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.22 2008/01/24 10:29:21 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -263,7 +263,7 @@ snit::type ::hv3::cookiemanager {
     if {[info exists name]} {
       set lastused [clock seconds]
       set sql {REPLACE INTO cookiesdb VALUES(
-          $v(domain), $v(flat), $v(path), $v(secure), $v(expires), $name,
+          $v(domain), $v(flag), $v(path), $v(secure), $v(expires), $name,
           $value, $lastused)
       }
       ::hv3::sqlitedb eval $sql

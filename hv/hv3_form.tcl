@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.93 2007/11/25 18:29:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.94 2008/01/24 10:29:21 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -458,10 +458,10 @@ proc ::hv3::control_to_form {node} {
   method dom_blur  {} { }
 
   method dom_click {} {
-    set x [expr [winfo width $win]/2]
-    set y [expr [winfo height $win]/2]
-    event generate $win <ButtonPress-1> -x $x -y $y
-    event generate $win <ButtonRelease-1> -x $x -y $y
+    set x [expr [winfo width $me]/2]
+    set y [expr [winfo height $me]/2]
+    event generate $me <ButtonPress-1> -x $x -y $y
+    event generate $me <ButtonRelease-1> -x $x -y $y
   }
 }
 
@@ -473,93 +473,116 @@ proc ::hv3::control_to_form {node} {
 #         <INPUT type="text">
 #         <INPUT type="password">
 #
-::snit::widget ::hv3::forms::entrycontrol {
-  option -takefocus -default 0
+namespace eval ::hv3::forms::entrycontrol {
 
-  variable myWidget ""
-  variable myValue ""
-  variable myNode ""
+  proc new {me node bindtag args} {
+    upvar #0 $me O
 
-  constructor {node bindtag args} {
-    set myNode $node
+    namespace eval :: rename $me tmpcmd
+    frame $me
+    namespace eval :: rename $me ${me}_win
+    namespace eval :: rename tmpcmd $me
 
-    set myWidget [entry ${win}.entry]
-    $myWidget configure -highlightthickness 0 -borderwidth 0 
-    $myWidget configure -selectborderwidth 0
-    $myWidget configure -textvar [myvar myValue]
-    $myWidget configure -background white
+    set O(-takefocus) 0
 
-    $myWidget configure -validatecommand [list $self Validate %P]
-    $myWidget configure -validate key
+    set O(myValue) ""
 
-    pack $myWidget -expand true -fill both
+    set O(myNode) $node
+
+    set O(myWidget) [entry ${me}.entry]
+
+    $O(myWidget) configure -highlightthickness 0 -borderwidth 0 
+    $O(myWidget) configure -selectborderwidth 0
+    $O(myWidget) configure -textvar ${me}(myValue)
+    $O(myWidget) configure -background white
+
+    $O(myWidget) configure -validatecommand [list $me Validate %P]
+    $O(myWidget) configure -validate key
+
+    pack $O(myWidget) -expand true -fill both
 
     # If this is a password entry field, obscure it's contents
     set zType [string tolower [$node attr -default "" type]]
-    if {$zType eq "password" } { $myWidget configure -show * }
+    if {$zType eq "password" } { $O(myWidget) configure -show * }
 
     # Set the default width of the widget to 20 characters. Unless there
     # is no size attribute and the CSS 'width' property is set to "auto",
     # this will be overidden.
-    $myWidget configure -width 20
+    $O(myWidget) configure -width 20
 
     # Pressing enter in an entry widget submits the form.
-    bind $myWidget <KeyPress-Return> [list $self Submit]
+    bind $O(myWidget) <KeyPress-Return> [list $me Submit]
 
-    bind $myWidget <Tab>       [list ::hv3::forms::tab [$myNode html]]
-    bind $myWidget <Shift-Tab> [list ::hv3::forms::tab [$myNode html]]
+    bind $O(myWidget) <Tab>       [list ::hv3::forms::tab [$O(myNode) html]]
+    bind $O(myWidget) <Shift-Tab> [list ::hv3::forms::tab [$O(myNode) html]]
 
-    set tags [bindtags $myWidget]
-    bindtags $myWidget [concat $tags $win]
+    set tags [bindtags $O(myWidget)]
+    bindtags $O(myWidget) [concat $tags $me]
 
-    $self reset
-    $self configurelist $args
+    $me reset
+    eval $me configure $args
   }
 
   # Generate html for the "HTML Forms" tab of the tree-browser.
   #
-  method formsreport {} { return {<i color=red>TODO</i>} }
+  proc formsreport {me} { return {<i color=red>TODO</i>} }
 
   # This method is called during form submission to determine the 
   # name of the control. It returns the value of the Html "name" 
   # attribute. Or, failing that, an empty string.
   #
-  method name {} { return [$myNode attr -default "" name] }
+  proc name {me} { 
+    upvar #0 $me O
+    return [$O(myNode) attr -default "" name] 
+  }
 
   # This method is called during form submission to determine the 
   # value of the control. Return the current contents of the widget.
   #
-  method value {} { return $myValue }
+  proc value {me} { 
+    upvar #0 $me O
+    return $O(myValue) 
+  }
 
   # True if the control is considered successful for the 
   # purposes of submitting this form.
   #
-  method success {} { return [expr {[$self name] ne ""}] }
+  proc success {me} { 
+    upvar #0 $me O
+    return [expr {[$me name] ne ""}] 
+  }
 
   # Empty string. This method is only implemented by 
   # <INPUT type="file"> controls.
   #
-  method filename {} { return "" }
+  proc filename {me} { 
+    upvar #0 $me O
+    return "" 
+  }
 
   # Reset the state of the control.
   #
-  method reset {} { 
-    set myValue [$myNode attr -default "" value]
+  proc reset {me} { 
+    upvar #0 $me O
+    set O(myValue) [$O(myNode) attr -default "" value]
   }
 
   # TODO: The sole purpose of this is to return a linebox offset...
-  method configurecmd {values} { 
-    ::hv3::forms::configurecmd $myWidget [$myWidget cget -font]
+  proc configurecmd {me values} { 
+    upvar #0 $me O
+    ::hv3::forms::configurecmd $O(myWidget) [$O(myWidget) cget -font]
   }
 
-  method stylecmd {} {
-    catch { $myWidget configure -font [$myNode property font] }
+  proc stylecmd {me} {
+    upvar #0 $me O
+    catch { $O(myWidget) configure -font [$O(myNode) property font] }
   }
 
-  method Submit {} {
-    set form [::hv3::control_to_form $myNode]
+  proc Submit {me} {
+    upvar #0 $me O
+    set form [::hv3::control_to_form $O(myNode)]
     if {$form ne ""} {
-      [$form replace] submit $self
+      [$form replace] submit $me
     }
   }
 
@@ -567,8 +590,9 @@ proc ::hv3::control_to_form {node} {
   # removed from the [entry] widget. To enforce the semantics of
   # the HTML "maxlength" attribute.
   #
-  method Validate {newvalue} {
-    set iLimit [$myNode attr -default -1 maxlength]
+  proc Validate {me newvalue} {
+    upvar #0 $me O
+    set iLimit [$O(myNode) attr -default -1 maxlength]
     if {$iLimit >= 0 && [string length $newvalue] > $iLimit} {
       return 0
     }
@@ -585,22 +609,24 @@ proc ::hv3::control_to_form {node} {
   # Get/set on the DOM "checked" attribute. This is always 0 for
   # an entry widget.
   #
-  method dom_checked {args} { return 0 }
+  proc dom_checked {me args} { return 0 }
 
   # HTMLInputElement.value is the current contents of the widget 
   # for this type of object.
   #
-  method dom_value {args} {
+  proc dom_value {me args} {
+    upvar #0 $me O
     if {[llength $args]>0} {
-      set myValue [lindex $args 0]
+      set O(myValue) [lindex $args 0]
     }
-    return $myValue
+    return $O(myValue)
   }
 
   # Select the text in this widget.
   #
-  method dom_select  {} {
-    $myWidget selection range 0 end
+  proc dom_select  {me} {
+    upvar #0 $me O
+    $O(myWidget) selection range 0 end
   }
 
   # Methods [dom_focus] and [dom_blur] are used to implement the
@@ -612,20 +638,23 @@ proc ::hv3::control_to_form {node} {
   # so that the focus is passed to the next control in tab-index order
   # But tab-index is not supported yet. :(
   # 
-  method dom_focus {} {
-    focus $myWidget
+  proc dom_focus {me} {
+    upvar #0 $me O
+    focus $O(myWidget)
   }
-  method dom_blur {} {
+  proc dom_blur {me} {
+    upvar #0 $me O
     set now [focus]
-    if {$myWidget eq [focus]} {
+    if {$O(myWidget) eq [focus]} {
       focus [winfo parent $win]
     }
   }
 
   # This is a no-op for this type of <INPUT> element.
   #
-  method dom_click {} {}
+  proc dom_click {me} {}
 }
+::hv3::make_constructor ::hv3::forms::entrycontrol
 
 #--------------------------------------------------------------------------
 # ::hv3::forms::textarea 

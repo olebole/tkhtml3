@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.12 2008/01/12 19:40:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.13 2008/01/24 10:29:21 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -685,7 +685,8 @@ proc pretty_print_vars {} {
   foreach e [lsort -integer -index 1 [get_vars]] {
     incr nTotal [lindex $e 1]
     incr nNamespace 1
-    append ret [format "% -50s %d\n" [lindex $e 0] [lindex $e 1]]
+    incr nArray [lindex $e 2]
+    append ret [format "% -50s %d (%d arrays)\n" [lindex $e 0] [lindex $e 1] [lindex $e 2]]
   }
   append ret [format "% -50s %d\n" TOTAL($nNamespace) $nTotal]
   set ret
@@ -724,16 +725,18 @@ proc pretty_print_frames {} {
 
 proc get_vars {{ns ::}} {
   set nVar 0
+  set nArray 0
   set ret [list]
   set vlist [info vars ${ns}::*]
   foreach var $vlist {
     if {[array exists $var]} {
       incr nVar [llength [array names $var]]
+      incr nArray 1
     } else {
       incr nVar 1
     }
   }
-  lappend ret [list $ns $nVar]
+  lappend ret [list $ns $nVar $nArray]
   foreach child [namespace children $ns] {
     eval lappend ret [get_vars $child]
   }

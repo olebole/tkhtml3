@@ -97,10 +97,10 @@
 # The code in this file is partitioned into the following classes:
 #
 #     ::hv3::hv3
-#     ::hv3::request
 #     ::hv3::selectionmanager
 #     ::hv3::dynamicmanager
 #     ::hv3::hyperlinkmanager
+#     ::hv3::mousemanager
 #
 # ::hv3::hv3 is, of course, the main mega-widget class. Class
 # ::hv3::request is part of the public interface to ::hv3::hv3. A
@@ -162,110 +162,110 @@ source [file join [file dirname [info script]] hv3_request.tcl]
 #         ::hv3::selectionmanager
 #             motion
 #
-snit::type ::hv3::hv3::mousemanager {
+namespace eval ::hv3::hv3::mousemanager {
 
-  variable myHv3 ""
-  variable myHtml ""
+  proc new {me hv3} {
+    upvar $me O
 
-  # In browsers with no DOM support, the following option is set to
-  # an empty string.
-  #
-  # If not set to an empty string, this option is set to the name
-  # of the ::hv3::dom object to dispatch events too. The DOM 
-  # is a special client because it may cancel the "default action"
-  # of mouse-clicks (it may also cancel other events, but they are
-  # dispatched by other sub-systems).
-  #
-  # Each time an event occurs, the following script is executed:
-  #
-  #     $options(-dom) mouseevent EVENT-TYPE NODE X Y ?OPTIONS?
-  #
-  # where OPTIONS are:
-  #
-  #     -button          INTEGER        (default 0)
-  #     -detail          INTEGER        (default 0)
-  #     -relatedtarget   NODE-HANDLE    (default "")
-  #
-  # the EVENT-TYPE parameter is one of:
-  #
-  #     "click", "mouseup", "mousedown", "mouseover" or "mouseout".
-  #
-  # NODE is the target leaf node and X and Y are the pointer coordinates
-  # relative to the top-left of the html widget window.
-  #
-  # For "click" events, if the $options(-dom) script returns false, then
-  # the "click" event is not dispatched to any subscribers (this happens
-  # when some javascript calls the Event.preventDefault() method). If it
-  # returns true, proceed as normal. Other event types ignore the return 
-  # value of the $options(-dom) script.
-  #
-  option -dom -default ""
+    set O(myHv3) $hv3
+    set O(myHtml) [$hv3 html]
 
-  # This variable is set to the node-handle that the pointer is currently
-  # hovered over. Used by code that dispatches the "mouseout", "mouseover"
-  # and "mousemove" to the DOM.
-  #
-  variable myCurrentDomNode ""
+    # In browsers with no DOM support, the following option is set to
+    # an empty string.
+    #
+    # If not set to an empty string, this option is set to the name
+    # of the ::hv3::dom object to dispatch events too. The DOM 
+    # is a special client because it may cancel the "default action"
+    # of mouse-clicks (it may also cancel other events, but they are
+    # dispatched by other sub-systems).
+    #
+    # Each time an event occurs, the following script is executed:
+    #
+    #     $options(-dom) mouseevent EVENT-TYPE NODE X Y ?OPTIONS?
+    #
+    # where OPTIONS are:
+    #
+    #     -button          INTEGER        (default 0)
+    #     -detail          INTEGER        (default 0)
+    #     -relatedtarget   NODE-HANDLE    (default "")
+    #
+    # the EVENT-TYPE parameter is one of:
+    #
+    #     "click", "mouseup", "mousedown", "mouseover" or "mouseout".
+    #
+    # NODE is the target leaf node and X and Y are the pointer coordinates
+    # relative to the top-left of the html widget window.
+    #
+    # For "click" events, if the $options(-dom) script returns false, then
+    # the "click" event is not dispatched to any subscribers (this happens
+    # when some javascript calls the Event.preventDefault() method). If it
+    # returns true, proceed as normal. Other event types ignore the return 
+    # value of the $options(-dom) script.
+    #
+    set O(-dom) ""
+  
+    # This variable is set to the node-handle that the pointer is currently
+    # hovered over. Used by code that dispatches the "mouseout", "mouseover"
+    # and "mousemove" to the DOM.
+    #
+    set O(myCurrentDomNode) ""
+  
+    # The "top" node from the ${me}.hovernodes array. This is the node
+    # that determines the pointer to display (via the CSS2 'cursor' 
+    # property).
+    #
+    set O(myTopHoverNode) ""
+  
+    set O(myCursor) ""
+    set O(myCursorWin) [$hv3 hull]
 
-  # Database of callback scripts for each event type.
-  #
-  variable myScripts -array [list]
+    # Database of callback scripts for each event type.
+    #
+    set O(scripts.onmouseover) ""
+    set O(scripts.onmouseout) ""
+    set O(scripts.onclick) ""
+    set O(scripts.onmousedown) ""
+    set O(scripts.onmouseup) ""
+    set O(scripts.motion) ""
 
-  # List of nodes currently "hovered" over and "active". An entry in
-  # the correspondoing array indicates the condition is true.
-  #
-  variable myHoverNodes  -array [list]
-  variable myActiveNodes -array [list]
-
-  # The "top" node from the myHoverNodes array. This is the node
-  # that determines the pointer to display (via the CSS2 'cursor' 
-  # property).
-  #
-  variable myTopHoverNode ""
-
-  # List of handled HTML4 event types (a constant)
-  variable EVENTS [list \
-      onmouseover onmouseout onclick onmousedown onmouseup motion
-  ]
-
-  variable myCursor ""
-  variable myCursorWin ""
-
-  constructor {hv3} {
-    foreach e $EVENTS {
-      set myScripts($e) [list]
-    }
-
-    set myHv3 $hv3
-    set myHtml [$hv3 html]
-    set myCursorWin [$hv3 hull]
-
-    bind $myHv3 <Motion>          "+[list $self Motion  %W %x %y]"
-    bind $myHv3 <ButtonPress-1>   "+[list $self Press   %W %x %y]"
-    bind $myHv3 <ButtonRelease-1> "+[list $self Release %W %x %y]"
+    # There are also two arrays that store lists of nodes currently "hovered"
+    # over and "active". An entry in the correspondoing array indicates the
+    # condition is true. The arrays are named:
+    #
+    #   ${me}.hovernodes
+    #   ${me}.activenodes
+    #
+  
+    bind $hv3 <Motion>          "+[list $me Motion  %W %x %y]"
+    bind $hv3 <ButtonPress-1>   "+[list $me Press   %W %x %y]"
+    bind $hv3 <ButtonRelease-1> "+[list $me Release %W %x %y]"
   }
 
-  method subscribe {event script} {
+
+  proc subscribe {me event script} {
+    upvar $me O
 
     # Check that the $event argument is Ok:
-    if {0 > [lsearch $EVENTS $event]} {
+    if {![info exists O(scripts.$event)]} {
       error "No such mouse-event: $event"
     }
 
     # Append the script to the callback list.
-    lappend myScripts($event) $script
+    lappend O(scripts.$event) $script
   }
 
-  method reset {} {
-    array unset myActiveNodes
-    array unset myHoverNodes
-    set myCurrentDomNode ""
+  proc reset {me} {
+    upvar $me O
+    array unset ${me}.activenodes
+    array unset ${me}.hovernodes
+    set O(myCurrentDomNode) ""
   }
 
-  method GenerateEvents {eventlist} {
+  proc GenerateEvents {me eventlist} {
+    upvar $me O
     foreach {event node} $eventlist {
       if {[info commands $node] ne ""} {
-        foreach script $myScripts($event) {
+        foreach script $O(scripts.$event) {
           eval $script $node
         }
       }
@@ -284,7 +284,8 @@ snit::type ::hv3::hv3::mousemanager {
 
   # Mapping from CSS2 cursor type to Tk cursor type.
   #
-  typevariable CURSORS -array [list \
+  variable CURSORS
+  array set CURSORS [list \
       crosshair crosshair    \
       default   ""           \
       pointer   hand2        \
@@ -295,20 +296,23 @@ snit::type ::hv3::hv3::mousemanager {
       help      question_arrow \
   ]
 
-  method Motion {W x y} {
+  proc Motion {me W x y} {
+    upvar $me O
+    variable CURSORS
+
     if {$W eq ""} return
-    AdjustCoords "${myHv3}.html.widget" $W x y
+    AdjustCoords "$O(myHv3).html.widget" $W x y
 
     # Figure out the node the cursor is currently hovering over. Todo:
     # When the cursor is over multiple nodes (because overlapping content
     # has been generated), maybe this should consider all overlapping nodes
     # as "hovered".
-    set nodelist [lindex [$myHtml node $x $y] end]
+    set nodelist [lindex [$O(myHtml) node $x $y] end]
     
     # Handle the 'cursor' property.
     #
     set topnode [lindex $nodelist end]
-    if {$topnode ne "" && $topnode ne $myTopHoverNode} {
+    if {$topnode ne "" && $topnode ne $O(myTopHoverNode)} {
 
       set Cursor ""
       if {[$topnode tag] eq ""} {
@@ -318,11 +322,11 @@ snit::type ::hv3::hv3::mousemanager {
       set css2_cursor [$topnode property cursor]
       catch { set Cursor $CURSORS($css2_cursor) }
 
-      if {$Cursor ne $myCursor} {
-        $myCursorWin configure -cursor $Cursor
-        set myCursor $Cursor
+      if {$Cursor ne $O(myCursor)} {
+        $O(myCursorWin) configure -cursor $Cursor
+        set O(myCursor) $Cursor
       }
-      set myTopHoverNode $topnode
+      set O(myTopHoverNode) $topnode
     }
 
     # Dispatch any DOM events in this order:
@@ -332,18 +336,18 @@ snit::type ::hv3::hv3::mousemanager {
     #     mousemotion
     #
     set N [lindex $nodelist end]
-    if {$N eq ""} {set N [$myHv3 node]}
+    if {$N eq ""} {set N [$O(myHv3) node]}
 
-    if {$options(-dom) ne ""} {
-      if {$N ne $myCurrentDomNode} {
-        $options(-dom) mouseevent mouseout $myCurrentDomNode $x $y
-        $options(-dom) mouseevent mouseover $N $x $y
-        set myCurrentDomNode $N
+    if {$O(-dom) ne ""} {
+      if {$N ne $O(myCurrentDomNode)} {
+        $O(-dom) mouseevent mouseout $O(myCurrentDomNode) $x $y
+        $O(-dom) mouseevent mouseover $N $x $y
+        set O(myCurrentDomNode) $N
       }
-      $options(-dom) mouseevent mousemove $N $x $y
+      $O(-dom) mouseevent mousemove $N $x $y
     }
 
-    foreach script $myScripts(motion) {
+    foreach script $O(scripts.motion) {
       eval $script $N $x $y
     }
 
@@ -362,8 +366,8 @@ snit::type ::hv3::hv3::mousemanager {
         if {[info exists hovernodes($n)]} {
           break
         } else {
-          if {[info exists myHoverNodes($n)]} {
-            unset myHoverNodes($n)
+          if {[info exists ${me}.hovernodes($n)]} {
+            unset ${me}.hovernodes($n)
           } else {
             lappend events(onmouseover) $n
           }
@@ -371,10 +375,10 @@ snit::type ::hv3::hv3::mousemanager {
         }
       }
     }
-    set events(onmouseout)  [array names myHoverNodes]
+    set events(onmouseout)  [array names ${me}.hovernodes]
 
-    array unset myHoverNodes
-    array set myHoverNodes [array get hovernodes]
+    array unset ${me}.hovernodes
+    array set ${me}.hovernodes [array get hovernodes]
 
     set eventlist [list]
     foreach key [list onmouseover onmouseout] {
@@ -382,23 +386,24 @@ snit::type ::hv3::hv3::mousemanager {
         lappend eventlist $key $node
       }
     }
-    $self GenerateEvents $eventlist
+    $me GenerateEvents $eventlist
   }
 
-  method Press {W x y} {
+  proc Press {me W x y} {
+    upvar $me O
     if {$W eq ""} return
-    AdjustCoords "${myHv3}.html.widget" $W x y
-    set N [lindex [$myHtml node $x $y] end]
+    AdjustCoords "$O(myHv3).html.widget" $W x y
+    set N [lindex [$O(myHtml) node $x $y] end]
     if {$N ne ""} {
       if {[$N tag] eq ""} {set N [$N parent]}
     }
-    if {$N eq ""} {set N [$myHv3 node]}
+    if {$N eq ""} {set N [$O(myHv3) node]}
 
     # Dispatch the "mousedown" event to the DOM, if any.
     #
     set rc ""
-    if {$options(-dom) ne ""} {
-      set rc [$options(-dom) mouseevent mousedown $N $x $y]
+    if {$O(-dom) ne ""} {
+      set rc [$O(-dom) mouseevent mousedown $N $x $y]
     }
 
     # If the DOM implementation called preventDefault(), do 
@@ -407,30 +412,31 @@ snit::type ::hv3::hv3::mousemanager {
     # into an annoying state.
     #
     if {$rc eq "prevent"} {
-      $myHv3 selectionmanager clear
+      $O(myHv3) selectionmanager clear
     } else {
-      $myHv3 selectionmanager press $N $x $y
+      $O(myHv3) selectionmanager press $N $x $y
     }
 
     for {set n $N} {$n ne ""} {set n [$n parent]} {
-      set myActiveNodes($n) 1
+      set ${me}.activenodes($n) 1
     }
 
     set eventlist [list]
-    foreach node [array names myActiveNodes] {
+    foreach node [array names ${me}.activenodes] {
       lappend eventlist onmousedown $node
     }
-    $self GenerateEvents $eventlist
+    $me GenerateEvents $eventlist
   }
 
-  method Release {W x y} {
+  proc Release {me W x y} {
+    upvar $me O
     if {$W eq ""} return
-    AdjustCoords "${myHv3}.html.widget" $W x y
-    set N [lindex [$myHtml node $x $y] end]
+    AdjustCoords "$O(myHv3).html.widget" $W x y
+    set N [lindex [$O(myHtml) node $x $y] end]
     if {$N ne ""} {
       if {[$N tag] eq ""} {set N [$N parent]}
     }
-    if {$N eq ""} {set N [$myHv3 node]}
+    if {$N eq ""} {set N [$O(myHv3) node]}
 
     # Dispatch the "mouseup" event to the DOM, if any.
     #
@@ -439,8 +445,8 @@ snit::type ::hv3::hv3::mousemanager {
     # But in the DOM things are different - the event target for "mouseup"
     # depends on the current cursor location only.
     #
-    if {$options(-dom) ne ""} {
-      $options(-dom) mouseevent mouseup $N $x $y
+    if {$O(-dom) ne ""} {
+      $O(-dom) mouseevent mouseup $N $x $y
     }
 
     # Check if the is a "click" event to dispatch to the DOM. If the
@@ -448,24 +454,24 @@ snit::type ::hv3::hv3::mousemanager {
     # not sent to the other hv3 sub-systems (default action is cancelled).
     #
     set domrc ""
-    if {$options(-dom) ne ""} {
+    if {$O(-dom) ne ""} {
       for {set n $N} {$n ne ""} {set n [$n parent]} {
-        if {[info exists myActiveNodes($N)]} {
-          set domrc [$options(-dom) mouseevent click $n $x $y]
+        if {[info exists ${me}.activenodes($N)]} {
+          set domrc [$O(-dom) mouseevent click $n $x $y]
           break
         }
       }
     }
 
     set eventlist [list]
-    foreach node [array names myActiveNodes] {
+    foreach node [array names ${me}.activenodes] {
       lappend eventlist onmouseup $node
     }
     
     if {$domrc ne "prevent"} {
       set onclick_nodes [list]
       for {set n $N} {$n ne ""} {set n [$n parent]} {
-        if {[info exists myActiveNodes($n)]} {
+        if {[info exists ${me}.activenodes($n)]} {
           lappend onclick_nodes $n
         }
       }
@@ -474,11 +480,19 @@ snit::type ::hv3::hv3::mousemanager {
       }
     }
 
-    $self GenerateEvents $eventlist
+    $me GenerateEvents $eventlist
 
-    array unset myActiveNodes
+    array unset ${me}.activenodes
+  }
+
+  proc destroy me {
+    array unset $me
+    array unset ${me}.hovernodes
+    array unset ${me}.activenodes
+    rename $me {}
   }
 }
+::hv3::make_constructor ::hv3::hv3::mousemanager
 
 #--------------------------------------------------------------------------
 # ::hv3::hv3::selectionmanager
@@ -486,55 +500,59 @@ snit::type ::hv3::hv3::mousemanager {
 #     This type encapsulates the code that manages selecting text
 #     in the html widget with the mouse.
 #
-snit::type ::hv3::hv3::selectionmanager {
+namespace eval ::hv3::hv3::selectionmanager {
 
-  # Variable myMode may take one of the following values:
-  #
-  #     "char"           -> Currently text selecting by character.
-  #     "word"           -> Currently text selecting by word.
-  #     "block"          -> Currently text selecting by block.
-  #
-  variable myState false             ;# True when left-button is held down
-  variable myMode char
+  proc new {me hv3} {
+    upvar $me O
 
-  # The ::hv3::hv3 widget.
-  #
-  variable myHv3
+    # Variable myMode may take one of the following values:
+    #
+    #     "char"           -> Currently text selecting by character.
+    #     "word"           -> Currently text selecting by word.
+    #     "block"          -> Currently text selecting by block.
+    #
+    set O(myState) false             ;# True when left-button is held down
+    set O(myMode) char
+  
+    # The ::hv3::hv3 widget.
+    #
+    set O(myHv3) $hv3
+  
+    set O(myFromNode) ""
+    set O(myFromIdx) ""
+  
+    set O(myToNode) ""
+    set O(myToIdx) ""
+  
+    set O(myIgnoreMotion) 0
 
-  variable myFromNode ""
-  variable myFromIdx ""
-
-  variable myToNode ""
-  variable myToIdx ""
-
-  variable myIgnoreMotion 0
-
-  constructor {hv3} {
-    set myHv3 $hv3
-    selection handle $myHv3 [list ::hv3::bg [list $self get_selection]]
+    selection handle $hv3 [list ::hv3::bg [list $me get_selection]]
 
     # bind $myHv3 <Motion>               "+[list $self motion %x %y]"
     # bind $myHv3 <ButtonPress-1>        "+[list $self press %x %y]"
-    bind $myHv3 <Double-ButtonPress-1> "+[list $self doublepress %x %y]"
-    bind $myHv3 <Triple-ButtonPress-1> "+[list $self triplepress %x %y]"
-    bind $myHv3 <ButtonRelease-1>      "+[list $self release %x %y]"
+    bind $hv3 <Double-ButtonPress-1> "+[list $me doublepress %x %y]"
+    bind $hv3 <Triple-ButtonPress-1> "+[list $me triplepress %x %y]"
+    bind $hv3 <ButtonRelease-1>      "+[list $me release %x %y]"
   }
 
   # Clear the selection.
   #
-  method clear {} {
-    $myHv3 tag delete selection
-    $myHv3 tag configure selection -foreground white -background darkgrey
-    set myFromNode ""
-    set myToNode ""
+  proc clear {me} {
+    upvar $me O
+    $O(myHv3) tag delete selection
+    $O(myHv3) tag configure selection -foreground white -background darkgrey
+    set O(myFromNode) ""
+    set O(myToNode) ""
   }
 
-  method press {N x y} {
+  proc press {me N x y} {
+    upvar $me O
+
     # Single click -> Select by character.
-    $self clear
-    set myState true
-    set myMode char
-    $self motion $N $x $y
+    clear $me
+    set O(myState) true
+    set O(myMode) char
+    motion $me $N $x $y
   }
 
   # Given a node-handle/index pair identifying a character in the 
@@ -554,78 +572,91 @@ snit::type ::hv3::hv3::selectionmanager {
   # Add the widget tag "selection" to the word containing the character
   # identified by the supplied node-handle/index pair.
   #
-  method TagWord {node idx} {
+  proc TagWord {me node idx} {
+    upvar $me O
     foreach {i1 i2} [ToWord $node $idx] {}
-    $myHv3 tag add selection $node $i1 $node $i2
+    $O(myHv3) tag add selection $node $i1 $node $i2
   }
 
   # Remove the widget tag "selection" to the word containing the character
   # identified by the supplied node-handle/index pair.
   #
-  method UntagWord {node idx} {
+  proc UntagWord {me node idx} {
+    upvar $me O
     foreach {i1 i2} [ToWord $node $idx] {}
-    $myHv3 tag remove selection $node $i1 $node $i2
+    $O(myHv3) tag remove selection $node $i1 $node $i2
   }
 
-  method ToBlock {node idx} {
-    set t [$myHv3 text text]
-    set offset [$myHv3 text offset $node $idx]
+  proc ToBlock {me node idx} {
+    upvar $me O
+    set t [$O(myHv3) text text]
+    set offset [$O(myHv3) text offset $node $idx]
 
     set start [string last "\n" $t $offset]
     if {$start < 0} {set start 0}
     set end   [string first "\n" $t $offset]
     if {$end < 0} {set end [string length $t]}
 
-    set start_idx [$myHv3 text index $start]
-    set end_idx   [$myHv3 text index $end]
+    set start_idx [$O(myHv3) text index $start]
+    set end_idx   [$O(myHv3) text index $end]
 
     return [concat $start_idx $end_idx]
   }
 
-  method TagBlock {node idx} {
-    foreach {n1 i1 n2 i2} [$self ToBlock $node $idx] {}
-    $myHv3 tag add selection $n1 $i1 $n2 $i2
+  proc TagBlock {me node idx} {
+    upvar $me O
+    foreach {n1 i1 n2 i2} [ToBlock $me $node $idx] {}
+    $O(myHv3) tag add selection $n1 $i1 $n2 $i2
   }
-  method UntagBlock {node idx} {
-    foreach {n1 i1 n2 i2} [$self ToBlock $node $idx] {}
-    catch {$myHv3 tag remove selection $n1 $i1 $n2 $i2}
+  proc UntagBlock {me node idx} {
+    upvar $me O
+    foreach {n1 i1 n2 i2} [ToBlock $me $node $idx] {}
+    catch {$O(myHv3) tag remove selection $n1 $i1 $n2 $i2}
   }
 
-  method doublepress {x y} {
+  proc doublepress {me x y} {
+    upvar $me O
+
     # Double click -> Select by word.
-    $self clear
-    set myMode word
-    set myState true
-    $self motion "" $x $y
+    clear $me
+    set O(myMode) word
+    set O(myState) true
+    motion $me "" $x $y
   }
 
-  method triplepress {x y} {
+  proc triplepress {me x y} {
+    upvar $me O
+
     # Triple click -> Select by block.
-    $self clear
-    set myMode block
-    set myState true
-    $self motion "" $x $y
+    clear $me
+    set O(myMode) block
+    set O(myState) true
+    motion $me "" $x $y
   }
 
-  method release {x y} {
-    set myState false
+  proc release {me x y} {
+    upvar $me O
+    set O(myState) false
   }
 
-  method reset {} {
-    set myState false
+  proc reset {me} {
+    upvar $me O
+
+    set O(myState) false
 
     # Unset the myFromNode variable, since the node handle it (may) refer 
     # to is now invalid. If this is not done, a future call to the [selected]
     # method of this object will cause an error by trying to use the
     # (now invalid) node-handle value in $myFromNode.
-    set myFromNode ""
-    set myToNode ""
+    set O(myFromNode) ""
+    set O(myToNode) ""
   }
 
-  method motion {N x y} {
-    if {!$myState || $myIgnoreMotion} return
+  proc motion {me N x y} {
+    upvar $me O
+    if {!$O(myState) || $O(myIgnoreMotion)} return
 
-    set to [$myHv3 node -index $x $y]
+    set to [$O(myHv3) node -index $x $y]
     foreach {toNode toIdx} $to {}
 
     # $N containst the node-handle for the node that the cursor is
@@ -640,11 +671,10 @@ snit::type ::hv3::hv3::selectionmanager {
     }
 
     if {[llength $to] > 0} {
-
   
-      if {$myFromNode eq ""} {
-        set myFromNode $toNode
-        set myFromIdx $toIdx
+      if {$O(myFromNode) eq ""} {
+        set O(myFromNode) $toNode
+        set O(myFromIdx) $toIdx
       }
   
       # This block is where the "selection" tag is added to the HTML 
@@ -654,82 +684,83 @@ snit::type ::hv3::hv3::selectionmanager {
       # If so, catch the exception and clear the selection.
       #
       set rc [catch {
-        if {$myToNode ne $toNode || $toIdx != $myToIdx} {
-          switch -- $myMode {
+        if {$O(myToNode) ne $toNode || $toIdx != $O(myToIdx)} {
+          switch -- $O(myMode) {
             char {
-              if {$myToNode ne ""} {
-                $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
+              if {$O(myToNode) ne ""} {
+                $O(myHv3) tag remove selection $O(myToNode) $O(myToIdx) $toNode $toIdx
               }
-              $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
-              if {$myFromNode ne $toNode || $myFromIdx != $toIdx} {
-                selection own $myHv3
+              $O(myHv3) tag add selection $O(myFromNode) $O(myFromIdx) $toNode $toIdx
+              if {$O(myFromNode) ne $toNode || $O(myFromIdx) != $toIdx} {
+                selection own $O(myHv3)
               }
             }
     
             word {
-              if {$myToNode ne ""} {
-                $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
-                $self UntagWord $myToNode $myToIdx
+              if {$O(myToNode) ne ""} {
+                $O(myHv3) tag remove selection $O(myToNode) $O(myToIdx) $toNode $toIdx
+                $me UntagWord $O(myToNode) $O(myToIdx)
               }
     
-              $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
-              $self TagWord $toNode $toIdx
-              $self TagWord $myFromNode $myFromIdx
-              selection own $myHv3
+              $O(myHv3) tag add selection $O(myFromNode) $O(myFromIdx) $toNode $toIdx
+              $me TagWord $toNode $toIdx
+              $me TagWord $O(myFromNode) $O(myFromIdx)
+              selection own $O(myHv3)
             }
     
             block {
-              set to_block2  [$self ToBlock $toNode $toIdx]
-              set from_block [$self ToBlock $myFromNode $myFromIdx]
+              set to_block2  [$me ToBlock $toNode $toIdx]
+              set from_block [$me ToBlock $O(myFromNode) $O(myFromIdx)]
     
-              if {$myToNode ne ""} {
-                set to_block [$self ToBlock $myToNode $myToIdx]
-                $myHv3 tag remove selection $myToNode $myToIdx $toNode $toIdx
-                eval $myHv3 tag remove selection $to_block
+              if {$O(myToNode) ne ""} {
+                set to_block [$me ToBlock $O(myToNode) $O(myToIdx)]
+                $O(myHv3) tag remove selection $O(myToNode) $O(myToIdx) $toNode $toIdx
+                eval $O(myHv3) tag remove selection $to_block
               }
     
-              $myHv3 tag add selection $myFromNode $myFromIdx $toNode $toIdx
-              eval $myHv3 tag add selection $to_block2
-              eval $myHv3 tag add selection $from_block
-              selection own $myHv3
+              $O(myHv3) tag add selection $O(myFromNode) $O(myFromIdx) $toNode $toIdx
+              eval $O(myHv3) tag add selection $to_block2
+              eval $O(myHv3) tag add selection $from_block
+              selection own $O(myHv3)
             }
           }
     
-          set myToNode $toNode
-          set myToIdx $toIdx
+          set O(myToNode) $toNode
+          set O(myToIdx) $toIdx
         }
       } msg]
 
       if {$rc && [regexp {[^ ]+ is an orphan} $msg]} {
-        $self clear
+        $me clear
       }
     }
 
 
     set motioncmd ""
-    if {$y > [winfo height $myHv3]} {
+    if {$y > [winfo height $O(myHv3)]} {
       set motioncmd [list yview scroll 1 units]
     } elseif {$y < 0} {
       set motioncmd [list yview scroll -1 units]
-    } elseif {$x > [winfo width $myHv3]} {
+    } elseif {$x > [winfo width $O(myHv3)]} {
       set motioncmd [list xview scroll 1 units]
     } elseif {$x < 0} {
       set motioncmd [list xview scroll -1 units]
     }
 
     if {$motioncmd ne ""} {
-      set myIgnoreMotion 1
-      eval $myHv3 $motioncmd
-      after 20 [list $self ContinueMotion]
+      set O(myIgnoreMotion) 1
+      eval $O(myHv3) $motioncmd
+      after 20 [list $me ContinueMotion]
     }
   }
 
-  method ContinueMotion {} {
-    set myIgnoreMotion 0
-    set x [expr [winfo pointerx $myHv3] - [winfo rootx $myHv3]]
-    set y [expr [winfo pointery $myHv3] - [winfo rooty $myHv3]]
-    set N [lindex [$myHv3 node $x $y] 0]
-    $self motion $N $x $y
+  proc ContinueMotion {me} {
+    upvar $me O
+    set O(myIgnoreMotion) 0
+    set x [expr [winfo pointerx $O(myHv3)] - [winfo rootx $O(myHv3)]]
+    set y [expr [winfo pointery $O(myHv3)] - [winfo rooty $O(myHv3)]]
+    set N [lindex [$O(myHv3) node $x $y] 0]
+    $me motion $N $x $y
   }
 
   # get_selection OFFSET MAXCHARS
@@ -738,43 +769,50 @@ snit::type ::hv3::hv3::selectionmanager {
   #     while it is owned by the html widget. The text of the selected
   #     region is returned.
   #
-  method get_selection {offset maxChars} {
-    set t [$myHv3 text text]
+  proc get_selection {me offset maxChars} {
+    upvar $me O
+    set t [$O(myHv3) text text]
 
-    set n1 $myFromNode
-    set i1 $myFromIdx
-    set n2 $myToNode
-    set i2 $myToIdx
+    set n1 $O(myFromNode)
+    set i1 $O(myFromIdx)
+    set n2 $O(myToNode)
+    set i2 $O(myToIdx)
 
-    set stridx_a [$myHv3 text offset $myFromNode $myFromIdx]
-    set stridx_b [$myHv3 text offset $myToNode $myToIdx]
+    set stridx_a [$O(myHv3) text offset $O(myFromNode) $O(myFromIdx)]
+    set stridx_b [$O(myHv3) text offset $O(myToNode) $O(myToIdx)]
     if {$stridx_a > $stridx_b} {
       foreach {stridx_a stridx_b} [list $stridx_b $stridx_a] {}
     }
 
-    if {$myMode eq "word"} {
+    if {$O(myMode) eq "word"} {
       set stridx_a [string wordstart $t $stridx_a]
       set stridx_b [string wordend $t $stridx_b]
     }
-    if {$myMode eq "block"} {
+    if {$O(myMode) eq "block"} {
       set stridx_a [string last "\n" $t $stridx_a]
       if {$stridx_a < 0} {set stridx_a 0}
       set stridx_b [string first "\n" $t $stridx_b]
       if {$stridx_b < 0} {set stridx_b [string length $t]}
     }
   
-    set T [string range [$myHv3 text text] $stridx_a [expr $stridx_b - 1]]
+    set T [string range [$O(myHv3) text text] $stridx_a [expr $stridx_b - 1]]
     set T [string range $T $offset [expr $offset + $maxChars]]
 
     return $T
   }
 
-  method selected {} {
-    if {$myFromNode eq ""} {return ""}
-    return [$self get_selection 0 10000000]
+  proc selected {me} {
+    upvar $me O
+    if {$O(myFromNode) eq ""} {return ""}
+    return [$me get_selection 0 10000000]
   }
 
+  proc destroy {me} {
+    array unset $me
+    rename $me {}
+  }
 }
+::hv3::make_constructor ::hv3::hv3::selectionmanager
 #
 # End of ::hv3::hv3::selectionmanager
 #--------------------------------------------------------------------------
@@ -787,21 +825,21 @@ snit::type ::hv3::hv3::selectionmanager {
 #     be extended to handle :focus and :active, but it's not yet clear
 #     exactly how these should be dealt with.
 #
-snit::type ::hv3::hv3::dynamicmanager {
+namespace eval ::hv3::hv3::dynamicmanager {
 
-  constructor {hv3} {
-    $hv3 Subscribe onmouseover [list $self handle_mouseover]
-    $hv3 Subscribe onmouseout  [list $self handle_mouseout]
-    $hv3 Subscribe onmousedown [list $self handle_mousedown]
-    $hv3 Subscribe onmouseup   [list $self handle_mouseup]
+  proc new {me hv3} {
+    $hv3 Subscribe onmouseover [list $me handle_mouseover]
+    $hv3 Subscribe onmouseout  [list $me handle_mouseout]
+    $hv3 Subscribe onmousedown [list $me handle_mousedown]
+    $hv3 Subscribe onmouseup   [list $me handle_mouseup]
   }
 
-  method handle_mouseover {node} { $node dynamic set hover }
-  method handle_mouseout {node}  { $node dynamic clear hover }
-
-  method handle_mousedown {node} { $node dynamic set active }
-  method handle_mouseup {node}   { $node dynamic clear active }
+  proc handle_mouseover {me node} { $node dynamic set hover }
+  proc handle_mouseout {me node}  { $node dynamic clear hover }
+  proc handle_mousedown {me node} { $node dynamic set active }
+  proc handle_mouseup {me node}   { $node dynamic clear active }
 }
+::hv3::make_constructor ::hv3::hv3::dynamicmanager
 #
 # End of ::hv3::hv3::dynamicmanager
 #--------------------------------------------------------------------------
@@ -822,28 +860,28 @@ snit::type ::hv3::hv3::dynamicmanager {
 # to the <Motion>, <ButtonPress-1> and <ButtonRelease-1> events on the
 # associated hv3 widget.
 #
+namespace eval ::hv3::hv3::hyperlinkmanager {
 
-snit::type ::hv3::hv3::hyperlinkmanager {
-  variable myHv3
-  variable myBaseUri ""
-  variable myLinkHoverCount 0
+  proc new {me hv3 baseuri} {
+    upvar $me O
 
-  option -isvisitedcmd -default "" -configuremethod SetVisitedCmd
-  option -targetcmd -default ""
+    set O(myHv3) $hv3
 
-  constructor {hv3 baseuri} {
-    set myHv3 $hv3
-    set myBaseUri $baseuri
+    set O(myBaseUri) $baseuri
 
-    # Set up the default -targetcmd script to always return $myHv3.
-    set options(-targetcmd) [list ::hv3::ReturnWithArgs $hv3]
-    $self SetVisitedCmd -isvisitedcmd [list ::hv3::ReturnWithArgs 0]
+    set O(myLinkHoverCount) 0
 
-    $myHv3 Subscribe onclick     [list $self handle_onclick]
+    set O(-targetcmd) [list ::hv3::ReturnWithArgs $hv3]
+
+    set O(-isvisitedcmd) [list ::hv3::ReturnWithArgs $hv3]
+
+    configure-isvisitedcmd $me
+    $O(myHv3) Subscribe onclick [list $me handle_onclick]
   }
 
-  method reset {} {
-    set myLinkHoverCount 0
+  proc reset {me} {
+    upvar $me O
+    set O(myLinkHoverCount) 0
   }
 
   # This is the configure method for the -isvisitedcmd option. This
@@ -851,12 +889,12 @@ snit::type ::hv3::hv3::hyperlinkmanager {
   # and 'link' properties of an <a href="..."> element. This is a 
   # performance critical operation because it is called so many times.
   #
-  method SetVisitedCmd {option value} {
-    set options($option) $value
+  proc configure-isvisitedcmd {me} {
+    upvar $me O
 
     # Create a proc to use as the node-handler for <a> elements.
     #
-    set P_NODE ${selfns}::a_node_handler
+    set P_NODE ${me}.a_node_handler
     catch {rename $P_NODE ""}
     set template [list \
       proc $P_NODE {node} {
@@ -871,11 +909,13 @@ snit::type ::hv3::hv3::hyperlinkmanager {
         }
       }
     ]
-    eval [::snit::Expand $template %BASEURI% $myBaseUri %VISITEDCMD% $value]
+    eval [::snit::Expand $template \
+        %BASEURI% $O(myBaseUri) %VISITEDCMD% $O(-isvisitedcmd)
+    ]
 
     # Create a proc to use as the attribute-handler for <a> elements.
     #
-    set P_ATTR ${selfns}::a_attr_handler
+    set P_ATTR ${me}.a_attr_handler
     catch {rename $P_ATTR ""}
     set template [list \
       proc $P_ATTR {node attr val} {
@@ -892,10 +932,12 @@ snit::type ::hv3::hv3::hyperlinkmanager {
         }
       }
     ]
-    eval [::snit::Expand $template %BASEURI% $myBaseUri %VISITEDCMD% $value]
+    eval [::snit::Expand $template \
+        %BASEURI% $O(myBaseUri) %VISITEDCMD% $O(-isvisitedcmd)
+    ]
 
-    $myHv3 handler node a $P_NODE
-    $myHv3 handler attribute a $P_ATTR
+    $O(myHv3) handler node a $P_NODE
+    $O(myHv3) handler attribute a $P_ATTR
   }
 
   # This method is called whenever an onclick event occurs. If the
@@ -907,62 +949,74 @@ snit::type ::hv3::hv3::hyperlinkmanager {
   # callback script. This allows the upper layer to implement frames,
   # links that open in new windows/tabs - all that irritating stuff :)
   #
-  method handle_onclick {node} {
+  proc handle_onclick {me node} {
+    upvar $me O
     if {[$node tag] eq "a"} {
       set href [$node attr -default "" href]
       if {$href ne "" && $href ne "#"} {
-        set hv3 [eval [linsert $options(-targetcmd) end $node]]
-        set href [$myBaseUri resolve $href]
-        after idle [list $hv3 goto $href -referer [$myHv3 location]]
+        set hv3 [eval [linsert $O(-targetcmd) end $node]]
+        set href [$O(myBaseUri) resolve $href]
+        after idle [list $hv3 goto $href -referer [$O(myHv3) location]]
       }
     }
   }
+
+  proc destroy {me} {
+    catch {rename ${me}.a_node_handler ""}
+    catch {rename ${me}.a_attr_handler ""}
+  }
 }
+::hv3::make_constructor ::hv3::hv3::hyperlinkmanager
 #
 # End of ::hv3::hv3::hyperlinkmanager
 #--------------------------------------------------------------------------
 
-snit::type ::hv3::hv3::framelog {
-  variable myHv3 {}
+namespace eval ::hv3::hv3::framelog {
 
-  variable myStyleErrors {}
-  variable myHtmlDocument {}
+  proc new {me hv3} {
+    upvar $me O
 
-  constructor {hv3} {
-    set myHv3 $hv3
+    set O(myHv3) $hv3
+    set O(myStyleErrors) {}
+    set O(myHtmlDocument) {}
   }
 
-  method loghtml {data} {
+  proc loghtml {me data} {
+    upvar $me O
     if {![info exists ::hv3::log_source_option]} return
     if {$::hv3::log_source_option} {
-      append myHtmlDocument $data
+      append O(myHtmlDocument) $data
     }
   }
 
-  method log {id filename data parse_errors} {
+  proc log {me id filename data parse_errors} {
+    upvar $me O
     if {![info exists ::hv3::log_source_option]} return
     if {$::hv3::log_source_option} {
-      lappend myStyleErrors [list $id $filename $data $parse_errors]
+      lappend O(myStyleErrors) [list $id $filename $data $parse_errors]
     }
   }
 
-  method clear {} {
-    set myStyleErrors ""
-    set myHtmlDocument ""
+  proc clear {me} {
+    upvar $me O
+    set O(myStyleErrors) ""
+    set O(myHtmlDocument) ""
   }
 
-  method get {args} {
+  proc get {me args} {
+    upvar $me O
     switch -- [lindex $args 0] {
       html { 
-        return $myHtmlDocument 
+        return $O(myHtmlDocument)
       }
 
       css { 
-        return $myStyleErrors
+        return $O(myStyleErrors)
       }
     }
   }
 }
+::hv3::make_constructor ::hv3::hv3::framelog
 
 #--------------------------------------------------------------------------
 # Class hv3 - the public widget class.
@@ -1065,6 +1119,8 @@ snit::widget ::hv3::hv3 {
   # List of all active download handles.
   #
   variable myActiveHandles [list]
+
+  variable myTitleVar ""
 
   constructor {args} {
 
@@ -1509,7 +1565,6 @@ puts "visiblity $win = $state"
     }
     set myTitleVar $val
   }
-  variable myTitleVar ""
   method titlevar {}    {return [myvar myTitleVar]}
   method title {}       {return $myTitleVar}
 

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.4 2008/01/20 05:59:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.5 2008/01/24 10:29:21 danielk1977 Exp $)} 1 }
 
 
 namespace eval hv3 {
@@ -413,10 +413,11 @@ namespace eval ::hv3 {
       set obj ${ns}::inst[incr ${ns}::_OBJ_COUNTER]
     }
 
+    set body "namespace eval $ns \$m $obj \$args"
     if {[info commands real_proc] ne ""} {
-      real_proc $obj {m args} "namespace eval $ns \$m $obj \$args"
+      namespace eval :: [list real_proc $obj {m args} $body]
     } else {
-      proc $obj {m args} "namespace eval $ns \$m $obj \$args"
+      namespace eval :: [list proc $obj {m args} $body]
     }
 
     namespace eval $ns new $obj $arglist
