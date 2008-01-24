@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.181 2008/01/11 06:26:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.182 2008/01/24 08:05:54 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -57,6 +57,7 @@ snit::type ::hv3::config {
     -zoom             1.0                       Double  \
     -fontscale        1.0                       Double  \
     -guifont          11                        Integer \
+    -icons            grey_icons                Icons   \
     -debuglevel       0                         Integer \
     -fonttable        [list 8 9 10 11 13 15 17] SevenIntegers \
   ] {
@@ -84,7 +85,10 @@ snit::type ::hv3::config {
           }
         }
       }
+
     }
+
+    ::hv3::$options(-icons)
 
     $self configurelist $args
     after 2000 [list $self PollConfiguration]
@@ -118,6 +122,15 @@ snit::type ::hv3::config {
         16    "16 pts" \
     ]
     $path add cascade -label {Gui Font} -menu ${path}.guifont
+
+    # Add the 'Icons' menu
+    ::hv3::menu ${path}.icons
+    $self PopulateRadioMenu ${path}.icons -icons [list    \
+        grey_icons     "Great looking classy grey icons"      \
+        color_icons22  "22x22 Tango icons"                    \
+        color_icons32  "32x32 Tango icons"                    \
+    ]
+    $path add cascade -label {Gui Icons} -menu ${path}.icons
 
     $self populate_hidegui_entry $path
     $path add separator
@@ -208,6 +221,8 @@ snit::type ::hv3::config {
   method Integer {option value} {
     if {![string is integer $value]} { error "Bad integer value: $value" }
   }
+  method Icons {option value} {
+  }
   method SevenIntegers {option value} {
     set len [llength $value]
     if {$len != 7} { error "Bad seven-integers value: $value" }
@@ -238,6 +253,9 @@ snit::type ::hv3::config {
       }
       -guifont {
         ::hv3::SetFont [list -size $options(-guifont)]
+      }
+      -icons {
+        ::hv3::$options(-icons)
       }
       -debuglevel {
         switch -- $value {
@@ -584,23 +602,6 @@ proc gui_build {widget_array} {
 
   .toolbar.bug configure -tooltip "Bug Report"
 
-  catch {
-    set backimg [image create photo -data $::hv3::back_icon]
-    .toolbar.b.back configure -image $backimg
-    set forwardimg [image create photo -data $::hv3::forward_icon]
-    .toolbar.b.forward configure -image $forwardimg
-    image create photo hv3_reloadimg -data $::hv3::reload_icon]
-    image create photo hv3_stopimg -data $::hv3::stop_icon
-    .toolbar.b.stop configure -image hv3_stopimg
-
-    set newimg [image create photo -data $::hv3::new_icon]
-    .toolbar.b.new configure -image $newimg
-    set homeimg [image create photo -data $::hv3::home_icon]
-    .toolbar.b.home configure -image $homeimg
-    set bugimg [image create photo -data $::hv3::bug_icon]
-    .toolbar.bug configure -image $bugimg
-  }
-
   # Create the middle bit - the browser window
   #
   ::hv3::tabset .notebook              \
@@ -739,6 +740,15 @@ proc gui_menu {widget_array} {
 
   $G(file_menu) setup_hotkeys
   $G(debug_menu) setup_hotkeys
+
+  catch {
+    .toolbar.b.back configure -image hv3_previmg
+    .toolbar.b.forward configure -image hv3_nextimg
+    .toolbar.b.stop configure -image hv3_stopimg
+    .toolbar.b.new configure -image hv3_newimg
+    .toolbar.b.home configure -image hv3_homeimg
+    .toolbar.bug configure -image hv3_bugimg
+  }
 }
 #--------------------------------------------------------------------------
 
