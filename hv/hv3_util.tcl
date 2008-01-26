@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.5 2008/01/24 10:29:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.6 2008/01/26 14:03:00 danielk1977 Exp $)} 1 }
 
 
 namespace eval hv3 {
@@ -15,90 +15,94 @@ namespace eval hv3 {
   #     [xview], [yview], -xscrollcommand and -yscrollcommand interface (e.g.
   #     html, canvas or text).
   #
-  ::snit::widget scrolledwidget {
-    component myWidget
-    variable  myVsb
-    variable  myHsb
+  namespace eval scrolledwidget {
   
-    option -propagate -default 0 -configuremethod set_propagate
-    option -scrollbarpolicy -default auto -configuremethod set_policy
-    option -takefocus -default 0
-  
-    method set_propagate {option value} {
-      grid propagate $win $value
-      set options(-propagate) $value
-    }
-  
-    variable myTakeControlCb ""
-    method take_control {callback} {
-      if {$myTakeControlCb ne ""} {
-        uplevel #0 $myTakeControlCb
-      }
-      set myTakeControlCb $callback
-    }
-  
-    proc scrollme {var args} {
-      if {[set $var] ne ""} {
-        uplevel #0 [set $var]
-        set $var ""
-      }
-      eval $args
-    }
-  
-    constructor {widget args} {
+    proc new {me widget args} {
+      upvar #0 $me O
+
+      set O(-propagate) 0 
+      set O(-scrollbarpolicy) auto
+      set O(-takefocus) 0
+
+      set O(myTakeControlCb) ""
+
       # Create the three widgets - one user widget and two scrollbars.
-      set myWidget [eval [linsert $widget 1 ${win}.widget]]
+      set O(myWidget) [eval [linsert $widget 1 ${me}.widget]]
+      set O(myVsb) [::hv3::scrollbar ${me}.vsb -orient vertical -takefocus 0] 
+      set O(myHsb) [::hv3::scrollbar ${me}.hsb -orient horizontal -takefocus 0]
+
+      set w $O(myWidget)
+      bind $w <KeyPress-Up>     [list $w scrollme $w yview scroll -1 units]
+      bind $w <KeyPress-Down>   [list $w scrollme $w yview scroll  1 units]
+      bind $w <KeyPress-Return> [list $w scrollme $w yview scroll  1 units]
+      bind $w <KeyPress-Right>  [list $w scrollme $w xview scroll  1 units]
+      bind $w <KeyPress-Left>   [list $w scrollme $w xview scroll -1 units]
+      bind $w <KeyPress-Next>   [list $w scrollme $w yview scroll  1 pages]
+      bind $w <KeyPress-space>  [list $w scrollme $w yview scroll  1 pages]
+      bind $w <KeyPress-Prior>  [list $w scrollme $w yview scroll -1 pages]
   
-      set v [myvar myTakeControlCb]
-      set w $myWidget
-      set scrollme [myproc scrollme]
-      bind $w <KeyPress-Up>     [list $scrollme $v $w yview scroll -1 units]
-      bind $w <KeyPress-Down>   [list $scrollme $v $w yview scroll  1 units]
-      bind $w <KeyPress-Return> [list $scrollme $v $w yview scroll  1 units]
-      bind $w <KeyPress-Right>  [list $scrollme $v $w xview scroll  1 units]
-      bind $w <KeyPress-Left>   [list $scrollme $v $w xview scroll -1 units]
-      bind $w <KeyPress-Next>   [list $scrollme $v $w yview scroll  1 pages]
-      bind $w <KeyPress-space>  [list $scrollme $v $w yview scroll  1 pages]
-      bind $w <KeyPress-Prior>  [list $scrollme $v $w yview scroll -1 pages]
+      $O(myVsb) configure -cursor "top_left_arrow"
+      $O(myHsb) configure -cursor "top_left_arrow"
   
-      set myVsb [::hv3::scrollbar ${win}.vsb -orient vertical -takefocus 0] 
-      set myHsb [::hv3::scrollbar ${win}.hsb -orient horizontal -takefocus 0]
-  
-      $myVsb configure -cursor "top_left_arrow"
-      $myHsb configure -cursor "top_left_arrow"
-  
-      grid configure $myWidget -column 0 -row 0 -sticky nsew
-      grid columnconfigure $win 0 -weight 1
-      grid rowconfigure    $win 0 -weight 1
-      grid propagate       $win $options(-propagate)
+      grid configure $O(myWidget) -column 0 -row 0 -sticky nsew
+      grid columnconfigure $me 0 -weight 1
+      grid rowconfigure    $me 0 -weight 1
+      grid propagate       $me $O(-propagate)
   
       # First, set the values of -width and -height to the defaults for 
       # the scrolled widget class. Then configure this widget with the
       # arguments provided.
-      $self configure -width  [$myWidget cget -width] 
-      $self configure -height [$myWidget cget -height]
-      $self configurelist $args
+      $me configure -width  [$O(myWidget) cget -width] 
+      $me configure -height [$O(myWidget) cget -height]
+      eval $me configure $args
   
       # Wire up the scrollbars using the standard Tk idiom.
-      $myWidget configure -yscrollcommand [list $self scrollcallback $myVsb]
-      $myWidget configure -xscrollcommand [list $self scrollcallback $myHsb]
-      set v [myvar myTakeControlCb]
-      $myVsb configure -command [list [myproc scrollme] $v $myWidget yview]
-      $myHsb configure -command [list [myproc scrollme] $v $myWidget xview]
+      $O(myWidget) configure -yscrollcommand [list $me scrollcallback $O(myVsb)]
+      $O(myWidget) configure -xscrollcommand [list $me scrollcallback $O(myHsb)]
+      $O(myVsb) configure -command [list $me scrollme $O(myWidget) yview]
+      $O(myHsb) configure -command [list $me scrollme $O(myWidget) xview]
   
       # Propagate events from the scrolled widget to this one.
-      bindtags $myWidget [concat [bindtags $myWidget] $win]
+      bindtags $O(myWidget) [concat [bindtags $O(myWidget)] $O(myWidget)]
+    }
+
+    proc destroy {me} {
+      uplevel #0 [list unset $me]
+      rename $me ""
     }
   
-    method scrollcallback {scrollbar first last} {
+    proc configure-propagate {me} {
+      upvar #0 $me O
+      grid propagate $me $O(-propagate)
+    }
+  
+    proc take_control {me callback} {
+      upvar #0 $me O
+      if {$O(myTakeControlCb) ne ""} {
+        uplevel #0 $O(myTakeControlCb)
+      }
+      set O(myTakeControlCb) $callback
+    }
+  
+    proc scrollme {me args} {
+      upvar #0 $me O
+      if {$O(myTakeControlCb) ne ""} {
+        uplevel #0 $O(myTakeControlCb)
+        set O(myTakeControlCb) ""
+      }
+      eval $args
+    }
+  
+    proc scrollcallback {me scrollbar first last} {
+      upvar #0 $me O
 
       $scrollbar set $first $last
       set ismapped   [expr [winfo ismapped $scrollbar] ? 1 : 0]
   
-      if {$options(-scrollbarpolicy) eq "auto"} {
+      if {$O(-scrollbarpolicy) eq "auto"} {
         set isrequired [expr ($first == 0.0 && $last == 1.0) ? 0 : 1]
       } else {
-        set isrequired $options(-scrollbarpolicy)
+        set isrequired $O(-scrollbarpolicy)
       }
   
       if {$isrequired && !$ismapped} {
@@ -111,22 +115,29 @@ namespace eval hv3 {
       }
     }
 
-    method set_policy {option value} {
-      if {$value ne $options($option)} {
-        set options($option) $value
-        eval $self scrollcallback $myHsb [$myWidget xview]
-        eval $self scrollcallback $myVsb [$myWidget yview]
-      }
+    proc configure-scrollbarpolicy {me} {
+      upvar #0 $me O
+      eval $me scrollcallback $O(myHsb) [$O(myWidget) xview]
+      eval $me scrollcallback $O(myVsb) [$O(myWidget) yview]
     }
   
-    method widget {} {return $myWidget}
-  
-    delegate option -width     to hull
-    delegate option -height    to hull
-    delegate option *          to myWidget
-    delegate method *          to myWidget
+    proc widget {me} {
+      upvar #0 $me O
+      return $O(myWidget)
+    }
+
+    proc unknown {method me args} {
+      # puts "UNKNOWN: $me $method $args"
+      upvar #0 $me O
+      uplevel 3 [list eval $O(myWidget) $method $args]
+    }
+    namespace unknown unknown
+
+    set DelegateOption(-width) hull
+    set DelegateOption(-height) hull
+    set DelegateOption(*) myWidget
   }
-  
+
   # Wrapper around the ::hv3::scrolledwidget constructor. 
   #
   # Example usage to create a 400x400 canvas widget named ".c" with 
@@ -138,7 +149,9 @@ namespace eval hv3 {
     return [eval [concat ::hv3::scrolledwidget $name $widget $args]]
   }
 
-
+  proc Expand {template args} {
+    return [string map $args $template]
+  }
 }
 
 namespace eval ::hv3::string {
@@ -408,9 +421,22 @@ proc ::hv3::configure_doctype_mode {html text pIsXhtml} {
 }
 
 namespace eval ::hv3 {
+
+  proc handle_destroy {obj win} {
+    if {$obj eq $win} {$obj destroy}
+  }
+
   proc construct_object {ns obj arglist} {
     if {$obj eq "%AUTO%"} {
       set obj ${ns}::inst[incr ${ns}::_OBJ_COUNTER]
+    }
+
+    if {[string range $obj 0 0] eq "."} {
+      variable HullType
+      $HullType($ns) $obj
+      namespace eval :: rename $obj ${obj}_win
+      set ::${obj}(hull) ${obj}_win
+      bind $obj <Destroy> [list ::hv3::handle_destroy $obj %w]
     }
 
     set body "namespace eval $ns \$m $obj \$args"
@@ -424,7 +450,13 @@ namespace eval ::hv3 {
     return $obj
   }
 
-  proc make_constructor {ns} {
+  proc make_constructor {ns {hulltype frame}} {
+    variable HullType
+
+    if {[info commands ${ns}::destroy] eq ""} {
+      error "Object class has no destructor: $ns"
+    }
+    set HullType($ns) $hulltype
 
     # Create the constructor
     #
@@ -435,6 +467,18 @@ namespace eval ::hv3 {
     namespace eval $ns "
       proc cget {me option} {
         upvar \$me O
+        if {!\[info exists O(\$option)\]} {
+          variable DelegateOption
+          if {\[info exists DelegateOption(\$option)\]} {
+            return \[
+              eval \$O(\$DelegateOption(\$option)) [list cget \$option]
+            \]
+            return
+          } elseif {\[info exists DelegateOption(*)\]} {
+            return \[eval \$O(\$DelegateOption(*)) [list cget \$option ]\]
+          }
+          error \"unknown option: \$option\"
+        }
         return \$O(\$option)
       }
     "
@@ -449,12 +493,25 @@ namespace eval ::hv3 {
       proc configure {me args} {
         upvar \$me O
         foreach {option value} \$args {
-          if {!\[info exists O(\$option)\]} {error \"unknown option: \$option\"}
-          set O(\$option) \$value
-          $cc
+          if {!\[info exists O(\$option)\]} {
+            variable DelegateOption
+            if {\[info exists DelegateOption(\$option)\]} {
+              eval \$O(\$DelegateOption(\$option)) [list configure \$option \$value]
+            } elseif {\[info exists DelegateOption(*)\]} {
+              eval \$O(\$DelegateOption(*)) [list configure \$option \$value]
+            } else {
+              error \"unknown option: \$option\"
+            }
+          } elseif {\$O(\$option) != \$value} {
+            set O(\$option) \$value
+            $cc
+          }
         }
       }
     "
   }
 }
+
+::hv3::make_constructor ::hv3::scrolledwidget
+
 

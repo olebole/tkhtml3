@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.94 2008/01/24 10:29:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.95 2008/01/26 14:03:00 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -478,11 +478,6 @@ namespace eval ::hv3::forms::entrycontrol {
   proc new {me node bindtag args} {
     upvar #0 $me O
 
-    namespace eval :: rename $me tmpcmd
-    frame $me
-    namespace eval :: rename $me ${me}_win
-    namespace eval :: rename tmpcmd $me
-
     set O(-takefocus) 0
 
     set O(myValue) ""
@@ -521,6 +516,11 @@ namespace eval ::hv3::forms::entrycontrol {
 
     $me reset
     eval $me configure $args
+  }
+
+  proc destroy {me} {
+    uplevel #0 [list unset $me]
+    rename $me {}
   }
 
   # Generate html for the "HTML Forms" tab of the tree-browser.
@@ -1096,17 +1096,19 @@ snit::widget ::hv3::forms::fileselect {
 #         <input type=reset>
 #
 #
-::snit::type ::hv3::clickcontrol {
-  variable myNode ""
+namespace eval ::hv3::clickcontrol {
 
-  variable myClicked 0
-  variable myClickX 0
-  variable myClickY 0 
-
-  option -clickcmd -default ""
-
-  constructor {node} {
-    set myNode $node
+  proc new {me node} {
+    upvar #0 $me O
+    set O(myClicked) 0
+    set O(myClickX) 0
+    set O(myClickY) 0 
+    set O(-clickcmd) ""
+    set O(myNode) $node
+  }
+  proc destroy {me} {
+    rename $me ""
+    uplevel #0 [list unset $me]
   }
 
   # This method is used by graphical-submit buttons only. Controls
@@ -1114,7 +1116,8 @@ snit::widget ::hv3::forms::fileselect {
   #
   #     <INPUT type="image">
   #
-  method graphicalSubmit {} {
+  proc graphicalSubmit {me} {
+    upvar #0 $me O
     set t    [string tolower [$myNode attr -default "" type]]
     set name [$myNode attr -default "" name]
     if {$t ne "image" || $name eq ""} {return [list]}
@@ -1122,20 +1125,27 @@ snit::widget ::hv3::forms::fileselect {
     list "${name}.x" $myClickX "${name}.y" $myClickY
   }
  
-  method value {} { return [$myNode attr -default "" value] }
-  method name {}  { return [$myNode attr -default "" name] }
+  proc value {me} { 
+    upvar #0 $me O
+    return [$O(myNode) attr -default "" value] 
+  }
+  proc name {me}  {
+    upvar #0 $me O
+    return [$O(myNode) attr -default "" name]
+  }
 
-  method success {} { 
+  proc success {me} { 
+    upvar #0 $me O
 
     # Controls that are disabled cannot be succesful:
-    if {[$myNode attr -default 0 disabled]} {return 0}
+    if {[$O(myNode) attr -default 0 disabled]} {return 0}
 
-    if {[catch {$myNode attr name ; $myNode attr value}]} {
+    if {[catch {$O(myNode) attr name ; $O(myNode) attr value}]} {
       return 0
     }
-    switch -- [string tolower [$myNode attr type]] {
+    switch -- [string tolower [$O(myNode) attr type]] {
       hidden { return 1 }
-      submit { return $myClicked }
+      submit { return $O(myClicked) }
       image  { return 0 }
       button { return 0 }
       reset  { return 0 }
@@ -1150,47 +1160,49 @@ snit::widget ::hv3::forms::fileselect {
   #     This method is called externally when this widget is clicked
   #     on. If it is not "", evaluate the script configured as -clickcmd
   #
-  method click {{isSynthetic 1}} {
+  proc click {me {isSynthetic 1}} {
+    upvar #0 $me O
 
     # Controls that are disabled cannot be activated:
     #
-    if {[$myNode attr -default 0 disabled]} return
+    if {[$O(myNode) attr -default 0 disabled]} return
 
-    set cmd $options(-clickcmd)
-    set formnode [::hv3::control_to_form $myNode]
+    set cmd $O(-clickcmd)
+    set formnode [::hv3::control_to_form $O(myNode)]
     if {$cmd ne "" && $formnode ne ""} {
 
-      set bbox [[$myNode html] bbox $myNode]
+      set bbox [[$O(myNode) html] bbox $O(myNode)]
       foreach {x1 y1 x2 y2} $bbox {}
       if {$isSynthetic} {
-        set myClickX [expr {($x2-$x1)/2}]
-        set myClickY [expr {($y2-$y1)/2}]
+        set O(myClickX) [expr {($x2-$x1)/2}]
+        set O(myClickY) [expr {($y2-$y1)/2}]
       } else {
-        foreach {px py} [winfo pointerxy [$myNode html]] {}
-        set wx [winfo rootx [$myNode html]]
-        set wy [winfo rooty [$myNode html]]
-        set myClickX [expr $px - ($x1 + $wx)]
-        set myClickY [expr $py - ($y1 + $wy)]
+        foreach {px py} [winfo pointerxy [$O(myNode) html]] {}
+        set wx [winfo rootx [$O(myNode) html]]
+        set wy [winfo rooty [$O(myNode) html]]
+        set O(myClickX) [expr $px - ($x1 + $wx)]
+        set O(myClickY) [expr $py - ($y1 + $wy)]
       }
 
-      set myClicked 1
-      eval [[$formnode replace] $cmd $self]
+      set O(myClicked) 1
+      eval [[$formnode replace] $cmd $me]
 
       catch {
         # Catch these in case this object has been destroyed by the 
         # form method invoked above.
-        set myClicked 0
-        set myClickX 0
-        set myClickY 0
+        set O(myClicked) 0
+        set O(myClickX) 0
+        set O(myClickY) 0
       }
     }
   }
 
-  method configurecmd {values} {}
-  method stylecmd {} {}
+  proc configurecmd {me values} {}
+  proc stylecmd {me} {}
 
-  method formsreport {} {
-    set n [::hv3::control_to_form $myNode]
+  proc formsreport {me} {
+    upvar #0 $me O
+    set n [::hv3::control_to_form $O(myNode)]
     set report "<p>"
     if {$n eq ""} {
       append report {<i>No associated form node.</i>}
@@ -1203,7 +1215,7 @@ snit::widget ::hv3::forms::fileselect {
     return $report
   }
 
-  method reset {} { # no-op }
+  proc reset {me } { # no-op }
 
   #---------------------------------------------------------------------
   # START OF DOM FUNCTIONALITY
@@ -1215,35 +1227,38 @@ snit::widget ::hv3::forms::fileselect {
   # Get/set on the DOM "checked" attribute. This means the state 
   # of control (1==checked, 0==not checked) for this type of object.
   #
-  method dom_checked {args} {
+  proc dom_checked {me args} {
     return 0
   }
 
   # DOM Implementation does not call this. HTMLInputElement.value is
   # the "value" attribute of the HTML element for this type of object.
   #
-  method dom_value {args} { error "N/A" }
+  proc dom_value {me args} { error "N/A" }
 
   # HTMLInputElement.select() is a no-op for this kind of object. It
   # contains no text so there is nothing to select...
   #
-  method dom_select  {} {}
+  proc dom_select {me} {}
 
   # Hv3 will not support keyboard access to checkboxes. Until
   # this changes these can be no-ops :)
-  method dom_focus {} {}
-  method dom_blur  {} {}
+  proc dom_focus {me} {}
+  proc dom_blur {me} {}
 
   # Generate a synthetic click. This same trick can be used for <INPUT>
   # elements with "type" set to "Button", "Radio", "Reset", or "Submit".
   #
-  method dom_click {} {
+  proc dom_click {me} {
+    upvar #0 $me O
     set x [expr [winfo width $win]/2]
     set y [expr [winfo height $win]/2]
     event generate $win <ButtonPress-1> -x $x -y $y
     event generate $win <ButtonRelease-1> -x $x -y $y
   }
 }
+
+::hv3::make_constructor ::hv3::clickcontrol
 
 #-----------------------------------------------------------------------
 # ::hv3::format_query

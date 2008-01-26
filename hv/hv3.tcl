@@ -181,7 +181,7 @@ namespace eval ::hv3::hv3::mousemanager {
     #
     # Each time an event occurs, the following script is executed:
     #
-    #     $options(-dom) mouseevent EVENT-TYPE NODE X Y ?OPTIONS?
+    #     $O(-dom) mouseevent EVENT-TYPE NODE X Y ?OPTIONS?
     #
     # where OPTIONS are:
     #
@@ -196,11 +196,11 @@ namespace eval ::hv3::hv3::mousemanager {
     # NODE is the target leaf node and X and Y are the pointer coordinates
     # relative to the top-left of the html widget window.
     #
-    # For "click" events, if the $options(-dom) script returns false, then
+    # For "click" events, if the $O(-dom) script returns false, then
     # the "click" event is not dispatched to any subscribers (this happens
     # when some javascript calls the Event.preventDefault() method). If it
     # returns true, proceed as normal. Other event types ignore the return 
-    # value of the $options(-dom) script.
+    # value of the $O(-dom) script.
     #
     set O(-dom) ""
   
@@ -412,9 +412,9 @@ namespace eval ::hv3::hv3::mousemanager {
     # into an annoying state.
     #
     if {$rc eq "prevent"} {
-      $O(myHv3) selectionmanager clear
+      $O(myHv3) theselectionmanager clear
     } else {
-      $O(myHv3) selectionmanager press $N $x $y
+      $O(myHv3) theselectionmanager press $N $x $y
     }
 
     for {set n $N} {$n ne ""} {set n [$n parent]} {
@@ -833,6 +833,10 @@ namespace eval ::hv3::hv3::dynamicmanager {
     $hv3 Subscribe onmousedown [list $me handle_mousedown]
     $hv3 Subscribe onmouseup   [list $me handle_mouseup]
   }
+  proc destroy {me} {
+    uplevel #0 [list unset $me]
+    rename $me ""
+  }
 
   proc handle_mouseover {me node} { $node dynamic set hover }
   proc handle_mouseout {me node}  { $node dynamic clear hover }
@@ -909,7 +913,7 @@ namespace eval ::hv3::hv3::hyperlinkmanager {
         }
       }
     ]
-    eval [::snit::Expand $template \
+    eval [::hv3::Expand $template \
         %BASEURI% $O(myBaseUri) %VISITEDCMD% $O(-isvisitedcmd)
     ]
 
@@ -932,7 +936,7 @@ namespace eval ::hv3::hv3::hyperlinkmanager {
         }
       }
     ]
-    eval [::snit::Expand $template \
+    eval [::hv3::Expand $template \
         %BASEURI% $O(myBaseUri) %VISITEDCMD% $O(-isvisitedcmd)
     ]
 
@@ -980,6 +984,10 @@ namespace eval ::hv3::hv3::framelog {
     set O(myStyleErrors) {}
     set O(myHtmlDocument) {}
   }
+  proc destroy {me} {
+    uplevel #0 [list unset $me]
+    rename $me ""
+  }
 
   proc loghtml {me data} {
     upvar $me O
@@ -1021,142 +1029,151 @@ namespace eval ::hv3::hv3::framelog {
 #--------------------------------------------------------------------------
 # Class hv3 - the public widget class.
 #
-snit::widget ::hv3::hv3 {
+namespace eval ::hv3::hv3 {
 
-  # Object components
-  component myHtml                   ;# The [::hv3::scrolled html] widget
-  component myHyperlinkManager       ;# The ::hv3::hv3::hyperlinkmanager
-  component myDynamicManager         ;# The ::hv3::hv3::dynamicmanager
-  component mySelectionManager -public selectionmanager
-  component myFormManager            ;# The ::hv3::formmanager
+  proc theselectionmanager {me args} {
+    upvar #0 $me O
+    eval $O(mySelectionManager) $args
+  }
+  proc log {me args} {
+    upvar #0 $me O
+    eval $O(myFrameLog) $args
+  }
+  proc uri {me args} {
+    upvar #0 $me O
+    eval $O(myUri) $args
+  }
 
-  component myFrameLog -public log     ;# The ::hv3::hv3::framelog
+  proc Subscribe {me args} {
+    upvar #0 $me O
+    eval $O(myMouseManager) subscribe $args
+  }
+  proc selected {me args} {
+    upvar #0 $me O
+    eval $O(mySelectionManager) selected $args
+  }
 
-  option -dom -default "" -configuremethod SetDom
-
-  option -storevisitedcmd -default ""
-
-  variable myStorevisitedDone 0
-
-  component myMouseManager           ;# The ::hv3::hv3::mousemanager
-  delegate method Subscribe to myMouseManager as subscribe
-
-  # The current location URI and the current base URI. If myBase is "",
-  # use the URI stored in myUri as the base.
-  #
-  component myUri -public uri
-  variable myBase ""                ;# The current URI (type ::hv3::hv3uri)
-
-  # Full text of referrer URI, if any.
-  #
-  # Note that the DOM attribute HTMLDocument.referrer has a double-r,
-  # but the name of the HTTP header, "Referer", has only one.
-  #
-  variable myReferrer ""     
-
-  # Used to assign internal stylesheet ids.
-  variable myStyleCount 0 
-
-  # This variable may be set to "unknown", "quirks" or "standards".
-  variable myQuirksmode unknown
-
-  variable myFirstReset 1
-
-  # Current value to set the -cachecontrol option of download handles to.
-  #
-  variable myCacheControl normal
-
-  # This variable stores the current type of resource being displayed.
-  # When valid, it is set to one of the following:
-  #
-  #     * html
-  #     * image
-  #
-  # Otherwise, it is set to an empty string, indicating that the resource
-  # has been requested, but has not yet arrived.
-  #
-  variable myMimetype ""
-
-  # This variable is only used when ($myMimetype eq "image"). It stores
-  # the data for the image about to be displayed. Once the image
-  # has finished downloading, the data in this variable is loaded into
-  # a Tk image and this variable reset to "".
-  #
-  variable myImageData ""
-
-  # If this variable is not set to the empty string, it is the id of an
-  # [after] event that will refresh the current document (i.e from a 
-  # Refresh header or <meta type=http-equiv> markup). This scheduled 
-  # event should be cancelled when the [reset] method is called.
-  #
-  # There should only be one Refresh event scheduled at any one time.
-  # The [Refresh] method, which calls [after] to schedule the events,
-  # cancels any pending event before scheduling a new one.
-  #
-  variable myRefreshEventId ""
-
-  # This boolean variable is set to zero until the first call to [goto].
-  # Before that point it is safe to change the values of the -enableimages
-  # option without reloading the document.
-  #
-  variable myGotoCalled 0
-
-  # This boolean variable is set after the DOM "onload" event is fired.
-  # It is cleared by the [reset] method.
-  variable myOnloadFired 0
-
-  variable myFragmentSeek ""
-
-  # The ::hv3::request object used to retrieve the main document.
-  #
-  variable myDocumentHandle ""
-
-  # List of handle objects that should be released after the page has
-  # loaded. This is part of the hack to work around the polipo bug.
-  #
-  variable myShelvedHandles [list]
-
-  # List of all active download handles.
-  #
-  variable myActiveHandles [list]
-
-  variable myTitleVar ""
-
-  constructor {args} {
-
-    # Create the scrolled html widget and bind it's events to the
-    # mega-widget window.
-    set myHtml [::hv3::scrolled html ${win}.html -imagepixmapify 1]
-    #set myHtml [::hv3::scrolled html ${win}.html]
+  proc new {me args} {
+    upvar #0 $me O
+	   
+    # The scrolled html widget.
+    set O(myHtml) [::hv3::scrolled html ${me}.html]
     catch {::hv3::profile::instrument [$myHtml widget]}
-    bindtags [$self html] [concat [bindtags [$self html]] $self]
-    pack $myHtml -fill both -expand 1
 
-    set myMouseManager [::hv3::hv3::mousemanager %AUTO% $self]
+    # Current location and base URIs. The default URI is "blank://".
+    set O(myUri)  [::tkhtml::uri home://blank/]
+    set O(myBase) [::tkhtml::uri home://blank/]
 
-    # $myHtml configure -layoutcache 0
+    # Component objects.
+    set O(myMouseManager)     [mousemanager       %AUTO% $me]
+    set O(myHyperlinkManager) [hyperlinkmanager   %AUTO% $me $O(myBase)]
+    set O(mySelectionManager) [selectionmanager   %AUTO% $me]
+    set O(myDynamicManager)   [dynamicmanager     %AUTO% $me]
+    set O(myFormManager)      [::hv3::formmanager %AUTO% $me]
+    set O(myFrameLog)         [framelog           %AUTO% $me]
 
-    # Location URI. The default URI is "blank://".
-    set myUri  [::tkhtml::uri home://blank/]
-    set myBase [::tkhtml::uri home://blank/]
+    set O(-dom) ""
+    set O(-storevisitedcmd) ""
 
-    # Create the event-handling components.
-    set myHyperlinkManager [::hv3::hv3::hyperlinkmanager %AUTO% $self $myBase]
-    set mySelectionManager [::hv3::hv3::selectionmanager %AUTO% $self]
-    set myDynamicManager   [::hv3::hv3::dynamicmanager   %AUTO% $self]
+    set O(myStorevisitedDone) 0
+    set O(-historydoccmd) ""
 
-    # The frame log (records component HTML and CSS documents).
+    # The option to display images (default true).
+    set O(-enableimages) 1
+
+    set O(-scrollbarpolicy) auto
+
+    set O(-locationvar) ""
+    set O(-downloadcmd) ""
+    set O(-requestcmd) ""
+
+    # Full text of referrer URI, if any.
     #
-    set myFrameLog         [::hv3::hv3::framelog   %AUTO% $self]
+    # Note that the DOM attribute HTMLDocument.referrer has a double-r,
+    # but the name of the HTTP header, "Referer", has only one.
+    #
+    set O(myReferrer) ""     
+  
+    # Used to assign internal stylesheet ids.
+    set O(myStyleCount) 0 
+  
+    # This variable may be set to "unknown", "quirks" or "standards".
+    set O(myQuirksmode) unknown
+  
+    set O(myFirstReset) 1
+  
+    # Current value to set the -cachecontrol option of download handles to.
+    #
+    set O(myCacheControl) normal
+  
+    # This variable stores the current type of resource being displayed.
+    # When valid, it is set to one of the following:
+    #
+    #     * html
+    #     * image
+    #
+    # Otherwise, it is set to an empty string, indicating that the resource
+    # has been requested, but has not yet arrived.
+    #
+    set O(myMimetype) ""
+  
+    # This variable is only used when ($O(myMimetype) eq "image"). It stores
+    # the data for the image about to be displayed. Once the image
+    # has finished downloading, the data in this variable is loaded into
+    # a Tk image and this variable reset to "".
+    #
+    set O(myImageData) ""
+  
+    # If this variable is not set to the empty string, it is the id of an
+    # [after] event that will refresh the current document (i.e from a 
+    # Refresh header or <meta type=http-equiv> markup). This scheduled 
+    # event should be cancelled when the [reset] method is called.
+    #
+    # There should only be one Refresh event scheduled at any one time.
+    # The [Refresh] method, which calls [after] to schedule the events,
+    # cancels any pending event before scheduling a new one.
+    #
+    set O(myRefreshEventId) ""
+  
+    # This boolean variable is set to zero until the first call to [goto].
+    # Before that point it is safe to change the values of the -enableimages
+    # option without reloading the document.
+    #
+    set O(myGotoCalled) 0
+  
+    # This boolean variable is set after the DOM "onload" event is fired.
+    # It is cleared by the [reset] method.
+    set O(myOnloadFired) 0
+  
+    set O(myFragmentSeek) ""
+  
+    # The ::hv3::request object used to retrieve the main document.
+    #
+    set O(myDocumentHandle) ""
+  
+    # List of handle objects that should be released after the page has
+    # loaded. This is part of the hack to work around the polipo bug.
+    #
+    set O(myShelvedHandles) [list]
+  
+    # List of all active download handles.
+    #
+    set O(myActiveHandles) [list]
+  
+    set O(myTitleVar) ""
 
-    $myMouseManager subscribe motion [list $mySelectionManager motion]
 
-    set myFormManager [::hv3::formmanager %AUTO% $self]
-    $myFormManager configure -getcmd  [list $self Formcmd get]
-    $myFormManager configure -postcmd [list $self Formcmd post]
+    bindtags [$me html] [concat [bindtags [$me html]] $me]
+    pack $O(myHtml) -fill both -expand 1
 
-    # Attach an image callback to the html widget
-    $myHtml configure -imagecmd [list $self Imagecmd]
+    $O(myMouseManager) subscribe motion [list $O(mySelectionManager) motion]
+
+    $O(myFormManager) configure -getcmd  [list $me Formcmd get]
+    $O(myFormManager) configure -postcmd [list $me Formcmd post]
+
+    # Attach an image callback to the html widget. Store images as 
+    # pixmaps only when possible to save memory.
+    $O(myHtml) configure -imagecmd [list $me Imagecmd] -imagepixmapify 1
 
     # Register node handlers to deal with the various elements
     # that may appear in the document <head>. In html, the <head> section
@@ -1168,54 +1185,57 @@ snit::widget ::hv3::hv3 {
     # handler for <object> is the same whether the element is located in
     # the head or body of the html document.
     #
-    $myHtml handler node   link     [list $self link_node_handler]
-    $myHtml handler node   base     [list $self base_node_handler]
-    $myHtml handler node   meta     [list $self meta_node_handler]
-    $myHtml handler node   title    [list $self title_node_handler]
-    $myHtml handler script style    [list $self style_script_handler]
-    $myHtml handler script script   [list $self ::hv3::ignore_script]
-
-    # $myHtml handler script script   [list $self script_script_handler]
+    $O(myHtml) handler node   link     [list $me link_node_handler]
+    $O(myHtml) handler node   base     [list $me base_node_handler]
+    $O(myHtml) handler node   meta     [list $me meta_node_handler]
+    $O(myHtml) handler node   title    [list $me title_node_handler]
+    $O(myHtml) handler script style    [list $me style_script_handler]
+    $O(myHtml) handler script script   [list ::hv3::ignore_script]
 
     # Register handler commands to handle <body>.
-    $myHtml handler node body   [list $self body_node_handler]
+    $O(myHtml) handler node body   [list $me body_node_handler]
 
-    bind $win <Configure>  [list $self goto_fragment]
+    bind $me <Configure>  [list $me goto_fragment]
     #bind [$win html].document <Visibility> [list $self VisibilityChange %s]
 
-    $self configurelist $args
+    eval $me configure $args
   }
 
-  destructor {
+  # Destructor. This is called automatically when the window is destroyed.
+  #
+  proc destroy {me} {
+    upvar #0 $me O
+
     # Cancel any and all pending downloads.
     #
-    $self stop
-    catch {$myDocumentHandle release }
+    $me stop
+    catch {$O(myDocumentHandle) release}
 
     # Destroy the components. We don't need to destroy the scrolled
     # html component because it is a Tk widget - it is automatically
     # destroyed when it's parent widget is.
-    catch { $mySelectionManager destroy }
-    catch { $myDynamicManager   destroy }
-    catch { $myHyperlinkManager destroy }
-    catch { $myUri              destroy }
-    catch { $myFormManager      destroy }
-    catch { $myMouseManager     destroy }
-    catch { $myBase             destroy }
+    catch { $O(mySelectionManager) destroy }
+    catch { $O(myDynamicManager)   destroy }
+    catch { $O(myHyperlinkManager) destroy }
+    catch { $O(myUri)              destroy }
+    catch { $O(myFormManager)      destroy }
+    catch { $O(myMouseManager)     destroy }
+    catch { $O(myBase)             destroy }
 
     # Tell the DOM implementation that any Window object created for
     # this widget is no longer required.
-    catch { $options(-dom) delete_window $self }
+    catch { $O(-dom) delete_window $me }
 
     # Cancel any refresh-event that may be pending.
-    if {$myRefreshEventId ne ""} {
-      after cancel $myRefreshEventId
-      set myRefreshEventId ""
+    if {$O(myRefreshEventId) ne ""} {
+      after cancel $O(myRefreshEventId)
+      set O(myRefreshEventId) ""
     }
   }
 
-  method VisibilityChange {state} {
-puts "visiblity $win = $state"
+  proc VisibilityChange {me state} {
+    upvar #0 $me O
+
     switch -- $state {
       VisibilityUnobscured {
         set enablelayout 1
@@ -1227,22 +1247,28 @@ puts "visiblity $win = $state"
         set enablelayout 0
       }
     }
-    if {[$myHtml cget -enablelayout] != $enablelayout} {
-      $myHtml configure -enablelayout $enablelayout
+    if {[$O(myHtml) cget -enablelayout] != $enablelayout} {
+      $O(myHtml) configure -enablelayout $enablelayout
     }
   }
 
   # Return the location URI of the widget.
   #
-  method location {} { return [$myUri get] }
+  proc location {me} { 
+    upvar #0 $me O
+    return [$O(myUri) get] 
+  }
 
   # Return the referrer URI of the widget.
   #
-  method referrer {} { return $myReferrer }
+  proc referrer {me} { 
+    return $O(myReferrer) 
+  }
 
-  method Forget {handle} {
-    set idx [lsearch $myActiveHandles $handle]
-    set myActiveHandles [lreplace $myActiveHandles $idx $idx]
+  proc Forget {me handle} {
+    upvar #0 $me O
+    set idx [lsearch $O(myActiveHandles) $handle]
+    set O(myActiveHandles) [lreplace $O(myActiveHandles) $idx $idx]
   }
 
   # The argument download-handle contains a configured request. This 
@@ -1251,14 +1277,15 @@ puts "visiblity $win = $state"
   # This method is used by hv3 and it's component objects (i.e. code in
   # hv3_object_handler). Also the dom code, for XMLHTTPRequest.
   #
-  method makerequest {downloadHandle} {            # PRIVATE
+  proc makerequest {me downloadHandle} {            # PRIVATE
+    upvar #0 $me O
 
-    lappend myActiveHandles $downloadHandle
-    $downloadHandle finish_hook [list $self Forget $downloadHandle]
+    lappend O(myActiveHandles) $downloadHandle
+    $downloadHandle finish_hook [list $me Forget $downloadHandle]
 
     # Execute the -requestcmd script. Fail the download and raise
     # an exception if an error occurs during script evaluation.
-    set cmd [concat $options(-requestcmd) [list $downloadHandle]]
+    set cmd [concat $O(-requestcmd) [list $downloadHandle]]
     set rc [catch $cmd errmsg]
     if {$rc} {
       set einfo $::errorInfo
@@ -1267,43 +1294,49 @@ puts "visiblity $win = $state"
     }
   }
 
-  # Based on the current contents of instance variable $myUri, set the
+  # Based on the current contents of instance variable $O(myUri), set the
   # variable identified by the -locationvar option, if any.
   #
-  method SetLocationVar {} {
-    if {$options(-locationvar) ne ""} {
-      uplevel #0 [list set $options(-locationvar) [$myUri get]]
+  proc SetLocationVar {me } {
+    upvar #0 $me O
+    if {$O(-locationvar) ne ""} {
+      uplevel #0 [list set $O(-locationvar) [$O(myUri) get]]
     }
-    event generate $win <<Location>>
+    event generate $me <<Location>>
   }
 
-  method MightBeComplete {} {
-    if {[llength $myActiveHandles] == 0} {
-      event generate $win <<Complete>>
+  proc MightBeComplete {me } {
+    upvar #0 $me O
+    if {[llength $O(myActiveHandles)] == 0} {
+      event generate $me <<Complete>>
 
       # There are no outstanding HTTP transactions. So fire
       # the DOM "onload" event.
-      if {$options(-dom) ne "" && !$myOnloadFired} {
-        set bodynode [$myHtml search body]
+      if {$O(-dom) ne "" && !$O(myOnloadFired)} {
+        set bodynode [$O(myHtml) search body]
 	# Workaround. Currently meta reload causes empty completion.
 	# XXX: Check this again!
 	if {[llength $bodynode]} {
-	    $options(-dom) event load [lindex $bodynode 0]
+	    $O(-dom) event load [lindex $bodynode 0]
 	}
       }
-      set myOnloadFired 1
+      set O(myOnloadFired) 1
     }
   }
 
-  method onload_fired {} { return $myOnloadFired }
+  proc onload_fired {me } { 
+    upvar #0 $me O
+    return $O(myOnloadFired) 
+  }
 
   # PUBLIC METHOD.
   #
-  method resolve_uri {uri} {
+  proc resolve_uri {me uri} {
+    upvar #0 $me O
     if {$uri eq ""} {
-      set ret "[$myBase scheme]://[$myBase authority][$myBase path]"
+      set ret "[$O(myBase) scheme]://[$O(myBase) authority][$O(myBase) path]"
     } else {
-      set ret [$myBase resolve $uri]
+      set ret [$O(myBase) resolve $uri]
     }
     return $ret
   }
@@ -1316,7 +1349,8 @@ puts "visiblity $win = $state"
   # the contents of the Tk image are set to the returned data in proc 
   # ::hv3::imageCallback.
   #
-  method Imagecmd {uri} {
+  proc Imagecmd {me uri} {
+    upvar #0 $me O
 
     # Massage the URI a bit. Trim whitespace from either end.
     set uri [string trim $uri]
@@ -1328,7 +1362,7 @@ puts "visiblity $win = $state"
     set name [image create photo]
 
     if {$uri ne ""} {
-      set full_uri [$self resolve_uri $uri]
+      set full_uri [$me resolve_uri $uri]
     
       # Create and execute a download request. For now, "expect" a mime-type
       # of image/gif. This should be enough to tell the protocol handler to
@@ -1337,10 +1371,10 @@ puts "visiblity $win = $state"
       set handle [::hv3::request %AUTO%              \
           -uri          $full_uri                      \
           -mimetype     image/gif                      \
-          -cachecontrol $myCacheControl                \
+          -cachecontrol $O(myCacheControl)                \
       ]
-      $handle configure -finscript [list $self Imagecallback $handle $name]
-      $self makerequest $handle
+      $handle configure -finscript [list $me Imagecallback $handle $name]
+      $me makerequest $handle
     }
 
     # Return a list of two elements - the image name and the image
@@ -1353,7 +1387,8 @@ puts "visiblity $win = $state"
   # these). If there is a Location method, then the handle object is
   # destroyed, a new one dispatched and 1 returned. Otherwise 0 is returned.
   #
-  method HandleLocation {handle} {
+  proc HandleLocation {me handle} {
+    upvar #0 $me O
     # Check for a "Location" header. TODO: Handling Location
     # should be done in one common location for everything except 
     # the main document. The main document is a bit different...
@@ -1368,14 +1403,14 @@ puts "visiblity $win = $state"
     if {$location ne ""} {
       set finscript [$handle cget -finscript]
       $handle release
-      set full_location [$self resolve_uri $location]
+      set full_location [$me resolve_uri $location]
       set handle2 [::hv3::request $handle               \
           -uri          $full_location                   \
           -mimetype     image/gif                        \
-          -cachecontrol $myCacheControl                  \
+          -cachecontrol $O(myCacheControl)                  \
       ]
       $handle2 configure -finscript $finscript
-      $self makerequest $handle2
+      $me makerequest $handle2
       return 1
     }
     return 0
@@ -1387,8 +1422,9 @@ puts "visiblity $win = $state"
   # binary image format like gif). This proc sets the named Tk image to
   # contain the downloaded data.
   #
-  method Imagecallback {handle name data} {
-    if {0 == [$self HandleLocation $handle]} {
+  proc Imagecallback {me handle name data} {
+    upvar #0 $me O
+    if {0 == [$me HandleLocation $handle]} {
       # If the image data is invalid, it is not an error. Possibly hv3
       # should log a warning - if it had a warning system....
       catch { $name configure -data $data }
@@ -1401,60 +1437,63 @@ puts "visiblity $win = $state"
   # method is used for stylesheets obtained by either HTML <link> 
   # elements or CSS "@import {...}" directives.
   #
-  method Requeststyle {parent_id full_uri} {
-    set id        ${parent_id}.[format %.4d [incr myStyleCount]]
-    set importcmd [list $self Requeststyle $id]
+  proc Requeststyle {me parent_id full_uri} {
+    upvar #0 $me O
+    set id        ${parent_id}.[format %.4d [incr O(myStyleCount)]]
+    set importcmd [list $me Requeststyle $id]
     set urlcmd    [list ::hv3::ss_resolve_uri $full_uri]
     append id .9999
 
     set handle [::hv3::request %AUTO%              \
         -uri         $full_uri                      \
         -mimetype    text/css                       \
-        -cachecontrol $myCacheControl               \
+        -cachecontrol $O(myCacheControl)               \
     ]
     $handle configure -finscript [
-        list $self Finishstyle $handle $id $importcmd $urlcmd
+        list $me Finishstyle $handle $id $importcmd $urlcmd
     ]
-    $self makerequest $handle
+    $me makerequest $handle
   }
 
   # Callback invoked when a stylesheet request has finished. Made
   # from method Requeststyle above.
   #
-  method Finishstyle {handle id importcmd urlcmd data} {
-    if {0 == [$self HandleLocation $handle]} {
+  proc Finishstyle {me handle id importcmd urlcmd data} {
+    upvar #0 $me O
+    if {0 == [$me HandleLocation $handle]} {
       set full_id "$id.[$handle cget -uri]"
-      $myHtml style              \
+      $O(myHtml) style              \
           -id $full_id           \
           -importcmd $importcmd  \
           -urlcmd $urlcmd        \
           -errorvar parse_errors \
           $data
 
-      $myFrameLog log $full_id [$handle cget -uri] $data $parse_errors
+      $O(myFrameLog) log $full_id [$handle cget -uri] $data $parse_errors
 
-      $self goto_fragment
-      $self MightBeComplete
+      $me goto_fragment
+      $me MightBeComplete
       $handle release
     }
   }
 
   # Node handler script for <meta> tags.
   #
-  method meta_node_handler {node} {
+  proc meta_node_handler {me node} {
+    upvar #0 $me O
     set httpequiv [string tolower [$node attr -default "" http-equiv]]
     set content   [$node attr -default "" content]
 
     switch -- $httpequiv {
       refresh {
-        $self Refresh $content
+        $me Refresh $content
       }
 
       content-type {
         foreach {a b enc} [::hv3::string::parseContentType $content] {}
         if {
-           ![$myDocumentHandle cget -hastransportencoding] &&
-           ![::hv3::encoding_isequal $enc [$self encoding]]
+           ![$O(myDocumentHandle) cget -hastransportencoding] &&
+           ![::hv3::encoding_isequal $enc [$me encoding]]
         } {
           # This occurs when a document contains a <meta> element that
           # specifies a character encoding and the document was 
@@ -1481,19 +1520,19 @@ puts "visiblity $win = $state"
           # the -incrscript as a no-op, and have the finscript simply 
           # release the handle reference. This means the polipo bug will
           # not be triggered.
-          foreach h $myActiveHandles {
-            if {$h ne $myDocumentHandle} {
+          foreach h $O(myActiveHandles) {
+            if {$h ne $O(myDocumentHandle)} {
               set fin [list ::hv3::release_handle $h]
               $h configure -incrscript "" -finscript $fin
             }
           }
 
-          $self InternalReset
-          $myDocumentHandle configure -encoding $enc
-          $self HtmlCallback                 \
-              $myDocumentHandle              \
-              [$myDocumentHandle isFinished] \
-              [$myDocumentHandle data]
+          $me InternalReset
+          $O(myDocumentHandle) configure -encoding $enc
+          $me HtmlCallback                 \
+              $O(myDocumentHandle)              \
+              [$O(myDocumentHandle) isFinished] \
+              [$O(myDocumentHandle) data]
         }
       }
     }
@@ -1501,11 +1540,12 @@ puts "visiblity $win = $state"
 
   # Return the default encoding that should be used for 
   # javascript and CSS resources.
-  method encoding {} {
-    if {$myDocumentHandle eq ""} { 
+  proc encoding {me } {
+    upvar #0 $me O
+    if {$O(myDocumentHandle) eq ""} { 
       return [encoding system] 
     }
-    return [$myDocumentHandle encoding]
+    return [$O(myDocumentHandle) encoding]
   }
 
   # This method is called to handle "Refresh" and "Location" headers
@@ -1523,7 +1563,8 @@ puts "visiblity $win = $state"
   #
   # Returns 1 if immediate refresh (seconds = 0) is requested.
   #
-  method Refresh {content} {
+  proc Refresh {me content} {
+    upvar #0 $me O
     # Use a regular expression to extract the URI and number of seconds
     # from the header content. Then dequote the URI string.
     set uri ""
@@ -1532,11 +1573,11 @@ puts "visiblity $win = $state"
     regexp {[^\"\']+} $uri uri                  ;# Primitive dequote
 
     if {$uri ne ""} {
-      if {$myRefreshEventId ne ""} {
-          after cancel $myRefreshEventId
+      if {$O(myRefreshEventId) ne ""} {
+          after cancel $O(myRefreshEventId)
       }
-      set cmd [list $self RefreshEvent $uri]
-      set myRefreshEventId [after [expr {$seconds*1000}] $cmd]
+      set cmd [list $me RefreshEvent $uri]
+      set O(myRefreshEventId) [after [expr {$seconds*1000}] $cmd]
 
       # puts "Parse of content for http-equiv refresh successful! ($uri)"
 
@@ -1547,9 +1588,10 @@ puts "visiblity $win = $state"
     }
   }
 
-  method RefreshEvent {uri} {
-    set myRefreshEventId ""
-    $self goto $uri -nosave
+  proc RefreshEvent {me uri} {
+    upvar #0 $me O
+    set O(myRefreshEventId) ""
+    $me goto $uri -nosave
   }
 
   # System for handling <title> elements. This object exports
@@ -1558,27 +1600,35 @@ puts "visiblity $win = $state"
   # "title" of this document. The idea is that the caller add a trace
   # to that variable.
   #
-  method title_node_handler {node} {
+  proc title_node_handler {me node} {
+    upvar #0 $me O
     set val ""
     foreach child [$node children] {
       append val [$child text]
     }
-    set myTitleVar $val
+    set O(myTitleVar) $val
   }
-  method titlevar {}    {return [myvar myTitleVar]}
-  method title {}       {return $myTitleVar}
+  proc titlevar {me}    {
+    return ::${me}(myTitleVar)
+  }
+  proc title {me} {
+    upvar #0 $me O
+    return $O(myTitleVar)
+  }
 
   # Node handler script for <body> tags. The purpose of this handler
   # and the [body_style_handler] method immediately below it is
   # to handle the 'overflow' property on the document root element.
   # 
-  method body_node_handler {node} {
-    $node replace dummy -stylecmd [list $self body_style_handler $node]
+  proc body_node_handler {me node} {
+    upvar #0 $me O
+    $node replace dumO(my) -stylecmd [list $me body_style_handler $node]
   }
-  method body_style_handler {bodynode} {
+  proc body_style_handler {me bodynode} {
+    upvar #0 $me O
 
-    if {$options(-scrollbarpolicy) ne "auto"} {
-      $myHtml configure -scrollbarpolicy $options(-scrollbarpolicy)
+    if {$O(-scrollbarpolicy) ne "auto"} {
+      $O(myHtml) configure -scrollbarpolicy $O(-scrollbarpolicy)
       return
     }
 
@@ -1595,20 +1645,21 @@ puts "visiblity $win = $state"
       set overflow [$bodynode property overflow]
     }
     switch -- $overflow {
-      visible { $myHtml configure -scrollbarpolicy auto }
-      auto    { $myHtml configure -scrollbarpolicy auto }
-      hidden  { $myHtml configure -scrollbarpolicy 0 }
-      scroll  { $myHtml configure -scrollbarpolicy 1 }
+      visible { $O(myHtml) configure -scrollbarpolicy auto }
+      auto    { $O(myHtml) configure -scrollbarpolicy auto }
+      hidden  { $O(myHtml) configure -scrollbarpolicy 0 }
+      scroll  { $O(myHtml) configure -scrollbarpolicy 1 }
       default {
         puts stderr "Hv3 is confused: <body> has \"overflow:$overflow\"."
-        $myHtml configure -scrollbarpolicy auto
+        $O(myHtml) configure -scrollbarpolicy auto
       }
     }
   }
 
   # Node handler script for <link> tags.
   #
-  method link_node_handler {node} {
+  proc link_node_handler {me node} {
+    upvar #0 $me O
     set rel  [string tolower [$node attr -default "" rel]]
     set href [string trim [$node attr -default "" href]]
     set media [string tolower [$node attr -default all media]]
@@ -1618,99 +1669,107 @@ puts "visiblity $win = $state"
         $href ne "" && 
         [regexp all|screen $media]
     } {
-      set full_uri [$self resolve_uri $href]
-      $self Requeststyle author $full_uri
+      set full_uri [$me resolve_uri $href]
+      $me Requeststyle author $full_uri
     }
   }
 
   # Node handler script for <base> tags.
   #
-  method base_node_handler {node} {
+  proc base_node_handler {me node} {
+    upvar #0 $me O
     # Technically, a <base> tag is required to specify an absolute URI.
     # If a relative URI is specified, hv3 resolves it relative to the
     # current location URI. This is not standards compliant (a relative URI
     # is technically illegal), but seems like a reasonable idea.
-    $myBase load [$node attr -default "" href]
+    $O(myBase) load [$node attr -default "" href]
   }
 
   # Script handler for <style> tags.
   #
-  method style_script_handler {attr script} {
+  proc style_script_handler {me attr script} {
+    upvar #0 $me O
     array set attributes $attr
     if {[info exists attributes(media)]} {
       if {0 == [regexp all|screen $attributes(media)]} return ""
     }
 
-    set id        author.[format %.4d [incr myStyleCount]]
-    set importcmd [list $self Requeststyle $id]
-    set urlcmd    [list $self resolve_uri]
+    set id        author.[format %.4d [incr O(myStyleCount)]]
+    set importcmd [list $me Requeststyle $id]
+    set urlcmd    [list $me resolve_uri]
     append id ".9999.<style>"
-    $myHtml style -id $id      \
+    $O(myHtml) style -id $id      \
         -importcmd $importcmd  \
         -urlcmd $urlcmd        \
         -errorvar parse_errors \
         $script
 
-    $myFrameLog log $id "<style> block $myStyleCount" $script $parse_errors
+    $O(myFrameLog) log $id "<style> block $O(myStyleCount)" $script $parse_errors
 
     return ""
   }
 
-  method goto_fragment {} {
-    switch -- [llength $myFragmentSeek] {
+  proc goto_fragment {me } {
+    upvar #0 $me O
+    switch -- [llength $O(myFragmentSeek)] {
       0 { # Do nothing }
       1 {
-        $myHtml yview moveto [lindex $myFragmentSeek 0]
+        $O(myHtml) yview moveto [lindex $O(myFragmentSeek) 0]
       }
       2 {
-        set fragment [lindex $myFragmentSeek 1]
+        set fragment [lindex $O(myFragmentSeek) 1]
         set selector [format {[name="%s"]} $fragment]
-        set goto_node [lindex [$myHtml search $selector] 0]
+        set goto_node [lindex [$O(myHtml) search $selector] 0]
 
         # If there was no node with the name attribute set to the fragment,
         # search for a node with the id attribute set to the fragment.
         if {$goto_node eq ""} {
           set selector [format {[id="%s"]} $fragment]
-          set goto_node [lindex [$myHtml search $selector] 0]
+          set goto_node [lindex [$O(myHtml) search $selector] 0]
         }
   
         if {$goto_node ne ""} {
-          $myHtml yview $goto_node
+          $O(myHtml) yview $goto_node
         }
       }
     }
   }
 
-  method seek_to_fragment {fragment} {
+  proc seek_to_fragment {me fragment} {
+    upvar #0 $me O
+
     # A fragment was specified as part of the URI that has just started
-    # loading. Set myFragmentSeek to the fragment name. Each time some
+    # loading. Set O(myFragmentSeek) to the fragment name. Each time some
     # more of the document or a stylesheet loads, the [goto_fragment]
     # method will try to align the vertical scrollbar so that the 
     # named fragment is at the top of the view.
     #
     # If and when the user manually scrolls the viewport, the 
-    # myFragmentSeek variable is cleared. This is so we don't wrest
+    # O(myFragmentSeek) variable is cleared. This is so we don't wrest
     # control of the vertical scrollbar after the user has manually
     # positioned it.
     #
-    $myHtml take_control [list set [myvar myFragmentSeek] ""]
+    $O(myHtml) take_control [list set ::${me}(myFragmentSeek) ""]
     if {$fragment ne ""} {
-      set myFragmentSeek [list # $fragment]
+      set O(myFragmentSeek) [list # $fragment]
     }
   }
 
-  method seek_to_yview {moveto} {
-    $myHtml take_control [list set [myvar myFragmentSeek] ""]
-    set myFragmentSeek $moveto
+  proc seek_to_yview {me moveto} {
+    upvar #0 $me O
+    $O(myHtml) take_control [list set ::${me}(myFragmentSeek) ""]
+    set O(myFragmentSeek) $moveto
   }
 
-  method documenthandle {} {
-    return $myDocumentHandle
+  proc documenthandle {me } {
+    upvar #0 $me O
+    return $O(myDocumentHandle)
   }
 
-  method documentcallback {handle referrer savestate final data} {
+  proc documentcallback {me handle referrer savestate final data} {
+    upvar #0 $me O
 
-    if {$myMimetype eq ""} {
+    if {$O(myMimetype) eq ""} {
   
       # TODO: Real mimetype parser...
       set mimetype  [string tolower [string trim [$handle cget -mimetype]]]
@@ -1719,25 +1778,25 @@ puts "visiblity $win = $state"
       switch -- $major {
         text {
           if {[lsearch [list html xml xhtml] $minor]>=0} {
-            set q [::hv3::configure_doctype_mode $myHtml $data isXHTML]
-            $self reset $savestate
-            set myQuirksmode $q
-            if {$isXHTML} { $myHtml configure -parsemode xhtml } \
-            else          { $myHtml configure -parsemode html }
-            set myMimetype html
+            set q [::hv3::configure_doctype_mode $O(myHtml) $data isXHTML]
+            $me reset $savestate
+            set O(myQuirksmode) $q
+            if {$isXHTML} { $O(myHtml) configure -parsemode xhtml } \
+            else          { $O(myHtml) configure -parsemode html }
+            set O(myMimetype) html
           }
         }
   
         image {
-          set myImageData ""
-          $self reset $savestate
-          set myMimetype image
+          set O(myImageData) ""
+          $me reset $savestate
+          set O(myMimetype) image
         }
       }
 
-      $myUri load [$handle cget -uri]
-      $myBase load [$myUri get]
-      $self SetLocationVar
+      $O(myUri) load [$handle cget -uri]
+      $O(myBase) load [$O(myUri) get]
+      $me SetLocationVar
 
       # If there is a "Location" or "Refresh" header, handle it now.
       set refreshheader ""
@@ -1752,7 +1811,7 @@ puts "visiblity $win = $state"
         }
       }
       if {$refreshheader ne ""} {
-	if {[$self Refresh $refreshheader]} {
+	if {[$me Refresh $refreshheader]} {
 	  # Immediate refresh is requested.
 	  # No need to parse body.
 	  $handle release
@@ -1760,14 +1819,14 @@ puts "visiblity $win = $state"
         }
       }
   
-      if {$myMimetype eq ""} {
+      if {$O(myMimetype) eq ""} {
         # Neither text nor an image. This is the upper layers problem.
-        if {$options(-downloadcmd) ne ""} {
+        if {$O(-downloadcmd) ne ""} {
           # Remove the download handle from the list of handles to cancel
           # if [$hv3 stop] is invoked (when the user clicks the "stop" button
           # we don't want to cancel pending save-file operations).
-          $self Forget $handle
-          eval [linsert $options(-downloadcmd) end $handle $data $final]
+          $me Forget $handle
+          eval [linsert $O(-downloadcmd) end $handle $data $final]
         } else {
           $handle release
           set sheepish "Don't know how to handle \"$mimetype\""
@@ -1776,77 +1835,81 @@ puts "visiblity $win = $state"
         return
       }
 
-      set myReferrer $referrer
+      set O(myReferrer) $referrer
   
-      if {$myCacheControl ne "relax-transparency"} {
-        $self seek_to_fragment [$myUri fragment]
+      if {$O(myCacheControl) ne "relax-transparency"} {
+        $me seek_to_fragment [$O(myUri) fragment]
       }
 
-      set myStyleCount 0
+      set O(myStyleCount) 0
     }
 
-    if {$myDocumentHandle ne $handle} {
-      if {$myDocumentHandle ne ""} {
-        $myDocumentHandle release
+    if {$O(myDocumentHandle) ne $handle} {
+      if {$O(myDocumentHandle) ne ""} {
+        $O(myDocumentHandle) release
       }
-      set myDocumentHandle $handle
+      set O(myDocumentHandle) $handle
     }
 
-    switch -- $myMimetype {
-      html  {$self HtmlCallback $handle $final $data}
-      image {$self ImageCallback $handle $final $data}
+    switch -- $O(myMimetype) {
+      html  {$me HtmlCallback $handle $final $data}
+      image {$me ImageCallback $handle $final $data}
     }
 
 
     if {$final} {
-      if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
-        set myStorevisitedDone 1
-        eval $options(-storevisitedcmd) 1
+      if {$O(myStorevisitedDone) == 0 && $O(-storevisitedcmd) ne ""} {
+        set O(myStorevisitedDone) 1
+        eval $O(-storevisitedcmd) 1
       }
-      $self MightBeComplete
+      $me MightBeComplete
     }
   }
 
-  method HtmlCallback {handle isFinal data} {
-    $myFrameLog loghtml $data
+  proc HtmlCallback {me handle isFinal data} {
+    upvar #0 $me O
+    $O(myFrameLog) loghtml $data
     if {$isFinal} {
-	$myHtml parse -final $data
+	$O(myHtml) parse -final $data
     } else {
-	$myHtml parse $data
+	$O(myHtml) parse $data
     }
-    $self goto_fragment
+    $me goto_fragment
   }
 
-  method ImageCallback {handle isFinal data} {
-    append myImageData $data
+  proc ImageCallback {me handle isFinal data} {
+    upvar #0 $me O
+    append O(myImageData) $data
     if {$isFinal} {
-      set img [image create photo -data $myImageData]
-      set myImageData ""
-      set imagecmd [$myHtml cget -imagecmd]
-      $myHtml configure -imagecmd [list ::hv3::ReturnWithArgs $img]
-      $myHtml parse -final { <img src="unused"> }
-      $myHtml _force
-      $myHtml configure -imagecmd $imagecmd
+      set img [image create photo -data $O(myImageData)]
+      set O(myImageData) ""
+      set imagecmd [$O(myHtml) cget -imagecmd]
+      $O(myHtml) configure -imagecmd [list ::hv3::ReturnWithArgs $img]
+      $O(myHtml) parse -final { <img src="unused"> }
+      $O(myHtml) _force
+      $O(myHtml) configure -imagecmd $imagecmd
     }
   }
 
-  method Formcmd {method node uri querytype encdata} {
-    set cmd [linsert [$self cget -targetcmd] end $node]
+  proc Formcmd {me method node uri querytype encdata} {
+    upvar #0 $me O
+    set cmd [linsert [$me cget -targetcmd] end $node]
     [eval $cmd] Formcmd2 $method $uri $querytype $encdata
   }
 
-  method Formcmd2 {method uri querytype encdata} {
+  proc Formcmd2 {me method uri querytype encdata} {
+    upvar #0 $me O
     # puts "Formcmd $method $uri $querytype $encdata"
-    set full_uri [$self resolve_uri $uri]
+    set full_uri [$me resolve_uri $uri]
 
-    event generate $win <<Goto>>
+    event generate $me <<Goto>>
 
     set handle [::hv3::request %AUTO% -mimetype text/html]
-    set myMimetype ""
-    set referer [$self uri get]
+    set O(myMimetype) ""
+    set referer [$me uri get]
     $handle configure                                       \
-        -incrscript [list $self documentcallback $handle $referer 1 0] \
-        -finscript  [list $self documentcallback $handle $referer 1 1] \
+        -incrscript [list $me documentcallback $handle $referer 1 0] \
+        -finscript  [list $me documentcallback $handle $referer 1 1] \
         -requestheader [list Referer $referer]              \
 
     if {$method eq "post"} {
@@ -1855,20 +1918,21 @@ puts "visiblity $win = $state"
       $handle configure -cachecontrol normal
     } else {
       $handle configure -uri "${full_uri}?${encdata}"
-      $handle configure -cachecontrol $myCacheControl
+      $handle configure -cachecontrol $O(myCacheControl)
     }
-    $self makerequest $handle
+    $me makerequest $handle
 
     # Grab the keyboard focus for this widget. This is so that after
     # the form is submitted the arrow keys and PgUp/PgDown can be used
     # to scroll the main display.
     #
-    focus [$self html]
+    focus [$me html]
   }
 
-  method seturi {uri} {
-    $myUri load $uri
-    $myBase load [$myUri get]
+  proc seturi {me uri} {
+    upvar #0 $me O
+    $O(myUri) load $uri
+    $O(myBase) load [$O(myUri) get]
   }
 
   #--------------------------------------------------------------------------
@@ -1877,15 +1941,16 @@ puts "visiblity $win = $state"
   #     Method              Delegate
   # --------------------------------------------
   #     goto                N/A
-  #     xview               $myHtml
-  #     yview               $myHtml
+  #     xview               $O(myHtml)
+  #     yview               $O(myHtml)
   #     html                N/A
   #     hull                N/A
   #   
 
-  method dom {} { 
-    if {$options(-dom) eq ""} { return ::hv3::ignore_script }
-    return $options(-dom)
+  proc dom {me } { 
+    upvar #0 $me O
+    if {$O(-dom) eq ""} { return ::hv3::ignore_script }
+    return $O(-dom)
   }
 
   #--------------------------------------------------------------------
@@ -1908,9 +1973,10 @@ puts "visiblity $win = $state"
   # Normally, a <<SaveState>> event is generated. If -nosave is specified, 
   # this is suppressed.
   # 
-  method goto {uri args} {
+  proc goto {me uri args} {
+    upvar #0 $me O
 
-    set myGotoCalled 1
+    set O(myGotoCalled) 1
 
     # Process the argument switches. Local variable $cachecontrol
     # is set to the effective value of the -cachecontrol option.
@@ -1948,54 +2014,54 @@ puts "visiblity $win = $state"
     # pass it to the current running DOM implementation instead of loading
     # anything into the current browser.
     if {[string match -nocase javascript:* $uri]} {
-      if {$options(-dom) ne ""} {
-        $options(-dom) javascript $self [string range $uri 11 end]
+      if {$O(-dom) ne ""} {
+        $O(-dom) javascript $me [string range $uri 11 end]
       }
       return
     }
 
-    set myCacheControl $cachecontrol
+    set O(myCacheControl) $cachecontrol
 
-    set current_uri [$myUri get_no_fragment]
-    set uri_obj [::tkhtml::uri [$self resolve_uri $uri]]
+    set current_uri [$O(myUri) get_no_fragment]
+    set uri_obj [::tkhtml::uri [$me resolve_uri $uri]]
     set full_uri [$uri_obj get_no_fragment]
     set fragment [$uri_obj fragment]
 
     # Generate the <<Goto>> event.
-    event generate $win <<Goto>>
+    event generate $me <<Goto>>
 
     if {$full_uri eq $current_uri && $cachecontrol ne "no-cache"} {
       # Save the current state in the history system. This ensures
       # that back/forward controls work when navigating between
       # different sections of the same document.
       if {$savestate} {
-        event generate $win <<SaveState>>
+        event generate $me <<SaveState>>
       }
-      $myUri load $uri
+      $O(myUri) load $uri
 
       # If the cache-mode is "relax-transparency", then the history 
       # system is controlling this document load. It has already called
       # [seek_to_yview] to provide a seek offset.
       if {$cachecontrol ne "relax-transparency"} {
         if {$fragment eq ""} {
-          $self seek_to_yview 0.0
+          $me seek_to_yview 0.0
         } else {
-          $self seek_to_fragment $fragment
+          $me seek_to_fragment $fragment
         }
       }
-      $self goto_fragment
+      $me goto_fragment
 
-      $self SetLocationVar
-      return [$myUri get]
+      $me SetLocationVar
+      return [$O(myUri) get]
     }
 
     # Abandon any pending requests
-    if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
-      set myStorevisitedDone 1
-      eval $options(-storevisitedcmd) $savestate
+    if {$O(myStorevisitedDone) == 0 && $O(-storevisitedcmd) ne ""} {
+      set O(myStorevisitedDone) 1
+      eval $O(-storevisitedcmd) $savestate
     }
-    $self stop
-    set myMimetype ""
+    $me stop
+    set O(myMimetype) ""
 
     if {$history_handle eq ""} {
       # Base the expected type on the extension of the filename in the
@@ -2003,7 +2069,7 @@ puts "visiblity $win = $state"
       # text/html. The protocol handler may override this anyway.
       set mimetype text/html
       set path [$uri_obj path]
-      if {[regexp {\.([A-Za-z0-9]+)$} $path dummy ext]} {
+      if {[regexp {\.([A-Za-z0-9]+)$} $path dumO(my) ext]} {
         switch -- [string tolower $ext] {
   	jpg  { set mimetype image/jpeg }
           jpeg { set mimetype image/jpeg }
@@ -2023,26 +2089,26 @@ puts "visiblity $win = $state"
       set handle [::hv3::request %AUTO%             \
           -uri         [$uri_obj get]                \
           -mimetype    $mimetype                     \
-          -cachecontrol $myCacheControl              \
-          -hv3          $self                        \
+          -cachecontrol $O(myCacheControl)              \
+          -hv3          $me                        \
       ]
       $handle configure                                                        \
-        -incrscript [list $self documentcallback $handle $referer $savestate 0]\
-        -finscript  [list $self documentcallback $handle $referer $savestate 1] 
+        -incrscript [list $me documentcallback $handle $referer $savestate 0]\
+        -finscript  [list $me documentcallback $handle $referer $savestate 1] 
       if {$referer ne ""} {
         $handle configure -requestheader [list Referer $referer]
       }
   
-      $self makerequest $handle
+      $me makerequest $handle
     } else {
       # The history system has supplied the data to load into the widget.
       # Use $history_handle instead of creating a new request.
       #
       $history_handle reference
-      $self documentcallback $history_handle $referer $savestate 1 [
+      $me documentcallback $history_handle $referer $savestate 1 [
         $history_handle data
       ]
-      $self goto_fragment
+      $me goto_fragment
     }
     $uri_obj destroy
   }
@@ -2050,141 +2116,150 @@ puts "visiblity $win = $state"
   # Abandon all currently pending downloads. This method is 
   # part of the public interface.
   #
-  method stop {} {
-    foreach dl $myActiveHandles { 
-      if {$dl eq $myDocumentHandle} {set myDocumentHandle ""}
+  proc stop {me } {
+    upvar #0 $me O
+
+    foreach dl $O(myActiveHandles) { 
+      if {$dl eq $O(myDocumentHandle)} {set O(myDocumentHandle) ""}
       $dl release 
     }
 
-    if {$myStorevisitedDone == 0 && $options(-storevisitedcmd) ne ""} {
-      set myStorevisitedDone 1
-      eval $options(-storevisitedcmd) 1
+    if {$O(myStorevisitedDone) == 0 && $O(-storevisitedcmd) ne ""} {
+      set O(myStorevisitedDone) 1
+      eval $O(-storevisitedcmd) 1
     }
   }
 
-  method InternalReset {} {
-    $myFrameLog clear
+  proc InternalReset {me } {
+    upvar #0 $me O
+
+    $O(myFrameLog) clear
 
     foreach m [list \
-        $myMouseManager $myFormManager          \
-        $mySelectionManager $myHyperlinkManager \
+        $O(myMouseManager) $O(myFormManager)          \
+        $O(mySelectionManager) $O(myHyperlinkManager) \
     ] {
       if {$m ne ""} {$m reset}
     }
-    $myHtml reset
-    $myHtml configure -scrollbarpolicy $options(-scrollbarpolicy)
+    $O(myHtml) reset
+    $O(myHtml) configure -scrollbarpolicy $O(-scrollbarpolicy)
 
-    if {$options(-dom) ne ""} {
-      $options(-dom) clear_window $self
+    if {$O(-dom) ne ""} {
+      $O(-dom) clear_window $me
     }
   }
 
-  method reset {isSaveState} {
+  proc reset {me isSaveState} {
+    upvar #0 $me O
 
     # Clear the "onload-event-fired" flag
-    set myOnloadFired 0
-    set myStorevisitedDone 0
+    set O(myOnloadFired) 0
+    set O(myStorevisitedDone) 0
 
     # Cancel any pending "Refresh" event.
-    if {$myRefreshEventId ne ""} {
-      after cancel $myRefreshEventId
-      set myRefreshEventId ""
+    if {$O(myRefreshEventId) ne ""} {
+      after cancel $O(myRefreshEventId)
+      set O(myRefreshEventId) ""
     }
 
     # Generate the <<Reset>> and <<SaveState> events.
-    if {!$myFirstReset && $isSaveState} {
-      event generate $win <<SaveState>>
+    if {!$O(myFirstReset) && $isSaveState} {
+      event generate $me <<SaveState>>
     }
-    set myFirstReset 0
+    set O(myFirstReset) 0
 
-    set myTitleVar ""
-    set myQuirksmode unknown
+    set O(myTitleVar) ""
+    set O(myQuirksmode) unknown
 
-    $self InternalReset
+    $me InternalReset
   }
 
-  method SetOption {option value} {
-    set options($option) $value
-    switch -- $option {
-      -enableimages {
-        # The -enableimages switch. If false, configure an empty string
-        # as the html widget's -imagecmd option. If true, configure the
-        # same option to call the [Imagecmd] method of this mega-widget.
-        #
-        # We used to reload the frame contents here. But it turns out
-        # that is really inconvenient. If the user wants to reload the
-        # document the reload button is right there anyway.
-        #
-        if {$value} {
-          $myHtml configure -imagecmd [list $self Imagecmd]
-        } else {
-          $myHtml configure -imagecmd ""
-        }
-      }
-    }
-  }
+  proc configure-enableimages {me option value} {
+    upvar #0 $me O
 
-  method SetDom {option value} {
-    set options(-dom) $value
-    $myMouseManager configure -dom $options(-dom)
-    if {$options(-dom) ne ""} {
-      $myHtml handler script script   [list $options(-dom) script $self]
-      $myHtml handler script noscript [list $options(-dom) noscript $self]
-      $options(-dom) make_window $self
+    # The -enableimages switch. If false, configure an empty string
+    # as the html widget's -imagecmd option. If true, configure the
+    # same option to call the [Imagecmd] method of this mega-widget.
+    #
+    # We used to reload the frame contents here. But it turns out
+    # that is really inconvenient. If the user wants to reload the
+    # document the reload button is right there anyway.
+    #
+    if {$value} {
+      $O(myHtml) configure -imagecmd [list $me Imagecmd]
     } else {
-      $myHtml handler script script   ::hv3::ignore_script
-      $myHtml handler script noscript {}
+      $O(myHtml) configure -imagecmd ""
     }
   }
 
-  method pending {}  {
-      return [llength $myActiveHandles]
-  }
-  method html {}     { return [$myHtml widget] }
-  method hull {}     { return $hull }
+  proc configure-dom {me} {
+    upvar #0 $me O
 
-  method yview {args} {
-    eval $myHtml yview $args
-  }
-  method xview {args} {
-    eval $myHtml xview $args
-  }
-
-  method javascriptlog {args} {
-    if {$options(-dom) ne ""} {
-      eval $options(-dom) javascriptlog $args
+    set O(-dom) $value
+    $O(myMouseManager) configure -dom $O(-dom)
+    if {$O(-dom) ne ""} {
+      $O(myHtml) handler script script   [list $O(-dom) script $me]
+      $O(myHtml) handler script noscript [list $O(-dom) noscript $me]
+      $O(-dom) make_window $me
+    } else {
+      $O(myHtml) handler script script   ::hv3::ignore_script
+      $O(myHtml) handler script noscript {}
     }
   }
 
-  option          -historydoccmd    -default ""
+  proc pending {me }  {
+    upvar #0 $me O
+      return [llength $O(myActiveHandles)]
+  }
+  proc html {me }     { 
+    upvar #0 $me O
+    return [$O(myHtml) widget] 
+  }
+  proc hull {me }     { 
+    upvar #0 $me O
+    return $O(hull)
+  }
 
-  # The option to display images (default true).
-  option -enableimages     -default 1 -configuremethod SetOption
+  proc yview {me args} {
+    upvar #0 $me O
+    eval $O(myHtml) yview $args
+  }
+  proc xview {me args} {
+    upvar #0 $me O
+    eval $O(myHtml) xview $args
+  }
 
-  option -scrollbarpolicy -default auto
+  proc javascriptlog {me args} {
+    upvar #0 $me O
+    if {$O(-dom) ne ""} {
+      eval $O(-dom) javascriptlog $args
+    }
+  }
 
-  option          -locationvar      -default ""
-  option          -downloadcmd      -default ""
-  option          -requestcmd       -default ""
-  delegate option -isvisitedcmd     to myHyperlinkManager
-  delegate option -targetcmd        to myHyperlinkManager
+  proc unknown {method me args} {
+    # puts "UNKNOWN: $me $method $args"
+    upvar #0 $me O
+    uplevel 3 [list eval $O(myHtml) $method $args]
+  }
+  namespace unknown unknown
 
-  # Delegated public methods
-  delegate method selected          to mySelectionManager
-  delegate method *                 to myHtml
+  set DelegateOption(-isvisitedcmd) myHyperlinkManager
+  set DelegateOption(-targetcmd) myHyperlinkManager
 
   # Standard scrollbar and geometry stuff is delegated to the html widget
-  delegate option -xscrollcommand to myHtml
-  delegate option -yscrollcommand to myHtml
-  delegate option -width          to myHtml
-  delegate option -height         to myHtml
+  set DelegateOption(-xscrollcommand) myHtml
+  set DelegateOption(-yscrollcommand) myHtml
+  set DelegateOption(-width) myHtml
+  set DelegateOption(-height) myHtml
 
   # Display configuration options implemented entirely by the html widget
-  delegate option -fonttable        to myHtml
-  delegate option -fontscale        to myHtml
-  delegate option -zoom             to myHtml
-  delegate option -forcefontmetrics to myHtml
+  set DelegateOption(-fonttable) myHtml
+  set DelegateOption(-fontscale) myHtml
+  set DelegateOption(-zoom) myHtml
+  set DelegateOption(-forcefontmetrics) myHtml
 }
+
+::hv3::make_constructor ::hv3::hv3
 
 proc ::hv3::release_handle {handle args} {
   $handle release
