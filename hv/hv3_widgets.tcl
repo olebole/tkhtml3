@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.56 2008/01/06 08:45:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.57 2008/01/27 08:00:28 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -384,8 +384,8 @@ snit::widget ::hv3::findwidget {
   }
 
   method lazymoveto {hv3 n1 i1 n2 i2} {
-    set nodebbox [$hv3 text bbox $n1 $i1 $n2 $i2]
-    set docbbox  [$hv3 bbox]
+    set nodebbox [$hv3 html text bbox $n1 $i1 $n2 $i2]
+    set docbbox  [$hv3 html bbox]
 
     set docheight "[lindex $docbbox 3].0"
 
@@ -421,8 +421,8 @@ snit::widget ::hv3::findwidget {
     # "findwidgetcurrent". Clear the caption.
     #
     foreach hv3 $hv3list {
-      $hv3 tag delete findwidget
-      $hv3 tag delete findwidgetcurrent
+      $hv3 html tag delete findwidget
+      $hv3 html tag delete findwidgetcurrent
     }
     set myCaptionVar ""
 
@@ -435,7 +435,7 @@ snit::widget ::hv3::findwidget {
     if {[string length $searchtext] == 0} return
 
     foreach hv3 $hv3list {
-      set doctext [$hv3 text text]
+      set doctext [$hv3 html text text]
       if {$myNocaseVar} {
         set doctext [string tolower $doctext]
       }
@@ -453,7 +453,7 @@ snit::widget ::hv3::findwidget {
       set lMatch [lrange $lMatch 0 [expr ($nMaxHighlight - $nHighlight)*2 - 1]]
       incr nHighlight [expr [llength $lMatch] / 2]
       if {[llength $lMatch] > 0} {
-        lappend matches $hv3 [eval [concat $hv3 text index $lMatch]]
+        lappend matches $hv3 [eval [concat $hv3 html text index $lMatch]]
       }
     }
 
@@ -461,9 +461,9 @@ snit::widget ::hv3::findwidget {
 
     foreach {hv3 matchlist} $matches {
       foreach {n1 i1 n2 i2} $matchlist {
-        $hv3 tag add findwidget $n1 $i1 $n2 $i2
+        $hv3 html tag add findwidget $n1 $i1 $n2 $i2
       }
-      $hv3 tag configure findwidget -bg purple -fg white
+      $hv3 html tag configure findwidget -bg purple -fg white
       $self lazymoveto $hv3                         \
             [lindex $matchlist 0] [lindex $matchlist 1] \
             [lindex $matchlist 2] [lindex $matchlist 3]
@@ -502,13 +502,13 @@ snit::widget ::hv3::findwidget {
 
     set hv3 ""
     foreach {hv3 n1 i1 n2 i2} [$self GetHit $previousHit] { }
-    catch {$hv3 tag delete findwidgetcurrent}
+    catch {$hv3 html tag delete findwidgetcurrent}
 
     set hv3 ""
     foreach {hv3 n1 i1 n2 i2} [$self GetHit $myCurrentHit] { }
     $self lazymoveto $hv3 $n1 $i1 $n2 $i2
-    $hv3 tag add findwidgetcurrent $n1 $i1 $n2 $i2
-    $hv3 tag configure findwidgetcurrent -bg black -fg yellow
+    $hv3 html tag add findwidgetcurrent $n1 $i1 $n2 $i2
+    $hv3 html tag configure findwidgetcurrent -bg black -fg yellow
   }
 
   method GetHit {iIdx} {
@@ -531,8 +531,8 @@ snit::widget ::hv3::findwidget {
     # destroyed.
     foreach hv3 [$self Hv3List] {
       catch {
-        $hv3 tag delete findwidget
-        $hv3 tag delete findwidgetcurrent
+        $hv3 html tag delete findwidget
+        $hv3 html tag delete findwidgetcurrent
       }
     }
     trace remove variable [myvar myEntryVar] write [list $self UpdateDisplay]
