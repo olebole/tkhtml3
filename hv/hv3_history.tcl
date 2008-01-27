@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.28 2007/12/08 11:45:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.29 2008/01/27 07:30:46 danielk1977 Exp $)} 1 }
 
 package require snit
 
@@ -634,4 +634,47 @@ snit::widget ::hv3::locationentry {
   }
 }
 
+namespace eval ::hv3::httpcache {
+  proc new {me} {
+    set O(handles) [list]
+  }
+  proc destroy {me} {
+    upvar #0 $me O
+    foreach h $O(handles) {
+      $h release
+    }
+    rename $me ""
+    unset $me
+  }
+  proc add {me handle} {
+    upvar #0 $me O
+    lappend O(handles) $handle
+    set O(cache.[$handle cget -uri]) $handle
+    $handle reference
+    if {[llength $O(handles)]>=25} {
+      foreach h [lrange $O(handles 0 4] {
+        unset O(cache.[$h cget -uri])
+        $h release
+      }
+      set O(handles) [lrange $O(handles) 5 end]
+    }
+  }
+  proc query {me handle} {
+    upvar #0 $me O
+    set uri [$handle cget -uri]
+    if {[info exists O(cache.$uri)]} {
+      set h $O(cache.$uri)
+      set idx [lsearch $O(handles) $h]
+      set O(handles) [lreplace $O(handles) $idx $idx]
+      lappend O(handles) $h
+      $handle finish [$h rawdata] 
+      return 1
+    }
+    return 0
+  }
+}
+::hv3::make_constructor ::hv3::httpcache
+::hv3::httpcache ::hv3::the_httpcache
+
 proc noop {args} {}
+

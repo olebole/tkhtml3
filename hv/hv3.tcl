@@ -1370,10 +1370,11 @@ namespace eval ::hv3::hv3 {
       # of image/gif. This should be enough to tell the protocol handler to
       # expect a binary file (of course, this is not correct, the real
       # default mime-type might be some other kind of image).
-      set handle [::hv3::request %AUTO%              \
+      set handle [::hv3::request %AUTO%                \
           -uri          $full_uri                      \
           -mimetype     image/gif                      \
-          -cachecontrol $O(myCacheControl)                \
+          -cachecontrol $O(myCacheControl)             \
+          -cacheable    0                              \
       ]
       $handle configure -finscript [list $me Imagecallback $handle $name]
       $me makerequest $handle
@@ -1446,10 +1447,11 @@ namespace eval ::hv3::hv3 {
     set urlcmd    [list ::hv3::ss_resolve_uri $full_uri]
     append id .9999
 
-    set handle [::hv3::request %AUTO%              \
+    set handle [::hv3::request %AUTO%               \
         -uri         $full_uri                      \
         -mimetype    text/css                       \
-        -cachecontrol $O(myCacheControl)               \
+        -cachecontrol $O(myCacheControl)            \
+        -cacheable 1                                \
     ]
     $handle configure -finscript [
         list $me Finishstyle $handle $id $importcmd $urlcmd
@@ -2176,7 +2178,7 @@ namespace eval ::hv3::hv3 {
     $me InternalReset
   }
 
-  proc configure-enableimages {me option value} {
+  proc configure-enableimages {me} {
     upvar #0 $me O
 
     # The -enableimages switch. If false, configure an empty string
@@ -2187,7 +2189,7 @@ namespace eval ::hv3::hv3 {
     # that is really inconvenient. If the user wants to reload the
     # document the reload button is right there anyway.
     #
-    if {$value} {
+    if {$O(-enableimages)} {
       $O(myHtml) configure -imagecmd [list $me Imagecmd]
     } else {
       $O(myHtml) configure -imagecmd ""

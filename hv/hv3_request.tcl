@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.25 2008/01/27 06:01:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.26 2008/01/27 07:30:46 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -108,6 +108,8 @@ namespace eval ::hv3::request {
     set O(-mimetype) ""
     set O(-enctype) ""
 
+    set O(-cacheable) 0
+
     # The hv3 widget that issued this request. This is used
     # (a) to notify destruction of root request,
     # (b) by the handler for home:// uris and
@@ -203,6 +205,10 @@ namespace eval ::hv3::request {
       return [::encoding convertfrom [encoding $me] $raw]
     }
     return $raw
+  }
+  proc rawdata {me} {
+    upvar $me O
+    return $O(myRaw)
   }
 
   # Increment the object refcount.

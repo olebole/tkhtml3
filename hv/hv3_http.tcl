@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.62 2008/01/20 05:59:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.63 2008/01/27 07:30:46 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -155,6 +155,14 @@ namespace eval ::hv3::protocol {
     set uri [$obj get_no_fragment]
 set uri [::tkhtml::escape_uri -query $uri]
     $obj destroy
+
+    if {[$downloadHandle cget -cachecontrol] eq "relax-transparency" 
+     && [$downloadHandle cget -cacheable]
+    } {
+      if {[::hv3::the_httpcache query $downloadHandle]} {
+        return
+      }
+    }
 
     # Store the HTTP header containing the cookies in variable $headers
     set headers [$downloadHandle cget -requestheader]
@@ -456,6 +464,9 @@ set uri [::tkhtml::escape_uri -query $uri]
       [lsearch $O(myWaitingHandles) $downloadHandle] >= 0
     } {
       catch {$O(myGui) uri_done [$downloadHandle cget -uri]}
+      if {[$downloadHandle cget -cacheable]} {
+        ::hv3::the_httpcache add $downloadHandle
+      }
       $downloadHandle finish
     }
 
