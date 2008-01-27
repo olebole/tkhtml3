@@ -1064,6 +1064,7 @@ namespace eval ::hv3::hv3 {
     # The scrolled html widget.
     # set O(myHtml) [::hv3::scrolled html $win.html]
     set O(myHtml) $O(hull)
+    set O(html) [html $me]
     catch {::hv3::profile::instrument [$O(myHtml) widget]}
 
     # Current location and base URIs. The default URI is "blank://".
@@ -1469,7 +1470,7 @@ namespace eval ::hv3::hv3 {
     upvar #0 $me O
     if {0 == [$me HandleLocation $handle]} {
       set full_id "$id.[$handle cget -uri]"
-      $O(myHtml) style              \
+      $O(html) style             \
           -id $full_id           \
           -importcmd $importcmd  \
           -urlcmd $urlcmd        \
@@ -1705,7 +1706,7 @@ namespace eval ::hv3::hv3 {
     set importcmd [list $me Requeststyle $id]
     set urlcmd    [list $me resolve_uri]
     append id ".9999.<style>"
-    $O(myHtml) style -id $id      \
+    $O(html) style -id $id     \
         -importcmd $importcmd  \
         -urlcmd $urlcmd        \
         -errorvar parse_errors \
@@ -1877,9 +1878,9 @@ namespace eval ::hv3::hv3 {
     upvar #0 $me O
     $O(myFrameLog) loghtml $data
     if {$isFinal} {
-	$O(myHtml) parse -final $data
+	$O(html) parse -final $data
     } else {
-	$O(myHtml) parse $data
+	$O(html) parse $data
     }
     $me goto_fragment
   }
@@ -2148,7 +2149,7 @@ namespace eval ::hv3::hv3 {
     ] {
       if {$m ne ""} {$m reset}
     }
-    $O(myHtml) reset
+    $O(html) reset
     $O(myHtml) configure -scrollbarpolicy $O(-scrollbarpolicy)
 
     if {$O(-dom) ne ""} {
@@ -2236,11 +2237,11 @@ namespace eval ::hv3::hv3 {
 
   proc yview {me args} {
     upvar #0 $me O
-    eval $O(myHtml) yview $args
+    eval $O(html) yview $args
   }
   proc xview {me args} {
     upvar #0 $me O
-    eval $O(myHtml) xview $args
+    eval $O(html) xview $args
   }
 
   proc javascriptlog {me args} {

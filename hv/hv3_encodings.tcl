@@ -74,15 +74,10 @@ namespace eval ::hv3 {
   #
   proc encoding_resolve {enc} {
     set encoding [string tolower $enc]
-    set vn ::Hv3EncodingMap($encoding)
-    if {[info exists $vn]} {
-      set encoding [set $vn]
-    }
-    if {[lsearch -exact [encoding names] $encoding] < 0} {
-      # Last resort. Ignore unknown encoding and use system encoding.
-      encoding system
+    if {[info exists ::Hv3EncodingMap($encoding)]} {
+      set ::Hv3EncodingMap($encoding)
     } else {
-      set encoding
+      encoding system
     }
   }
 
