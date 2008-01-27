@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.19 2008/01/27 06:01:30 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.20 2008/01/27 14:39:24 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
 
@@ -205,18 +205,21 @@ pressing enter.
   }
 
   proc init {hv3} {
-    set frames [[winfo parent [winfo parent $hv3]] child_frames]
+    set frames [[$hv3 win] child_frames]
+    set browser  [[winfo parent [$hv3 win]] browser]
+
     set tree_hv3 [[lindex $frames 0] hv3]
     set html_hv3 [[lindex $frames 1] hv3]
-    set browser  [[winfo parent $hv3] browser]
 
-    set controller [winfo parent $html_hv3].controller
+    #set controller [winfo parent [$html_hv3 win]].controller
+    set controller [$html_hv3 win].controller
     set treewidget [$tree_hv3 html].treewidget
 
     controller $controller $browser $html_hv3 $treewidget 
     treewidget $treewidget $browser $controller
 
-    pack $controller -before $html_hv3 -side top -fill x
+    #pack $controller -before [$html_hv3 win] -side top -fill x
+    grid configure $controller -row 0 -column 0 -columnspan 2 -sticky ew
     place $treewidget -x 0.0 -y 0.0 -relwidth 1.0 -relheight 1.0
 
     $treewidget populate_tree
@@ -1924,7 +1927,7 @@ pressing enter.
     $hv3 goto $zUri
     set zSnapshot [create_snapshot $hv3]
    
-    set titlenode [$hv3 search title]
+    set titlenode [$hv3 html search title]
     if {$titlenode ne "" && [llength [$titlenode children]]>0} {
       set zCaption [[lindex [$titlenode children] 0] text]
     }
@@ -2019,11 +2022,11 @@ pressing enter.
 
   proc setup_tmphv3 {} {
     set hv3      [::hv3::hv3 .tmphv3]
-    set protocol [::hv3::protocol tmpprotocol]
+    set protocol [::hv3::protocol ::tmpprotocol]
     ::hv3::home_scheme_init $hv3 $protocol
-    $hv3 handler node object ""
-    $hv3 handler node frameset ""
-    $hv3 handler node embed ""
+    $hv3 html handler node object ""
+    $hv3 html handler node frameset ""
+    $hv3 html handler node embed ""
     $hv3 configure -requestcmd [list $protocol requestcmd]
   }
 

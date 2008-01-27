@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.7 2008/01/27 06:01:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.8 2008/01/27 14:39:24 danielk1977 Exp $)} 1 }
 
 
 namespace eval hv3 {
@@ -50,9 +50,9 @@ namespace eval hv3 {
       $O(myVsb) configure -cursor "top_left_arrow"
       $O(myHsb) configure -cursor "top_left_arrow"
   
-      grid configure $O(myWidget) -column 0 -row 0 -sticky nsew
+      grid configure $O(myWidget) -column 0 -row 1 -sticky nsew
       grid columnconfigure $w 0 -weight 1
-      grid rowconfigure    $w 0 -weight 1
+      grid rowconfigure    $w 1 -weight 1
       grid propagate       $w $O(-propagate)
   
       # First, set the values of -width and -height to the defaults for 
@@ -113,8 +113,8 @@ namespace eval hv3 {
   
       if {$isrequired && !$ismapped} {
         switch [$scrollbar cget -orient] {
-          vertical   {grid configure $scrollbar  -column 1 -row 0 -sticky ns}
-          horizontal {grid configure $scrollbar  -column 0 -row 1 -sticky ew}
+          vertical   {grid configure $scrollbar  -column 1 -row 1 -sticky ns}
+          horizontal {grid configure $scrollbar  -column 0 -row 2 -sticky ew}
         }
       } elseif {$ismapped && !$isrequired} {
         grid forget $scrollbar

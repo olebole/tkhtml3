@@ -59,86 +59,99 @@ source [sourcefile hv3_object.tcl]
 #
 #     Hv3 currently only implements steps 1 and 2.
 #
-snit::widget ::hv3::browser_frame {
+namespace eval ::hv3::browser_frame {
 
-  component myHv3
+  proc new {me browser args} {
+    upvar #0 $me O
 
-  variable myNodeList ""                  ;# Current nodes under the pointer
-  variable myX 0                          ;# Current location of pointer
-  variable myY 0                          ;# Current location of pointer
+    # The name of this frame (as specified by the "name" attribute of 
+    # the <frame> element).
+    set O(-name) ""
 
-  variable myBrowser ""                   ;# ::hv3::browser widget
-  variable myPositionId ""                ;# See sub-command [positionid]
+    # If this [::hv3::browser_frame] is used as a replacement object
+    # for an <iframe> element, then this option is set to the Tkhtml3
+    # node-handle for that <iframe> element.
+    #
+    set O(-iframe) ""
 
-  # If "Copy Link Location" has been selected, store the selected text
-  # (a URI) in variable $myCopiedLinkLocation.
-  variable myCopiedLinkLocation ""
+    set O(-statusvar) ""
 
-  constructor {browser args} {
-    set myBrowser $browser
-    $self configurelist $args
+    set O(myBrowser) $browser
+    eval $me configure $args
+
+    set O(myNodeList) ""                  ;# Current nodes under the pointer
+    set O(myX) 0                          ;# Current location of pointer
+    set O(myY) 0                          ;# Current location of pointer
+
+    set O(myBrowser) $browser             ;# ::hv3::browser widget
+    set O(myPositionId) ""                ;# See sub-command [positionid]
+
+    # If "Copy Link Location" has been selected, store the selected text
+    # (a URI) in set $O(myCopiedLinkLocation).
+    set O(myCopiedLinkLocation) ""
  
-    set myHv3      [::hv3::hv3 $win.hv3]
-    pack $myHv3 -expand true -fill both
+    #set O(myHv3)      [::hv3::hv3 $O(win).hv3]
+    #pack $O(myHv3) -expand true -fill both
+    set O(myHv3) $O(hull)
 
-    ::hv3::the_visited_db init $myHv3
+    ::hv3::the_visited_db init $O(myHv3)
 
-    catch {$myHv3 configure -fonttable $::hv3::fontsize_table}
-    # $myHv3 configure -downloadcmd [list $myBrowser savehandle]
-    $myHv3 configure -downloadcmd [list ::hv3::the_download_manager savehandle]
+    catch {$O(myHv3) configure -fonttable $::hv3::fontsize_table}
+    $O(myHv3) configure -downloadcmd {::hv3::the_download_manager savehandle}
 
     # Create bindings for motion, right-click and middle-click.
-    $myHv3 Subscribe motion [list $self motion]
-    bind $myHv3 <3>       [list $self rightclick %x %y %X %Y]
-    bind $myHv3 <2>       [list $self goto_selection]
+    $O(myHv3) Subscribe motion [list $me motion]
+    bind $O(win) <3>       [list $me rightclick %x %y %X %Y]
+    bind $O(win) <2>       [list $me goto_selection]
 
     # When the hyperlink menu "owns" the selection (happens after 
     # "Copy Link Location" is selected), invoke method 
     # [GetCopiedLinkLocation] with no arguments to retrieve it.
 
     # Register a handler command to handle <frameset>.
-    set html [$myHv3 html]
-    $html handler node frameset [list ::hv3::frameset_handler $self]
+    set html [$O(myHv3) html]
+    $html handler node frameset [list ::hv3::frameset_handler $me]
 
     # Register handler commands to handle <object> and kin.
-    $html handler node object   [list hv3_object_handler $myHv3]
-    $html handler node embed    [list hv3_object_handler $myHv3]
+    $html handler node object   [list hv3_object_handler $O(myHv3)]
+    $html handler node embed    [list hv3_object_handler $O(myHv3)]
 
-    $html handler node      iframe [list ::hv3::iframe_handler $self]
-    $html handler attribute iframe [list ::hv3::iframe_attr_handler $self]
+    $html handler node      iframe [list ::hv3::iframe_handler $me]
+    $html handler attribute iframe [list ::hv3::iframe_attr_handler $me]
 
     # Add this object to the browsers frames list. It will be removed by
     # the destructor proc. Also override the default -targetcmd
     # option of the ::hv3::hv3 widget with our own version.
-    $myBrowser add_frame $self
-    $myHv3 configure -targetcmd [list $self Targetcmd]
+    $O(myBrowser) add_frame $O(win)
+    $O(myHv3) configure -targetcmd [list $me Targetcmd]
 
-    ::hv3::menu ${win}.hyperlinkmenu
-    selection handle ${win}.hyperlinkmenu [list $self GetCopiedLinkLocation]
+    ::hv3::menu $O(win).hyperlinkmenu
+    selection handle $O(win).hyperlinkmenu [list $me GetCopiedLinkLocation]
+  }
+  proc destroy {me} {
+    upvar #0 $me O
+    catch {$self ConfigureName -name ""}
+    # Remove this object from the $theFrames list.
+    catch {$O(myBrowser) del_frame $O(win)}
+    catch {destroy $O(win).hyperlinkmenu}
   }
 
-  # The name of this frame (as specified by the "name" attribute of 
-  # the <frame> element).
-  option -name -default "" -configuremethod ConfigureName
+  proc configure-name {me} {
+    upvar #0 $me O
+puts "TODODODODODOD"
+return
 
-  # If this [::hv3::browser_frame] is used as a replacement object
-  # for an <iframe> element, then this option is set to the Tkhtml3
-  # node-handle for that <iframe> element.
-  #
-  option -iframe -default ""
-
-  method ConfigureName {-name value} {
     # This method is called when the "name" of attribute of this
     # frame is modified. If javascript is enabled we have to update
     # the properties on the parent window object (if any).
-    set dom [$self cget -dom]
+    set dom [$me cget -dom]
     if {$dom ne "" && [$dom cget -enable]} {
-      set parent [$self parent_frame]
+      set parent [$me parent_frame]
       if {$parent ne ""} {
         set parent_window [list ::hv3::DOM::Window $dom [$parent hv3]]
-        set this_win [list ::hv3::DOM::Window $dom $myHv3]
-        if {$options(-name) ne ""} {
-          $dom set_object_property $parent_window $options(-name) undefined
+        set this_win [list ::hv3::DOM::Window $dom $O(myHv3)]
+        if {$O(-name) ne ""} {
+          $dom set_object_property $parent_window $O(-name) undefined
         }
         if {$value ne ""} {
           $dom set_object_property $parent_window $value [list object $this_win]
@@ -146,30 +159,31 @@ snit::widget ::hv3::browser_frame {
       }
     }
 
-    set options(-name) $value
+    set O(-name) $value
   }
 
-  method Targetcmd {node} {
+  proc Targetcmd {me node} {
+    upvar #0 $me O
     set target [$node attr -default "" target]
     if {$target eq ""} {
       # If there is no target frame specified, see if a default
       # target was specified in a <base> tag i.e. <base target="_top">.
-      set n [lindex [[$myHv3 html] search base] 0]
+      set n [lindex [[$O(myHv3) html] search base] 0]
       if {$n ne ""} { set target [$n attr -default "" target] }
     }
 
-    set theTopFrame [[lindex [$myBrowser get_frames] 0] hv3]
+    set theTopFrame [[lindex [$O(myBrowser) get_frames] 0] hv3]
 
     # Find the target frame widget.
-    set widget $myHv3
+    set widget $O(myHv3)
     switch -- $target {
-      ""        { set widget $myHv3 }
-      "_self"   { set widget $myHv3 }
+      ""        { set widget $O(myHv3) }
+      "_self"   { set widget $O(myHv3) }
       "_top"    { set widget $theTopFrame }
 
       "_parent" { 
-        set w [winfo parent $myHv3]
-        while {$w ne "" && [lsearch [$myBrowser get_frames] $w] < 0} {
+        set w [winfo parent $O(myHv3)]
+        while {$w ne "" && [lsearch [$O(myBrowser) get_frames] $w] < 0} {
           set w [winfo parent $w]
         }
         if {$w ne ""} {
@@ -194,7 +208,7 @@ snit::widget ::hv3::browser_frame {
         # TODO: The following should be a depth first search through the
         # frames in the list returned by [get_frames].
         #
-        foreach f [$myBrowser get_frames] {
+        foreach f [$O(myBrowser) get_frames] {
           set n [$f cget -name]
           if {$n eq $target} {
             set widget [$f hv3]
@@ -207,20 +221,23 @@ snit::widget ::hv3::browser_frame {
     return $widget
   }
 
-  method parent_frame {} {
-    set frames [$myBrowser get_frames]
-    set w [winfo parent $self]
+  proc parent_frame {me } {
+    upvar #0 $me O
+    set frames [$O(myBrowser) get_frames]
+    set w [winfo parent $O(win)]
     while {$w ne "" && [lsearch $frames $w] < 0} {
       set w [winfo parent $w]
     }
     return $w
   }
-  method top_frame {} {
-    lindex [$myBrowser get_frames] 0
+  proc top_frame {me } {
+    upvar #0 $me O
+    lindex [$O(myBrowser) get_frames] 0
   }
-  method child_frames {} {
+  proc child_frames {me } {
+    upvar #0 $me O
     set ret [list]
-    foreach c [$myBrowser frames_tree $self] {
+    foreach c [$O(myBrowser) frames_tree $O(win)] {
       lappend ret [lindex $c 0]
     }
     set ret
@@ -230,9 +247,10 @@ snit::widget ::hv3::browser_frame {
   # used by the history sub-system when loading a historical state of
   # a frameset document.
   #
-  method positionid {} {
-    if {$myPositionId eq ""} {
-      set w $win
+  proc positionid {me } {
+    upvar #0 $me O
+    if {$O(myPositionId) eq ""} {
+      set w $O(win)
       while {[set p [winfo parent $w]] ne ""} {
         set class [winfo class $p]
         if {$class eq "Panedwindow"} {
@@ -241,25 +259,18 @@ snit::widget ::hv3::browser_frame {
           set p [winfo parent $p]
           set b [lsearch [$p panes] $w]
 
-          set myPositionId [linsert $myPositionId 0 "${b}.${a}"]
+          set O(myPositionId) [linsert $O(myPositionId) 0 "${b}.${a}"]
         }
-        if {$class eq "Hv3" && $myPositionId eq ""} {
-          set node $options(-iframe)
+        if {$class eq "Hv3" && $O(myPositionId) eq ""} {
+          set node $O(-iframe)
           set idx [lsearch [$p search iframe] $node]
-          set myPositionId [linsert $myPositionId 0 iframe.${idx}]
+          set O(myPositionId) [linsert $O(myPositionId) 0 iframe.${idx}]
         }
         set w $p
       }
-      set myPositionId [linsert $myPositionId 0 0]
+      set O(myPositionId) [linsert $O(myPositionId) 0 0]
     }
-    return $myPositionId
-  }
-
-  destructor {
-    catch {$self ConfigureName -name ""}
-    # Remove this object from the $theFrames list.
-    catch {$myBrowser del_frame $self}
-    catch {destroy ${win}.hyperlinkmenu}
+    return $O(myPositionId)
   }
 
   # This callback is invoked when the user right-clicks on this 
@@ -270,17 +281,18 @@ snit::widget ::hv3::browser_frame {
   # this widget's window. $X and $Y are the same position relative to
   # the root window.
   #
-  method rightclick {x y X Y} {
+  proc rightclick {me x y X Y} {
+    upvar #0 $me O
     if {![info exists ::hv3::G]} return
 
-    set m ${win}.hyperlinkmenu
+    set m $O(win).hyperlinkmenu
     $m delete 0 end
 
-    set nodelist [$myHv3 node $x $y]
+    set nodelist [$O(myHv3) node $x $y]
 
     set a_href ""
     set img_src ""
-    set select [$myHv3 selected]
+    set select [$O(myHv3) selected]
     set leaf ""
 
     foreach leaf $nodelist {
@@ -297,23 +309,23 @@ snit::widget ::hv3::browser_frame {
       }
     }
 
-    if {$a_href ne ""}  {set a_href [$myHv3 resolve_uri $a_href]}
-    if {$img_src ne ""} {set img_src [$myHv3 resolve_uri $img_src]}
+    if {$a_href ne ""}  {set a_href [$O(myHv3) resolve_uri $a_href]}
+    if {$img_src ne ""} {set img_src [$O(myHv3) resolve_uri $img_src]}
 
     set MENU [list \
-      a_href "Open Link"             [list $self menu_select open $a_href]     \
-      a_href "Open Link in Bg Tab"   [list $self menu_select opentab $a_href]  \
-      a_href "Download Link"         [list $self menu_select download $a_href] \
-      a_href "Copy Link Location"    [list $self menu_select copy $a_href]     \
+      a_href "Open Link"             [list $me menu_select open $a_href]     \
+      a_href "Open Link in Bg Tab"   [list $me menu_select opentab $a_href]  \
+      a_href "Download Link"         [list $me menu_select download $a_href] \
+      a_href "Copy Link Location"    [list $me menu_select copy $a_href]     \
       a_href --                      ""                                        \
-      img_src "View Image"           [list $self menu_select open $img_src]    \
-      img_src "View Image in Bg Tab" [list $self menu_select opentab $img_src] \
-      img_src "Download Image"       [list $self menu_select download $img_src]\
-      img_src "Copy Image Location"  [list $self menu_select copy $img_src]    \
+      img_src "View Image"           [list $me menu_select open $img_src]    \
+      img_src "View Image in Bg Tab" [list $me menu_select opentab $img_src] \
+      img_src "Download Image"       [list $me menu_select download $img_src]\
+      img_src "Copy Image Location"  [list $me menu_select copy $img_src]    \
       img_src --                     ""                                        \
-      select  "Copy Selected Text"   [list $self menu_select copy $select]     \
+      select  "Copy Selected Text"   [list $me menu_select copy $select]     \
       select  --                     ""                                        \
-      leaf    "Open Tree browser..." [list ::HtmlDebug::browse $myHv3 $leaf]   \
+      leaf    "Open Tree browser..." [list ::HtmlDebug::browse $O(myHv3) $leaf]   \
     ]
 
     foreach {var label cmd} $MENU {
@@ -349,17 +361,18 @@ snit::widget ::hv3::browser_frame {
    #     download
    #     copy
    #
-  method menu_select {option uri} {
+  proc menu_select {me option uri} {
+    upvar #0 $me O
     switch -- $option {
       open { 
-        set top_frame [lindex [$myBrowser get_frames] 0]
+        set top_frame [lindex [$O(myBrowser) get_frames] 0]
         $top_frame goto $uri 
       }
       opentab { set new [.notebook addbg $uri] }
-      download { $myBrowser saveuri $uri }
+      download { $O(myBrowser) saveuri $uri }
       copy {
-        set myCopiedLinkLocation $uri
-        selection own ${win}.hyperlinkmenu
+        set O(myCopiedLinkLocation) $uri
+        selection own $O(win).hyperlinkmenu
         clipboard clear
         clipboard append $uri
       }
@@ -370,24 +383,28 @@ snit::widget ::hv3::browser_frame {
     }
   }
 
-  method GetCopiedLinkLocation {args} {
-    return $myCopiedLinkLocation
+  proc GetCopiedLinkLocation {me args} {
+    upvar #0 $me O
+    return $O(myCopiedLinkLocation)
   }
 
   # Called when the user middle-clicks on the widget
-  method goto_selection {} {
-    set theTopFrame [lindex [$myBrowser get_frames] 0]
+  proc goto_selection {me } {
+    upvar #0 $me O
+    set theTopFrame [lindex [$O(myBrowser) get_frames] 0]
     $theTopFrame goto [selection get]
   }
 
-  method motion {N x y} {
-    set myX $x
-    set myY $y
-    set myNodeList $N
-    $self update_statusvar
+  proc motion {me N x y} {
+    upvar #0 $me O
+    set O(myX) $x
+    set O(myY) $y
+    set O(myNodeList) $N
+    $me update_statusvar
   }
 
-  method node_to_string {node {hyperlink 1}} {
+  proc node_to_string {me node {hyperlink 1}} {
+    upvar #0 $me O
     set value ""
     for {set n $node} {$n ne ""} {set n [$n parent]} {
       if {[info commands $n] eq ""} break
@@ -406,9 +423,10 @@ snit::widget ::hv3::browser_frame {
     return $value
   }
 
-  method update_statusvar {} {
-    if {$options(-statusvar) ne ""} {
-      global $options(-statusvar)
+  proc update_statusvar {me } {
+    upvar #0 $me O
+    if {$O(-statusvar) ne ""} {
+      global $O(-statusvar)
       set str ""
 
       set status_mode browser
@@ -416,11 +434,11 @@ snit::widget ::hv3::browser_frame {
 
       switch -- $status_mode {
         browser-tree {
-          set value [$self node_to_string [lindex $myNodeList end]]
-          set str "($myX $myY) $value"
+          set value [$me node_to_string [lindex $O(myNodeList) end]]
+          set str "($O(myX) $O(myY)) $value"
         }
         browser {
-          for {set n [lindex $myNodeList end]} {$n ne ""} {set n [$n parent]} {
+          for {set n [lindex $O(myNodeList) end]} {$n ne ""} {set n [$n parent]} {
             if {[$n tag] eq "a" && [$n attr -default "" href] ne ""} {
               set str "hyper-link: [string trim [$n attr href]]"
               break
@@ -429,8 +447,8 @@ snit::widget ::hv3::browser_frame {
         }
       }
 
-      if {$options(-statusvar) ne $str} {
-        set $options(-statusvar) $str
+      if {$O(-statusvar) ne $str} {
+        set $O(-statusvar) $str
       }
     }
   }
@@ -439,32 +457,41 @@ snit::widget ::hv3::browser_frame {
   # PUBLIC INTERFACE
   #--------------------------------------------------------------------------
 
-  method goto {args} {
-    eval [concat $myHv3 goto $args]
-    set myNodeList ""
-    $self update_statusvar
+  proc goto {me args} {
+    upvar #0 $me O
+    eval [concat $O(myHv3) goto $args]
+    set O(myNodeList) ""
+    $me update_statusvar
   }
 
   # Launch the tree browser
-  method browse {} {
-    ::HtmlDebug::browse $myHv3 [$myHv3 node]
+  proc browse {me } {
+    upvar #0 $me O
+    ::HtmlDebug::browse $O(myHv3) [$O(myHv3) node]
   }
 
-  method hv3     {} { return $myHv3 }
-  method browser {} { return $myBrowser }
+  proc hv3 {me} { 
+    upvar #0 $me O
+    return $O(myHv3) 
+  }
+  proc browser {me} {
+    upvar #0 $me O
+    return $O(myBrowser) 
+  }
 
   # The [isframeset] method returns true if this widget instance has
   # been used to parse a frameset document (widget instances may parse
   # either frameset or regular HTML documents).
   #
-  method isframeset {} {
+  proc isframeset {me } {
+    upvar #0 $me O
     # When a <FRAMESET> tag is parsed, a node-handler in hv3_frameset.tcl
     # creates a widget to manage the frames and then uses [place] to 
     # map it on top of the html widget created by this ::hv3::browser_frame
     # widget. Todo: It would be better if this code was in the same file
     # as the node-handler, otherwise this test is a bit obscure.
     #
-    set html [[$self hv3] html]
+    set html [[$me hv3] html]
     set slaves [place slaves $html]
     set isFrameset 0
     if {[llength $slaves]>0} {
@@ -473,27 +500,35 @@ snit::widget ::hv3::browser_frame {
     return $isFrameset
   }
 
-  option -statusvar        -default ""
+  set DelegateOption(-forcefontmetrics) myHv3
+  set DelegateOption(-fonttable) myHv3
+  set DelegateOption(-fontscale) myHv3
+  set DelegateOption(-zoom) myHv3
+  set DelegateOption(-enableimages) myHv3
+  set DelegateOption(-dom) myHv3
+  set DelegateOption(-width) myHv3
+  set DelegateOption(-height) myHv3
+  set DelegateOption(-requestcmd) myHv3
+  set DelegateOption(-resetcmd) myHv3
 
-  delegate option -forcefontmetrics to myHv3
-  delegate option -fonttable        to myHv3
-  delegate option -fontscale        to myHv3
-  delegate option -zoom             to myHv3
-  delegate option -enableimages     to myHv3
-  delegate option -dom              to myHv3
-
-  delegate method dumpforms         to myHv3
-
-  delegate option -width         to myHv3
-  delegate option -height        to myHv3
-
-  delegate option -requestcmd         to myHv3
-  delegate option -resetcmd           to myHv3
-
-  delegate method stop to myHv3
-  delegate method titlevar to myHv3
-  delegate method javascriptlog to myHv3
+  proc stop {me args} {
+    upvar #0 $me O
+    eval $O(myHv3) stop $args
+  }
+  proc titlevar {me args} {
+    upvar #0 $me O
+    eval $O(myHv3) titlevar $args
+  }
+  proc dumpforms {me args} {
+    upvar #0 $me O
+    eval $O(myHv3) dumpforms $args
+  }
+  proc javascriptlog {me args} {
+    upvar #0 $me O
+    eval $O(myHv3) javascriptlog $args
+  }
 }
+::hv3::make_constructor ::hv3::browser_frame ::hv3::hv3
 
 # An instance of this widget represents a top-level browser frame (not
 # a toplevel window - an html frame not contained in any frameset 
@@ -531,7 +566,7 @@ snit::widget ::hv3::browser {
     set myDom [::hv3::dom %AUTO% $self]
 
     # Create the main browser frame (always present)
-    set myMainFrame [::hv3::browser_frame $win.browser_frame $self]
+    set myMainFrame [::hv3::browser_frame $win.frame $self]
     pack $myMainFrame -expand true -fill both -side top
 
     # Create the protocol

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.29 2008/01/27 07:30:46 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.30 2008/01/27 14:39:24 danielk1977 Exp $)} 1 }
 
 package require snit
 
@@ -161,7 +161,7 @@ snit::type ::hv3::history {
     set myProtocol $protocol
     set myBrowser $browser
 
-    bind $hv3 <<Location>>  +[list $self Locvarcmd]
+    bind [$hv3 win] <<Location>>  +[list $self Locvarcmd]
     $self add_hv3 $hv3
 
     # Initialise the state-list to contain a single, unconfigured state.
@@ -177,8 +177,8 @@ snit::type ::hv3::history {
   }
 
   method add_hv3 {hv3} {
-    bind $hv3 <<Goto>>      +[list $self GotoHandler]
-    bind $hv3 <<SaveState>> +[list $self SaveStateHandler $hv3]
+    bind [$hv3 win] <<Goto>>      +[list $self GotoHandler]
+    bind [$hv3 win] <<SaveState>> +[list $self SaveStateHandler $hv3]
   }
 
   method loadframe {frame} {

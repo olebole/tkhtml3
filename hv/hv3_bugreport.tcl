@@ -3,7 +3,7 @@ namespace eval ::hv3::bugreport {
 
   proc init {hv3 uri} {
     $hv3 reset 0
-    $hv3 parse {
+    $hv3 html parse {
 
 <HTML>
   <HEAD>
@@ -120,19 +120,19 @@ namespace eval ::hv3::bugreport {
 
     }
 
-    set uri_field [[$hv3 search #uritext] replace]
+    set uri_field [[$hv3 html search #uritext] replace]
     $uri_field dom_value $uri
-    set caption_field [[$hv3 search {[name="t"]}] replace]
+    set caption_field [[$hv3 html search {[name="t"]}] replace]
     $caption_field dom_focus
 
-    set node [$hv3 search #submit_button]
+    set node [$hv3 html search #submit_button]
     set button [::hv3::button [$hv3 html].document.submit \
         -command [list ::hv3::bugreport::submitform submit $hv3]     \
         -text "Submit Report!"
     ]
     $node replace $button -deletecmd [list destroy $button]
 
-    set node [$hv3 search #preview_button]
+    set node [$hv3 html search #preview_button]
     set button [::hv3::button [$hv3 html].document.preview \
         -command [list ::hv3::bugreport::submitform preview $hv3]     \
         -text "Online Preview..."
@@ -141,8 +141,8 @@ namespace eval ::hv3::bugreport {
   }
 
   proc submitform {status hv3} {
-    set caption_field [[$hv3 search {[name="t"]}] replace]
-    set contact_field [[$hv3 search {[name="c"]}] replace]
+    set caption_field [[$hv3 html search {[name="t"]}] replace]
+    set contact_field [[$hv3 html search {[name="c"]}] replace]
 
     set v [$caption_field value]
     if {[string length $v]>60 || [string length $v]==0} {
@@ -157,13 +157,13 @@ namespace eval ::hv3::bugreport {
       $contact_field dom_value "Anonymous Hv3 User"
     }
 
-    set uri [[[$hv3 search #uritext] replace] value]
+    set uri [[[$hv3 html search #uritext] replace] value]
     if {$uri ne ""} {
-      set widget [[[$hv3 search {[name="d"]}] replace] get_text_widget]
+      set widget [[[$hv3 html search {[name="d"]}] replace] get_text_widget]
       $widget insert 0.0 "   URI: $uri\n\n"
     }
 
-    set trick [$hv3 search #trick_control]
+    set trick [$hv3 html search #trick_control]
     $trick attribute name $status
     $trick attribute value 1
 

@@ -236,9 +236,10 @@ namespace eval ::hv3::hv3::mousemanager {
     #   ${me}.activenodes
     #
   
-    bind $hv3 <Motion>          "+[list $me Motion  %W %x %y]"
-    bind $hv3 <ButtonPress-1>   "+[list $me Press   %W %x %y]"
-    bind $hv3 <ButtonRelease-1> "+[list $me Release %W %x %y]"
+    set w [$hv3 win]
+    bind $w <Motion>          "+[list $me Motion  %W %x %y]"
+    bind $w <ButtonPress-1>   "+[list $me Press   %W %x %y]"
+    bind $w <ButtonRelease-1> "+[list $me Release %W %x %y]"
   }
 
 
@@ -527,13 +528,14 @@ namespace eval ::hv3::hv3::selectionmanager {
   
     set O(myIgnoreMotion) 0
 
-    selection handle $hv3 [list ::hv3::bg [list $me get_selection]]
+    set w [$hv3 win]
+    selection handle $w [list ::hv3::bg [list $me get_selection]]
 
     # bind $myHv3 <Motion>               "+[list $self motion %x %y]"
     # bind $myHv3 <ButtonPress-1>        "+[list $self press %x %y]"
-    bind $hv3 <Double-ButtonPress-1> "+[list $me doublepress %x %y]"
-    bind $hv3 <Triple-ButtonPress-1> "+[list $me triplepress %x %y]"
-    bind $hv3 <ButtonRelease-1>      "+[list $me release %x %y]"
+    bind $w <Double-ButtonPress-1> "+[list $me doublepress %x %y]"
+    bind $w <Triple-ButtonPress-1> "+[list $me triplepress %x %y]"
+    bind $w <ButtonRelease-1>      "+[list $me release %x %y]"
   }
 
   # Clear the selection.
@@ -693,7 +695,7 @@ namespace eval ::hv3::hv3::selectionmanager {
               }
               $O(myHtml) tag add selection $O(myFromNode) $O(myFromIdx) $toNode $toIdx
               if {$O(myFromNode) ne $toNode || $O(myFromIdx) != $toIdx} {
-                selection own $O(myHv3)
+                selection own [$O(myHv3) win]
               }
             }
     
@@ -706,7 +708,7 @@ namespace eval ::hv3::hv3::selectionmanager {
               $O(myHtml) tag add selection $O(myFromNode) $O(myFromIdx) $toNode $toIdx
               $me TagWord $toNode $toIdx
               $me TagWord $O(myFromNode) $O(myFromIdx)
-              selection own $O(myHv3)
+              selection own [$O(myHv3) win]
             }
     
             block {
@@ -722,7 +724,7 @@ namespace eval ::hv3::hv3::selectionmanager {
               $O(myHtml) tag add selection $O(myFromNode) $O(myFromIdx) $toNode $toIdx
               eval $O(myHtml) tag add selection $to_block2
               eval $O(myHtml) tag add selection $from_block
-              selection own $O(myHv3)
+              selection own [$O(myHv3) win]
             }
           }
     
@@ -736,13 +738,13 @@ namespace eval ::hv3::hv3::selectionmanager {
       }
     }
 
-
     set motioncmd ""
-    if {$y > [winfo height $O(myHv3)]} {
+    set win [$O(myHv3) win]
+    if {$y > [winfo height $win]} {
       set motioncmd [list yview scroll 1 units]
     } elseif {$y < 0} {
       set motioncmd [list yview scroll -1 units]
-    } elseif {$x > [winfo width $O(myHv3)]} {
+    } elseif {$x > [winfo width $win]} {
       set motioncmd [list xview scroll 1 units]
     } elseif {$x < 0} {
       set motioncmd [list xview scroll -1 units]
@@ -757,9 +759,10 @@ namespace eval ::hv3::hv3::selectionmanager {
 
   proc ContinueMotion {me} {
     upvar $me O
+    set win [$O(myHv3) win]
     set O(myIgnoreMotion) 0
-    set x [expr [winfo pointerx $O(myHv3)] - [winfo rootx $O(myHv3)]]
-    set y [expr [winfo pointery $O(myHv3)] - [winfo rooty $O(myHv3)]]
+    set x [expr [winfo pointerx $win] - [winfo rootx $win]]
+    set y [expr [winfo pointery $win] - [winfo rooty $win]]
     set N [lindex [$O(myHv3) node $x $y] 0]
     $me motion $N $x $y
   }
@@ -1068,12 +1071,12 @@ namespace eval ::hv3::hv3 {
     set O(myBase) [::tkhtml::uri home://blank/]
 
     # Component objects.
-    set O(myMouseManager)     [mousemanager       %AUTO% $O(win)]
-    set O(myHyperlinkManager) [hyperlinkmanager   %AUTO% $O(win) $O(myBase)]
-    set O(mySelectionManager) [selectionmanager   %AUTO% $O(win)]
-    set O(myDynamicManager)   [dynamicmanager     %AUTO% $O(win)]
-    set O(myFormManager)      [::hv3::formmanager %AUTO% $O(win)]
-    set O(myFrameLog)         [framelog           %AUTO% $O(win)]
+    set O(myMouseManager)     [mousemanager       %AUTO% $me]
+    set O(myHyperlinkManager) [hyperlinkmanager   %AUTO% $me $O(myBase)]
+    set O(mySelectionManager) [selectionmanager   %AUTO% $me]
+    set O(myDynamicManager)   [dynamicmanager     %AUTO% $me]
+    set O(myFormManager)      [::hv3::formmanager %AUTO% $me]
+    set O(myFrameLog)         [framelog           %AUTO% $me]
 
     set O(-dom) ""
     set O(-storevisitedcmd) ""
@@ -2090,11 +2093,11 @@ namespace eval ::hv3::hv3 {
       # document, but at this juncture the URI may legitimately refer
       # to kind of resource.
       #
-      set handle [::hv3::request %AUTO%             \
+      set handle [::hv3::request %AUTO%              \
           -uri         [$uri_obj get]                \
           -mimetype    $mimetype                     \
-          -cachecontrol $O(myCacheControl)              \
-          -hv3          $O(win)                        \
+          -cachecontrol $O(myCacheControl)           \
+          -hv3          $me                          \
       ]
       $handle configure                                                        \
         -incrscript [list $me documentcallback $handle $referer $savestate 0]\
@@ -2225,6 +2228,10 @@ namespace eval ::hv3::hv3 {
   proc hull {me}     { 
     upvar #0 $me O
     return $O(hull)
+  }
+  proc win {me} {
+    upvar #0 $me O
+    return $O(win)
   }
 
   proc yview {me args} {

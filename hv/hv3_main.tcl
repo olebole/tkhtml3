@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.184 2008/01/27 06:01:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.185 2008/01/27 14:39:24 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -832,8 +832,9 @@ proc gui_new {path args} {
   # events are not generated until the window is mapped. So generate
   # an extra <<Location>> when the window is mapped.
   #
-  bind [$new hv3] <Map>  [list event generate [$new hv3] <<Location>>]
-  bind [$new hv3] <Map> +[list bind <Map> [$new hv3] ""]
+  set w [[$new hv3] win]
+  bind $w <Map>  [list event generate $w <<Location>>]
+  bind $w <Map> +[list bind <Map> $w ""]
 
   # [[$new hv3] html] configure -logcmd print
 
