@@ -285,13 +285,13 @@ namespace eval ::hv3::hv3::mousemanager {
   # Mapping from CSS2 cursor type to Tk cursor type.
   #
   variable CURSORS
-  array set CURSORS [list \
-      crosshair crosshair    \
-      default   ""           \
-      pointer   hand2        \
-      move      fleur        \
-      text      xterm        \
-      wait      watch        \
+  array set CURSORS [list      \
+      crosshair crosshair      \
+      default   ""             \
+      pointer   hand2          \
+      move      fleur          \
+      text      xterm          \
+      wait      watch          \
       progress  box_spiral     \
       help      question_arrow \
   ]
@@ -301,7 +301,7 @@ namespace eval ::hv3::hv3::mousemanager {
     variable CURSORS
 
     if {$W eq ""} return
-    AdjustCoords "$O(myHv3).html.widget" $W x y
+    AdjustCoords [$O(myHv3) html] $W x y
 
     # Figure out the node the cursor is currently hovering over. Todo:
     # When the cursor is over multiple nodes (because overlapping content
@@ -392,7 +392,7 @@ namespace eval ::hv3::hv3::mousemanager {
   proc Press {me W x y} {
     upvar $me O
     if {$W eq ""} return
-    AdjustCoords "$O(myHv3).html.widget" $W x y
+    AdjustCoords [$O(myHv3) html] $W x y
     set N [lindex [$O(myHtml) node $x $y] end]
     if {$N ne ""} {
       if {[$N tag] eq ""} {set N [$N parent]}
@@ -431,7 +431,7 @@ namespace eval ::hv3::hv3::mousemanager {
   proc Release {me W x y} {
     upvar $me O
     if {$W eq ""} return
-    AdjustCoords "$O(myHv3).html.widget" $W x y
+    AdjustCoords [$O(myHv3) html] $W x y
     set N [lindex [$O(myHtml) node $x $y] end]
     if {$N ne ""} {
       if {[$N tag] eq ""} {set N [$N parent]}
@@ -517,6 +517,7 @@ namespace eval ::hv3::hv3::selectionmanager {
     # The ::hv3::hv3 widget.
     #
     set O(myHv3) $hv3
+    set O(myHtml) [$hv3 html]
   
     set O(myFromNode) ""
     set O(myFromIdx) ""
@@ -539,8 +540,8 @@ namespace eval ::hv3::hv3::selectionmanager {
   #
   proc clear {me} {
     upvar $me O
-    $O(myHv3) tag delete selection
-    $O(myHv3) tag configure selection -foreground white -background darkgrey
+    $O(myHtml) tag delete selection
+    $O(myHtml) tag configure selection -foreground white -background darkgrey
     set O(myFromNode) ""
     set O(myToNode) ""
   }
@@ -575,7 +576,7 @@ namespace eval ::hv3::hv3::selectionmanager {
   proc TagWord {me node idx} {
     upvar $me O
     foreach {i1 i2} [ToWord $node $idx] {}
-    $O(myHv3) tag add selection $node $i1 $node $i2
+    $O(myHtml) tag add selection $node $i1 $node $i2
   }
 
   # Remove the widget tag "selection" to the word containing the character
@@ -584,21 +585,21 @@ namespace eval ::hv3::hv3::selectionmanager {
   proc UntagWord {me node idx} {
     upvar $me O
     foreach {i1 i2} [ToWord $node $idx] {}
-    $O(myHv3) tag remove selection $node $i1 $node $i2
+    $O(myHtml) tag remove selection $node $i1 $node $i2
   }
 
   proc ToBlock {me node idx} {
     upvar $me O
-    set t [$O(myHv3) text text]
-    set offset [$O(myHv3) text offset $node $idx]
+    set t [$O(myHtml) text text]
+    set offset [$O(myHtml) text offset $node $idx]
 
     set start [string last "\n" $t $offset]
     if {$start < 0} {set start 0}
     set end   [string first "\n" $t $offset]
     if {$end < 0} {set end [string length $t]}
 
-    set start_idx [$O(myHv3) text index $start]
-    set end_idx   [$O(myHv3) text index $end]
+    set start_idx [$O(myHtml) text index $start]
+    set end_idx   [$O(myHtml) text index $end]
 
     return [concat $start_idx $end_idx]
   }
@@ -606,12 +607,12 @@ namespace eval ::hv3::hv3::selectionmanager {
   proc TagBlock {me node idx} {
     upvar $me O
     foreach {n1 i1 n2 i2} [ToBlock $me $node $idx] {}
-    $O(myHv3) tag add selection $n1 $i1 $n2 $i2
+    $O(myHtml) tag add selection $n1 $i1 $n2 $i2
   }
   proc UntagBlock {me node idx} {
     upvar $me O
     foreach {n1 i1 n2 i2} [ToBlock $me $node $idx] {}
-    catch {$O(myHv3) tag remove selection $n1 $i1 $n2 $i2}
+    catch {$O(myHtml) tag remove selection $n1 $i1 $n2 $i2}
   }
 
   proc doublepress {me x y} {
@@ -656,7 +657,7 @@ namespace eval ::hv3::hv3::selectionmanager {
     upvar $me O
     if {!$O(myState) || $O(myIgnoreMotion)} return
 
-    set to [$O(myHv3) node -index $x $y]
+    set to [$O(myHtml) node -index $x $y]
     foreach {toNode toIdx} $to {}
 
     # $N containst the node-handle for the node that the cursor is
@@ -688,9 +689,9 @@ namespace eval ::hv3::hv3::selectionmanager {
           switch -- $O(myMode) {
             char {
               if {$O(myToNode) ne ""} {
-                $O(myHv3) tag remove selection $O(myToNode) $O(myToIdx) $toNode $toIdx
+                $O(myHtml) tag remove selection $O(myToNode) $O(myToIdx) $toNode $toIdx
               }
-              $O(myHv3) tag add selection $O(myFromNode) $O(myFromIdx) $toNode $toIdx
+              $O(myHtml) tag add selection $O(myFromNode) $O(myFromIdx) $toNode $toIdx
               if {$O(myFromNode) ne $toNode || $O(myFromIdx) != $toIdx} {
                 selection own $O(myHv3)
               }
@@ -698,11 +699,11 @@ namespace eval ::hv3::hv3::selectionmanager {
     
             word {
               if {$O(myToNode) ne ""} {
-                $O(myHv3) tag remove selection $O(myToNode) $O(myToIdx) $toNode $toIdx
+                $O(myHtml) tag remove selection $O(myToNode) $O(myToIdx) $toNode $toIdx
                 $me UntagWord $O(myToNode) $O(myToIdx)
               }
     
-              $O(myHv3) tag add selection $O(myFromNode) $O(myFromIdx) $toNode $toIdx
+              $O(myHtml) tag add selection $O(myFromNode) $O(myFromIdx) $toNode $toIdx
               $me TagWord $toNode $toIdx
               $me TagWord $O(myFromNode) $O(myFromIdx)
               selection own $O(myHv3)
@@ -714,13 +715,13 @@ namespace eval ::hv3::hv3::selectionmanager {
     
               if {$O(myToNode) ne ""} {
                 set to_block [$me ToBlock $O(myToNode) $O(myToIdx)]
-                $O(myHv3) tag remove selection $O(myToNode) $O(myToIdx) $toNode $toIdx
-                eval $O(myHv3) tag remove selection $to_block
+                $O(myHtml) tag remove selection $O(myToNode) $O(myToIdx) $toNode $toIdx
+                eval $O(myHtml) tag remove selection $to_block
               }
     
-              $O(myHv3) tag add selection $O(myFromNode) $O(myFromIdx) $toNode $toIdx
-              eval $O(myHv3) tag add selection $to_block2
-              eval $O(myHv3) tag add selection $from_block
+              $O(myHtml) tag add selection $O(myFromNode) $O(myFromIdx) $toNode $toIdx
+              eval $O(myHtml) tag add selection $to_block2
+              eval $O(myHtml) tag add selection $from_block
               selection own $O(myHv3)
             }
           }
@@ -877,7 +878,7 @@ namespace eval ::hv3::hv3::hyperlinkmanager {
 
     set O(-targetcmd) [list ::hv3::ReturnWithArgs $hv3]
 
-    set O(-isvisitedcmd) [list ::hv3::ReturnWithArgs $hv3]
+    set O(-isvisitedcmd) [list ::hv3::ReturnWithArgs 0]
 
     configure-isvisitedcmd $me
     $O(myHv3) Subscribe onclick [list $me handle_onclick]
@@ -940,8 +941,8 @@ namespace eval ::hv3::hv3::hyperlinkmanager {
         %BASEURI% $O(myBaseUri) %VISITEDCMD% $O(-isvisitedcmd)
     ]
 
-    $O(myHv3) handler node a $P_NODE
-    $O(myHv3) handler attribute a $P_ATTR
+    $O(myHv3) html handler node a $P_NODE
+    $O(myHv3) html handler attribute a $P_ATTR
   }
 
   # This method is called whenever an onclick event occurs. If the
@@ -1055,22 +1056,24 @@ namespace eval ::hv3::hv3 {
 
   proc new {me args} {
     upvar #0 $me O
+    set win $O(win)
 	   
     # The scrolled html widget.
-    set O(myHtml) [::hv3::scrolled html ${me}.html]
-    catch {::hv3::profile::instrument [$myHtml widget]}
+    # set O(myHtml) [::hv3::scrolled html $win.html]
+    set O(myHtml) $O(hull)
+    catch {::hv3::profile::instrument [$O(myHtml) widget]}
 
     # Current location and base URIs. The default URI is "blank://".
     set O(myUri)  [::tkhtml::uri home://blank/]
     set O(myBase) [::tkhtml::uri home://blank/]
 
     # Component objects.
-    set O(myMouseManager)     [mousemanager       %AUTO% $me]
-    set O(myHyperlinkManager) [hyperlinkmanager   %AUTO% $me $O(myBase)]
-    set O(mySelectionManager) [selectionmanager   %AUTO% $me]
-    set O(myDynamicManager)   [dynamicmanager     %AUTO% $me]
-    set O(myFormManager)      [::hv3::formmanager %AUTO% $me]
-    set O(myFrameLog)         [framelog           %AUTO% $me]
+    set O(myMouseManager)     [mousemanager       %AUTO% $O(win)]
+    set O(myHyperlinkManager) [hyperlinkmanager   %AUTO% $O(win) $O(myBase)]
+    set O(mySelectionManager) [selectionmanager   %AUTO% $O(win)]
+    set O(myDynamicManager)   [dynamicmanager     %AUTO% $O(win)]
+    set O(myFormManager)      [::hv3::formmanager %AUTO% $O(win)]
+    set O(myFrameLog)         [framelog           %AUTO% $O(win)]
 
     set O(-dom) ""
     set O(-storevisitedcmd) ""
@@ -1092,10 +1095,10 @@ namespace eval ::hv3::hv3 {
     # Note that the DOM attribute HTMLDocument.referrer has a double-r,
     # but the name of the HTTP header, "Referer", has only one.
     #
-    set O(myReferrer) ""     
+    set O(myReferrer) ""
   
     # Used to assign internal stylesheet ids.
-    set O(myStyleCount) 0 
+    set O(myStyleCount) 0
   
     # This variable may be set to "unknown", "quirks" or "standards".
     set O(myQuirksmode) unknown
@@ -1163,8 +1166,7 @@ namespace eval ::hv3::hv3 {
     set O(myTitleVar) ""
 
 
-    bindtags [$me html] [concat [bindtags [$me html]] $me]
-    pack $O(myHtml) -fill both -expand 1
+    bindtags [$me html] [concat [bindtags [$me html]] $O(win)]
 
     $O(myMouseManager) subscribe motion [list $O(mySelectionManager) motion]
 
@@ -1195,7 +1197,7 @@ namespace eval ::hv3::hv3 {
     # Register handler commands to handle <body>.
     $O(myHtml) handler node body   [list $me body_node_handler]
 
-    bind $me <Configure>  [list $me goto_fragment]
+    bind $win <Configure>  [list $me goto_fragment]
     #bind [$win html].document <Visibility> [list $self VisibilityChange %s]
 
     eval $me configure $args
@@ -1302,13 +1304,13 @@ namespace eval ::hv3::hv3 {
     if {$O(-locationvar) ne ""} {
       uplevel #0 [list set $O(-locationvar) [$O(myUri) get]]
     }
-    event generate $me <<Location>>
+    event generate $O(win) <<Location>>
   }
 
   proc MightBeComplete {me } {
     upvar #0 $me O
     if {[llength $O(myActiveHandles)] == 0} {
-      event generate $me <<Complete>>
+      event generate $O(win) <<Complete>>
 
       # There are no outstanding HTTP transactions. So fire
       # the DOM "onload" event.
@@ -1540,7 +1542,7 @@ namespace eval ::hv3::hv3 {
 
   # Return the default encoding that should be used for 
   # javascript and CSS resources.
-  proc encoding {me } {
+  proc encoding {me} {
     upvar #0 $me O
     if {$O(myDocumentHandle) eq ""} { 
       return [encoding system] 
@@ -1902,7 +1904,7 @@ namespace eval ::hv3::hv3 {
     # puts "Formcmd $method $uri $querytype $encdata"
     set full_uri [$me resolve_uri $uri]
 
-    event generate $me <<Goto>>
+    event generate $O(win) <<Goto>>
 
     set handle [::hv3::request %AUTO% -mimetype text/html]
     set O(myMimetype) ""
@@ -2028,14 +2030,14 @@ namespace eval ::hv3::hv3 {
     set fragment [$uri_obj fragment]
 
     # Generate the <<Goto>> event.
-    event generate $me <<Goto>>
+    event generate $O(win) <<Goto>>
 
     if {$full_uri eq $current_uri && $cachecontrol ne "no-cache"} {
       # Save the current state in the history system. This ensures
       # that back/forward controls work when navigating between
       # different sections of the same document.
       if {$savestate} {
-        event generate $me <<SaveState>>
+        event generate $O(win) <<SaveState>>
       }
       $O(myUri) load $uri
 
@@ -2090,7 +2092,7 @@ namespace eval ::hv3::hv3 {
           -uri         [$uri_obj get]                \
           -mimetype    $mimetype                     \
           -cachecontrol $O(myCacheControl)              \
-          -hv3          $me                        \
+          -hv3          $O(win)                        \
       ]
       $handle configure                                                        \
         -incrscript [list $me documentcallback $handle $referer $savestate 0]\
@@ -2164,7 +2166,7 @@ namespace eval ::hv3::hv3 {
 
     # Generate the <<Reset>> and <<SaveState> events.
     if {!$O(myFirstReset) && $isSaveState} {
-      event generate $me <<SaveState>>
+      event generate $O(win) <<SaveState>>
     }
     set O(myFirstReset) 0
 
@@ -2195,7 +2197,6 @@ namespace eval ::hv3::hv3 {
   proc configure-dom {me} {
     upvar #0 $me O
 
-    set O(-dom) $value
     $O(myMouseManager) configure -dom $O(-dom)
     if {$O(-dom) ne ""} {
       $O(myHtml) handler script script   [list $O(-dom) script $me]
@@ -2207,15 +2208,19 @@ namespace eval ::hv3::hv3 {
     }
   }
 
-  proc pending {me }  {
+  proc pending {me}  {
     upvar #0 $me O
-      return [llength $O(myActiveHandles)]
+    return [llength $O(myActiveHandles)]
   }
-  proc html {me }     { 
+  proc html {me args}     { 
     upvar #0 $me O
-    return [$O(myHtml) widget] 
+    if {[llength $args]>0} {
+      eval [$O(myHtml) widget] $args
+    } else {
+      $O(myHtml) widget
+    }
   }
-  proc hull {me }     { 
+  proc hull {me}     { 
     upvar #0 $me O
     return $O(hull)
   }
@@ -2236,19 +2241,24 @@ namespace eval ::hv3::hv3 {
     }
   }
 
-  proc unknown {method me args} {
+  #proc unknown {method me args} {
     # puts "UNKNOWN: $me $method $args"
+    #upvar #0 $me O
+    #uplevel 3 [list eval $O(myHtml) $method $args]
+  #}
+  #namespace unknown unknown
+
+  proc node {me args} { 
     upvar #0 $me O
-    uplevel 3 [list eval $O(myHtml) $method $args]
+    eval $O(myHtml) node $args
   }
-  namespace unknown unknown
 
   set DelegateOption(-isvisitedcmd) myHyperlinkManager
   set DelegateOption(-targetcmd) myHyperlinkManager
 
   # Standard scrollbar and geometry stuff is delegated to the html widget
-  set DelegateOption(-xscrollcommand) myHtml
-  set DelegateOption(-yscrollcommand) myHtml
+  #set DelegateOption(-xscrollcommand) myHtml
+  #set DelegateOption(-yscrollcommand) myHtml
   set DelegateOption(-width) myHtml
   set DelegateOption(-height) myHtml
 
@@ -2259,7 +2269,7 @@ namespace eval ::hv3::hv3 {
   set DelegateOption(-forcefontmetrics) myHtml
 }
 
-::hv3::make_constructor ::hv3::hv3
+::hv3::make_constructor ::hv3::hv3 [list ::hv3::scrolled html]
 
 proc ::hv3::release_handle {handle args} {
   $handle release

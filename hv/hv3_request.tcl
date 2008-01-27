@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.24 2008/01/20 05:59:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.25 2008/01/27 06:01:35 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -161,7 +161,7 @@ namespace eval ::hv3::request {
     # END OF OPTIONS
     #----------------------------
 
-    set O(myChunksize) 2048
+    set O(chunksize) 2048
   
     # The binary data returned by the protocol implementation is 
     # accumulated in this variable.
@@ -293,15 +293,15 @@ namespace eval ::hv3::request {
         if {$n>$nLast} {set nLast $n ; break}
       }
       set nAvailable [expr {$nLast-$O(myRawPos)}]
-      if {$nAvailable > $O(myChunksize)} {
+      if {$nAvailable > $O(chunksize)} {
 
         set zDecoded [string range $O(myRaw) $O(myRawPos) $nLast]
         if {$O(myIsText)} {
           set zDecoded [::encoding convertfrom [encoding $me] $zDecoded]
         }
         set O(myRawPos) [expr {$nLast+1}]
-        if {$O(myChunksize) < 30000} {
-          set O(myChunksize) [expr $O(myChunksize) * 2]
+        if {$O(chunksize) < 30000} {
+          set O(chunksize) [expr $O(chunksize) * 2]
         }
 
         eval [linsert $O(-incrscript) end $zDecoded] 

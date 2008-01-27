@@ -1,7 +1,12 @@
-namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.6 2008/01/26 14:03:00 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.7 2008/01/27 06:01:35 danielk1977 Exp $)} 1 }
 
 
 namespace eval hv3 {
+
+  proc ReturnWithArgs {retval args} {
+    return $retval
+  }
+
   proc scrollbar {args} {
     set w [eval [linsert $args 0 ::scrollbar]]
     $w configure -highlightthickness 0
@@ -19,6 +24,7 @@ namespace eval hv3 {
   
     proc new {me widget args} {
       upvar #0 $me O
+      set w $O(win)
 
       set O(-propagate) 0 
       set O(-scrollbarpolicy) auto
@@ -27,27 +33,27 @@ namespace eval hv3 {
       set O(myTakeControlCb) ""
 
       # Create the three widgets - one user widget and two scrollbars.
-      set O(myWidget) [eval [linsert $widget 1 ${me}.widget]]
-      set O(myVsb) [::hv3::scrollbar ${me}.vsb -orient vertical -takefocus 0] 
-      set O(myHsb) [::hv3::scrollbar ${me}.hsb -orient horizontal -takefocus 0]
+      set O(myWidget) [eval [linsert $widget 1 ${w}.widget]]
+      set O(myVsb) [::hv3::scrollbar ${w}.vsb -orient vertical -takefocus 0] 
+      set O(myHsb) [::hv3::scrollbar ${w}.hsb -orient horizontal -takefocus 0]
 
-      set w $O(myWidget)
-      bind $w <KeyPress-Up>     [list $w scrollme $w yview scroll -1 units]
-      bind $w <KeyPress-Down>   [list $w scrollme $w yview scroll  1 units]
-      bind $w <KeyPress-Return> [list $w scrollme $w yview scroll  1 units]
-      bind $w <KeyPress-Right>  [list $w scrollme $w xview scroll  1 units]
-      bind $w <KeyPress-Left>   [list $w scrollme $w xview scroll -1 units]
-      bind $w <KeyPress-Next>   [list $w scrollme $w yview scroll  1 pages]
-      bind $w <KeyPress-space>  [list $w scrollme $w yview scroll  1 pages]
-      bind $w <KeyPress-Prior>  [list $w scrollme $w yview scroll -1 pages]
+      set wid $O(myWidget)
+      bind $w <KeyPress-Up>     [list $me scrollme $wid yview scroll -1 units]
+      bind $w <KeyPress-Down>   [list $me scrollme $wid yview scroll  1 units]
+      bind $w <KeyPress-Return> [list $me scrollme $wid yview scroll  1 units]
+      bind $w <KeyPress-Right>  [list $me scrollme $wid xview scroll  1 units]
+      bind $w <KeyPress-Left>   [list $me scrollme $wid xview scroll -1 units]
+      bind $w <KeyPress-Next>   [list $me scrollme $wid yview scroll  1 pages]
+      bind $w <KeyPress-space>  [list $me scrollme $wid yview scroll  1 pages]
+      bind $w <KeyPress-Prior>  [list $me scrollme $wid yview scroll -1 pages]
   
       $O(myVsb) configure -cursor "top_left_arrow"
       $O(myHsb) configure -cursor "top_left_arrow"
   
       grid configure $O(myWidget) -column 0 -row 0 -sticky nsew
-      grid columnconfigure $me 0 -weight 1
-      grid rowconfigure    $me 0 -weight 1
-      grid propagate       $me $O(-propagate)
+      grid columnconfigure $w 0 -weight 1
+      grid rowconfigure    $w 0 -weight 1
+      grid propagate       $w $O(-propagate)
   
       # First, set the values of -width and -height to the defaults for 
       # the scrolled widget class. Then configure this widget with the
@@ -63,7 +69,7 @@ namespace eval hv3 {
       $O(myHsb) configure -command [list $me scrollme $O(myWidget) xview]
   
       # Propagate events from the scrolled widget to this one.
-      bindtags $O(myWidget) [concat [bindtags $O(myWidget)] $O(myWidget)]
+      bindtags $O(myWidget) [concat [bindtags $O(myWidget)] $O(win)]
     }
 
     proc destroy {me} {
@@ -73,7 +79,7 @@ namespace eval hv3 {
   
     proc configure-propagate {me} {
       upvar #0 $me O
-      grid propagate $me $O(-propagate)
+      grid propagate $O(win) $O(-propagate)
     }
   
     proc take_control {me callback} {
@@ -135,6 +141,7 @@ namespace eval hv3 {
 
     set DelegateOption(-width) hull
     set DelegateOption(-height) hull
+    set DelegateOption(-cursor) hull
     set DelegateOption(*) myWidget
   }
 
@@ -422,32 +429,66 @@ proc ::hv3::configure_doctype_mode {html text pIsXhtml} {
 
 namespace eval ::hv3 {
 
-  proc handle_destroy {obj win} {
-    if {$obj eq $win} {$obj destroy}
+  variable Counter 1
+
+  proc handle_destroy {me obj win} {
+    if {$obj eq $win} {
+      upvar #0 $me O
+      rename $O(cmd) ""
+      $me destroy
+    }
+  }
+  proc handle_rename {me oldname newname op} {
+    upvar #0 $me O
+    set O(cmd) $newname
   }
 
   proc construct_object {ns obj arglist} {
-    if {$obj eq "%AUTO%"} {
-      set obj ${ns}::inst[incr ${ns}::_OBJ_COUNTER]
+
+    set PROC proc
+    if {[info commands real_proc] ne ""} {
+      set PROC real_proc
+    } 
+
+    set isWidget [expr {[string range $obj 0 0] eq "."}]
+
+    # The name of the array to use for this object.
+    set arrayname $obj
+    if {$arrayname eq "%AUTO%" || $isWidget} {
+      set arrayname ${ns}::inst[incr ${ns}::_OBJ_COUNTER]
     }
 
+    # Create the object command.
+    set body "namespace eval $ns \$m $arrayname \$args"
+    namespace eval :: [list $PROC $arrayname {m args} $body]
+
+    # If the first character of the new command name is ".", then
+    # this is a new widget. Populate the state array with the following
+    # special variables:
+    #
+    #   O(win)        Window path.
+    #   O(hull)       Window command.
+    #
     if {[string range $obj 0 0] eq "."} {
       variable HullType
-      $HullType($ns) $obj
-      namespace eval :: rename $obj ${obj}_win
-      set ::${obj}(hull) ${obj}_win
-      bind $obj <Destroy> [list ::hv3::handle_destroy $obj %w]
+      variable Counter
+      upvar #0 $arrayname O
+
+      set O(hull) ${obj}_win[incr Counter]
+      set O(win) $obj
+      eval $HullType($ns) $O(win)
+      namespace eval :: rename $O(win) $O(hull)
+
+      bind $obj <Destroy> +[list ::hv3::handle_destroy $arrayname $obj %W]
+
+      namespace eval :: [list $PROC $O(win) {m args} $body]
+      set O(cmd) $O(win)
+      trace add command $O(win) rename [list ::hv3::handle_rename $arrayname]
     }
 
-    set body "namespace eval $ns \$m $obj \$args"
-    if {[info commands real_proc] ne ""} {
-      namespace eval :: [list real_proc $obj {m args} $body]
-    } else {
-      namespace eval :: [list proc $obj {m args} $body]
-    }
-
-    namespace eval $ns new $obj $arglist
-    return $obj
+    # Call the object constructor.
+    namespace eval $ns new $arrayname $arglist
+    return [expr {$isWidget ? $obj : $arrayname}]
   }
 
   proc make_constructor {ns {hulltype frame}} {

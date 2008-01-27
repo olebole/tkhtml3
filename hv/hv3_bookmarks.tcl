@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.18 2007/11/17 10:56:10 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.19 2008/01/27 06:01:30 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
 
@@ -222,7 +222,7 @@ pressing enter.
     $treewidget populate_tree
     focus ${controller}.filter
 
-    foreach node [$html_hv3 search applet] {
+    foreach node [$html_hv3 html search applet] {
       $controller applet $node
     }
   }
@@ -552,7 +552,8 @@ pressing enter.
     }
 
     method seek_tree {} {
-      set C ${win}.canvas.widget
+      #set C ${win}.canvas.widget
+      set C ${win}.canvas
       foreach {page pageid} [$myController current] {}
       if {$page ne "folder" && $page ne "snapshot"} return
 
@@ -573,7 +574,8 @@ pressing enter.
     }
 
     method populate_tree {{isAutoOpen 0}} {
-      set C ${win}.canvas.widget
+      #set C ${win}.canvas.widget
+      set C ${win}.canvas
 
       set y 20
       set x 10
@@ -665,7 +667,7 @@ pressing enter.
     }
 
     method set_drag_tag {item} {
-      set C ${win}.canvas
+      set C ${win}.canvas.widget
       set tag1 [lindex [$C itemcget $item -tags] 0]
       if {[string range $tag1 0 7] eq "bookmark" ||
           [string range $tag1 0 5] eq "folder"
@@ -686,7 +688,7 @@ pressing enter.
     }
 
     method motion_event {x y} {
-      set C ${win}.canvas
+      set C ${win}.canvas.widget
       set x [$C canvasx $x]
       set y [$C canvasy $y]
       set hover [$C find overlapping $x $y $x $y]
@@ -1295,7 +1297,7 @@ pressing enter.
       set myTree $tree
       set myBrowser $browser
 
-      $myHv3 handler node applet [mymethod applet]
+      $myHv3 html handler node applet [mymethod applet]
 
       set searchcmd [subst -nocommands {
           $myHv3 goto "home://bookmarks/search/[${win}.filter get]"

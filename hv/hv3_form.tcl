@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.95 2008/01/26 14:03:00 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.96 2008/01/27 06:01:35 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -484,7 +484,7 @@ namespace eval ::hv3::forms::entrycontrol {
 
     set O(myNode) $node
 
-    set O(myWidget) [entry ${me}.entry]
+    set O(myWidget) [entry $O(win).entry]
 
     $O(myWidget) configure -highlightthickness 0 -borderwidth 0 
     $O(myWidget) configure -selectborderwidth 0
@@ -512,7 +512,7 @@ namespace eval ::hv3::forms::entrycontrol {
     bind $O(myWidget) <Shift-Tab> [list ::hv3::forms::tab [$O(myNode) html]]
 
     set tags [bindtags $O(myWidget)]
-    bindtags $O(myWidget) [concat $tags $me]
+    bindtags $O(myWidget) [concat $tags $O(win)]
 
     $me reset
     eval $me configure $args

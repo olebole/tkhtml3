@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.183 2008/01/24 10:29:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.184 2008/01/27 06:01:35 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -67,6 +67,7 @@ snit::type ::hv3::config {
   constructor {db args} {
     set myDb $db
 
+
     $myDb transaction {
       set rc [catch {
         $myDb eval {
@@ -77,6 +78,9 @@ snit::type ::hv3::config {
         foreach {n v} [array get options] {
           $myDb eval {INSERT INTO cfg_options1 VALUES($n, $v)}
         } 
+        if {[llength [info commands ::tkhtml::heapdebug]] > 0} {
+          $self configure -debuglevel 1
+        }
       } else {
         $myDb eval {SELECT name, value FROM cfg_options1} {
           set options($name) $value
@@ -85,7 +89,6 @@ snit::type ::hv3::config {
           }
         }
       }
-
     }
 
     ::hv3::$options(-icons)
@@ -469,7 +472,7 @@ snit::type ::hv3::debug_menu {
 
   variable MENU
 
-  variable myDebugLevel 0
+  variable myDebugLevel 
   variable myHv3Options
 
   constructor {hv3_options} {
