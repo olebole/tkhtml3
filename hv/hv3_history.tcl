@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.30 2008/01/27 14:39:24 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.31 2008/01/31 06:49:53 danielk1977 Exp $)} 1 }
 
 package require snit
 
@@ -652,7 +652,7 @@ namespace eval ::hv3::httpcache {
     set O(cache.[$handle cget -uri]) $handle
     $handle reference
     if {[llength $O(handles)]>=25} {
-      foreach h [lrange $O(handles 0 4] {
+      foreach h [lrange $O(handles) 0 4] {
         unset O(cache.[$h cget -uri])
         $h release
       }
