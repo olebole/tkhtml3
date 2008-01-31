@@ -497,6 +497,10 @@ return
     upvar #0 $me O
     return $O(myBrowser) 
   }
+  proc dom {me} { 
+    upvar #0 $me O
+    return [$O(myHv3) dom]
+  }
 
   # The [isframeset] method returns true if this widget instance has
   # been used to parse a frameset document (widget instances may parse
