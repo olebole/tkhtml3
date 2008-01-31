@@ -389,7 +389,7 @@ return
   }
 
   # Called when the user middle-clicks on the widget
-  proc goto_selection {me } {
+  proc goto_selection {me} {
     upvar #0 $me O
     set theTopFrame [lindex [$O(myBrowser) get_frames] 0]
     $theTopFrame goto [selection get]
@@ -423,7 +423,7 @@ return
     return $value
   }
 
-  proc update_statusvar {me } {
+  proc update_statusvar {me} {
     upvar #0 $me O
     if {$O(-statusvar) ne ""} {
       global $O(-statusvar)
@@ -465,7 +465,7 @@ return
   }
 
   # Launch the tree browser
-  proc browse {me } {
+  proc browse {me} {
     upvar #0 $me O
     ::HtmlDebug::browse $O(myHv3) [$O(myHv3) node]
   }
@@ -483,7 +483,7 @@ return
   # been used to parse a frameset document (widget instances may parse
   # either frameset or regular HTML documents).
   #
-  proc isframeset {me } {
+  proc isframeset {me} {
     upvar #0 $me O
     # When a <FRAMESET> tag is parsed, a node-handler in hv3_frameset.tcl
     # creates a widget to manage the frames and then uses [place] to 

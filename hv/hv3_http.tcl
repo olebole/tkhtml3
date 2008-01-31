@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.63 2008/01/27 07:30:46 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.64 2008/01/31 05:57:46 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -883,7 +883,7 @@ snit::type ::hv3::downloadmanager {
       foreach hv3 $myHv3List {
 
         set search "#$id .progressbar"
-        foreach N [$hv3 search $search] {
+        foreach N [$hv3 html search $search] {
           $N override [list width [$filedownload percentage]%]
         }
 
@@ -892,7 +892,7 @@ snit::type ::hv3::downloadmanager {
         if {[$filedownload state] eq "Finished"} {
           set val hidden
         }
-        foreach N [$hv3 search $search] { 
+        foreach N [$hv3 html search $search] { 
           $N override [list visibility $val] 
         }
 
@@ -901,19 +901,19 @@ snit::type ::hv3::downloadmanager {
           set val visible
         }
         set search "#$id .finished"
-        foreach N [$hv3 search $search] { 
+        foreach N [$hv3 html search $search] { 
           $N override [list visibility $val] 
         }
 
         set search "#$id .button"
-        foreach N [$hv3 search $search] { 
+        foreach N [$hv3 html search $search] { 
           set a(Finished)    Dismiss
           set a(Downloading) Cancel
           $N attr value $a([$filedownload state])
         }
 
         set search "#$id .status span"
-        foreach N [$hv3 search $search] { 
+        foreach N [$hv3 html search $search] { 
           set percent [format %.2f%s [$filedownload percentage] %]
           set bytes [$filedownload bytes]
           switch -- [$filedownload state] {

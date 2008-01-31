@@ -775,15 +775,15 @@ namespace eval ::hv3::hv3::selectionmanager {
   #
   proc get_selection {me offset maxChars} {
     upvar $me O
-    set t [$O(myHv3) text text]
+    set t [$O(myHv3) html text text]
 
     set n1 $O(myFromNode)
     set i1 $O(myFromIdx)
     set n2 $O(myToNode)
     set i2 $O(myToIdx)
 
-    set stridx_a [$O(myHv3) text offset $O(myFromNode) $O(myFromIdx)]
-    set stridx_b [$O(myHv3) text offset $O(myToNode) $O(myToIdx)]
+    set stridx_a [$O(myHv3) html text offset $O(myFromNode) $O(myFromIdx)]
+    set stridx_b [$O(myHv3) html text offset $O(myToNode) $O(myToIdx)]
     if {$stridx_a > $stridx_b} {
       foreach {stridx_a stridx_b} [list $stridx_b $stridx_a] {}
     }
@@ -799,7 +799,7 @@ namespace eval ::hv3::hv3::selectionmanager {
       if {$stridx_b < 0} {set stridx_b [string length $t]}
     }
   
-    set T [string range [$O(myHv3) text text] $stridx_a [expr $stridx_b - 1]]
+    set T [string range $t $stridx_a [expr $stridx_b - 1]]
     set T [string range $T $offset [expr $offset + $maxChars]]
 
     return $T
@@ -1202,7 +1202,7 @@ namespace eval ::hv3::hv3 {
     $O(myHtml) handler node body   [list $me body_node_handler]
 
     bind $win <Configure>  [list $me goto_fragment]
-    #bind [$win html].document <Visibility> [list $self VisibilityChange %s]
+    #bind [html $me].document <Visibility> [list $me VisibilityChange %s]
 
     eval $me configure $args
   }

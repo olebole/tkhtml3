@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.20 2008/01/27 14:39:24 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_bookmarks.tcl,v 1.21 2008/01/31 05:57:46 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3::bookmarks {
 
@@ -393,7 +393,7 @@ pressing enter.
     }
     method click_new_bookmark {} {
       ${win}.newbookmark configure -state normal
-      ::hv3::bookmarks::new_bookmark $self
+      ::hv3::bookmarks::new_bookmark ""
     }
 
     method click_importexport {} {
@@ -1108,7 +1108,7 @@ pressing enter.
   proc html_to_text {zHtml} {
     .tmphv3 reset
     .tmphv3 parse -final $zHtml
-    return [.tmphv3 text text]
+    return [.tmphv3 html text text]
   }
 
   proc rebuild_fts_database {} {
@@ -1565,7 +1565,7 @@ pressing enter.
       if {$::hv3::bookmarks::save_snapshot_variable && $hv3 ne ""} {
         set has_snapshot 1
         set snapshot [create_snapshot $hv3]
-        set snapshot_text [$hv3 text text]
+        set snapshot_text [$hv3 html text text]
       }
       set bookmarkid [
         db_store_new_bookmark 0 $caption $uri $desc $has_snapshot $snapshot $snapshot_text
@@ -1707,13 +1707,9 @@ pressing enter.
     bind .new.uri     <KeyPress-Return> {.new.save invoke}
   }
 
-  proc new_bookmark {treewidget} {
-    set hv3 ""
-    set dialog_version 2
-    if {[$treewidget info type] eq "::hv3::hv3"} {
-      set hv3 $treewidget
-      set dialog_version 1
-    }
+  proc new_bookmark {hv3} {
+    ::hv3::bookmarks::ensure_initialized
+    set dialog_version [expr {($hv3 eq "") ? 2 : 1}]
 
     create_bookmark_dialog $dialog_version
     .new.save configure \
@@ -1932,7 +1928,7 @@ pressing enter.
       set zCaption [[lindex [$titlenode children] 0] text]
     }
 
-    set text [[$hv3 html] text text]
+    set text [$hv3 html text text]
     db_store_new_bookmark $iFolder $zCaption $zUri $zDesc 2 $zSnapshot $text
   }
 
