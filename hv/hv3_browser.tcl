@@ -102,7 +102,8 @@ namespace eval ::hv3::browser_frame {
     # Create bindings for motion, right-click and middle-click.
     $O(myHv3) Subscribe motion [list $me motion]
     bind $O(win) <3>       [list $me rightclick %x %y %X %Y]
-    bind $O(win) <2>       [list $me goto_selection]
+    #bind $O(win) <2>       [list $me goto_selection]
+    bind $O(win) <2>       [list $me middleclick %x %y]
 
     # When the hyperlink menu "owns" the selection (happens after 
     # "Copy Link Location" is selected), invoke method 
@@ -271,6 +272,24 @@ return
       set O(myPositionId) [linsert $O(myPositionId) 0 0]
     }
     return $O(myPositionId)
+  }
+
+  proc middleclick {me x y} {
+    upvar #0 $me O
+    set node [lindex [$O(myHv3) node $x $y] 0]
+
+    set href ""
+    for {set N $node} {$N ne ""} {set N [$N parent]} {
+      if {[$N tag] eq "a" && [catch {$N attr href}]==0} {
+        set href [$O(myHv3) resolve_uri [$N attr href]]
+      }
+    }
+
+    if {$href eq ""} {
+      $me goto_selection
+    } else {
+      $me menu_select opentab $href
+    }
   }
 
   # This callback is invoked when the user right-clicks on this 

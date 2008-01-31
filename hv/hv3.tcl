@@ -1169,9 +1169,6 @@ namespace eval ::hv3::hv3 {
   
     set O(myTitleVar) ""
 
-
-    bindtags [$me html] [concat [bindtags [$me html]] $O(win)]
-
     $O(myMouseManager) subscribe motion [list $O(mySelectionManager) motion]
 
     $O(myFormManager) configure -getcmd  [list $me Formcmd get]
