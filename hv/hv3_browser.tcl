@@ -83,7 +83,6 @@ namespace eval ::hv3::browser_frame {
     set O(myX) 0                          ;# Current location of pointer
     set O(myY) 0                          ;# Current location of pointer
 
-    set O(myBrowser) $browser             ;# ::hv3::browser widget
     set O(myPositionId) ""                ;# See sub-command [positionid]
 
     # If "Copy Link Location" has been selected, store the selected text
@@ -123,7 +122,9 @@ namespace eval ::hv3::browser_frame {
     # Add this object to the browsers frames list. It will be removed by
     # the destructor proc. Also override the default -targetcmd
     # option of the ::hv3::hv3 widget with our own version.
-    $O(myBrowser) add_frame $O(win)
+    if {$O(myBrowser) ne ""} {
+      $O(myBrowser) add_frame $O(win)
+    }
     $O(myHv3) configure -targetcmd [list $me Targetcmd]
 
     ::hv3::menu $O(win).hyperlinkmenu
@@ -131,10 +132,19 @@ namespace eval ::hv3::browser_frame {
   }
   proc destroy {me} {
     upvar #0 $me O
-    catch {$self ConfigureName -name ""}
+    catch {$me ConfigureName -name ""}
     # Remove this object from the $theFrames list.
     catch {$O(myBrowser) del_frame $O(win)}
     catch {destroy $O(win).hyperlinkmenu}
+  }
+
+  proc set_browser {me browser} {
+    upvar #0 $me O
+    if {$O(myBrowser) ne ""} {
+      error "Invalid call to set_browser"
+    }
+    set O(myBrowser) $browser
+    $O(myBrowser) add_frame $O(win)
   }
 
   proc configure-name {me} {
@@ -445,7 +455,6 @@ return
   proc update_statusvar {me} {
     upvar #0 $me O
     if {$O(-statusvar) ne ""} {
-      global $O(-statusvar)
       set str ""
 
       set status_mode browser
@@ -557,73 +566,96 @@ return
 # a toplevel window - an html frame not contained in any frameset 
 # document). These are the things managed by the notebook widget.
 #
-snit::widget ::hv3::browser {
+namespace eval ::hv3::browser {
 
-  component myHistory                ;# The back/forward system
-  component myProtocol               ;# The ::hv3::protocol
-  component myMainFrame              ;# The browser_frame widget
-  component myDom                    ;# The ::hv3::dom object
-
-  # Variables passed to [$myProtocol configure -statusvar] and
-  # the same option of $myMainFrame. Used to create the value for 
-  # $myStatusVar.
-  variable myProtocolStatus ""
-  variable myFrameStatus ""
-
-  variable myStatusVar ""
-  variable myLocationVar ""
-
-  # List of all ::hv3::browser_frame objects using this object as
-  # their toplevel browser. 
-  variable myFrames [list]
-
-  method statusvar {} {return [myvar myStatusVar]}
-  delegate method titlevar to myMainFrame
-
-  constructor {args} {
+  proc new {me args} {
+    upvar #0 $me O
 
     # Initialize the global database connection if it has not already
     # been initialized. TODO: Remove the global variable.
     ::hv3::dbinit
 
-    set myDom [::hv3::dom %AUTO% $self]
+    set O(-stopbutton) ""
+    set O(-unsafe) 0
+    set O(-enablejavascript) 0
 
-    # Create the main browser frame (always present)
-    set myMainFrame [::hv3::browser_frame $win.frame $self]
-    pack $myMainFrame -expand true -fill both -side top
+    # Variables passed to [$myProtocol configure -statusvar] and
+    # the same option of $myMainFrame. Used to create the value for 
+    # $myStatusVar.
+    set O(myProtocolStatus) ""
+    set O(myFrameStatus) ""
 
-    # Create the protocol
-    set myProtocol [::hv3::protocol %AUTO%]
-    $myMainFrame configure -requestcmd       [list $myProtocol requestcmd]
+    set O(myStatusVar) ""
+    set O(myLocationVar) ""
 
-    set psc [list $self ProtocolStatusChanged]
-    trace add variable [myvar myProtocolStatus] write $psc
-    trace add variable [myvar myFrameStatus]    write [list $self Writestatus]
-    $myMainFrame configure -statusvar [myvar myFrameStatus]
-    $myProtocol  configure -statusvar [myvar myProtocolStatus]
+    # List of all ::hv3::browser_frame objects using this object as
+    # their toplevel browser. 
+    set O(myFrames) [list]
+
+    set O(myDom) [::hv3::dom %AUTO% $me]
+
+    # The main browser frame (always present).
+    set O(myHistory) ""
+    set O(myMainFrame) [::hv3::browser_frame $O(win).frame $me]
+    #set O(myMainFrame) $O(hull)
+
+    # Create the protocol object.
+    set O(myProtocol) [::hv3::protocol %AUTO%]
+
+    # The history sub-system.
+    set hv3 [$O(myMainFrame) hv3]
+    set O(myHistory) [::hv3::history %AUTO% $hv3 $O(myProtocol) $me]
+
+    # The widget may be in one of two states - "pending" or "not pending".
+    # "pending" state is when the browser is still waiting for one or more
+    # downloads to finish before the document is correctly displayed. In
+    # this mode the default cursor is an hourglass and the stop-button
+    # widget is in normal state (stop button is clickable).
+    #
+    # Otherwise the default cursor is "" (system default) and the stop-button
+    # widget is disabled.
+    #
+    set O(myIsPending) 0
+
+    set psc [list $me ProtocolStatusChanged]
+    trace add variable ${me}(myProtocolStatus) write $psc
+    trace add variable ${me}(myFrameStatus) write [list $me Writestatus]
+    $O(myMainFrame) configure -statusvar ${me}(myFrameStatus)
+    $O(myProtocol)  configure -statusvar ${me}(myProtocolStatus)
 
     # Link in the "home:" and "about:" scheme handlers (from hv3_home.tcl)
-    ::hv3::home_scheme_init [$myMainFrame hv3] $myProtocol
-    ::hv3::cookies_scheme_init $myProtocol
-    ::hv3::download_scheme_init [$myMainFrame hv3] $myProtocol
+    ::hv3::home_scheme_init [$O(myMainFrame) hv3] $O(myProtocol)
+    ::hv3::cookies_scheme_init $O(myProtocol)
+    ::hv3::download_scheme_init [$O(myMainFrame) hv3] $O(myProtocol)
 
-    # Create the history sub-system
-    set myHistory [::hv3::history %AUTO% [$myMainFrame hv3] $myProtocol $self]
-    $myHistory configure -gotocmd [list $self goto]
+    # Configure the history sub-system. TODO: Is this obsolete?
+    $O(myHistory) configure -gotocmd [list $me goto]
 
-    $self configurelist $args
+    $O(myMainFrame) configure -requestcmd [list $O(myProtocol) requestcmd]
+    pack $O(myMainFrame) -expand true -fill both -side top
+
+    eval $me configure $args
   }
 
-  destructor {
-    if {$myProtocol ne ""} { $myProtocol destroy }
-    if {$myHistory ne ""}  { $myHistory destroy }
-    if {$myDom ne ""}      { $myDom destroy }
+  proc destroy {me} {
+    upvar #0 $me O
+    if {$O(myProtocol) ne ""} { $O(myProtocol) destroy }
+    if {$O(myHistory) ne ""}  { $O(myHistory) destroy }
+    if {$O(myDom) ne ""}      { $O(myDom) destroy }
+  }
+
+  proc statusvar {me} { 
+    return ${me}(myStatusVar)
+  }
+  proc titlevar {me args} { 
+    upvar #0 $me O
+    eval $O(myMainFrame) titlevar $args
   }
 
   # This method is called to activate the download-manager to download
   # the specified URI ($uri) to the local file-system.
   #
-  method saveuri {uri} {
+  proc saveuri {me uri} {
     set handle [::hv3::request %AUTO%              \
         -uri         $uri                           \
         -mimetype    application/gzip               \
@@ -632,47 +664,53 @@ snit::widget ::hv3::browser {
         -incrscript [list ::hv3::the_download_manager savehandle $handle] \
         -finscript  [list ::hv3::the_download_manager savehandle $handle]
 
-    $myProtocol requestcmd $handle
+    $O(myProtocol) requestcmd $handle
   }
 
   # Interface used by code in class ::hv3::browser_frame for frame management.
   #
-  method add_frame {frame} {
-    lappend myFrames $frame
-    if {$myHistory ne ""} {
-      $myHistory add_hv3 [$frame hv3]
+  proc add_frame {me frame} {
+    upvar #0 $me O
+    lappend O(myFrames) $frame
+    if {$O(myHistory) ne ""} {
+      $O(myHistory) add_hv3 [$frame hv3]
     }
     set HTML [[$frame hv3] html]
     bind $HTML <1>               [list focus %W]
-    bind $HTML <KeyPress-slash>  [list $self Find]
-    bindtags $HTML [concat Hv3HotKeys $self [bindtags $HTML]]
-    if {[$myDom cget -enable]} {
-      $frame configure -dom $myDom
+    bind $HTML <KeyPress-slash>  [list $me Find]
+    bindtags $HTML [concat Hv3HotKeys $me [bindtags $HTML]]
+    if {[$O(myDom) cget -enable]} {
+      $frame configure -dom $O(myDom)
     }
     catch {$::hv3::G(config) configureframe $frame}
   }
-  method del_frame {frame} {
-    set idx [lsearch $myFrames $frame]
+  proc del_frame {me frame} {
+    upvar #0 $me O
+    set idx [lsearch $O(myFrames) $frame]
     if {$idx >= 0} {
-      set myFrames [lreplace $myFrames $idx $idx]
+      set O(myFrames) [lreplace $O(myFrames) $idx $idx]
     }
   }
-  method get_frames {} {return $myFrames}
+  proc get_frames {me} {
+    upvar #0 $me O
+    return $O(myFrames)
+  }
 
   # Return a list describing the current structure of the frameset 
   # displayed by this browser.
   #
-  method frames_tree {{head {}}} {
+  proc frames_tree {me {head {}}} {
+    upvar #0 $me O
     set ret ""
 
     array set A {}
-    foreach f [lsort $myFrames] {
+    foreach f [lsort $O(myFrames)] {
       set p [$f parent_frame]
       lappend A($p) $f
       if {![info exists A($f)]} {set A($f) [list]}
     }
 
-    foreach f [concat [lsort -decreasing $myFrames] [list {}]] {
+    foreach f [concat [lsort -decreasing $O(myFrames)] [list {}]] {
       set new [list]
       foreach child $A($f) {
         lappend new [list $child $A($child)]
@@ -684,60 +722,53 @@ snit::widget ::hv3::browser {
   }
 
   # This method is called by a [trace variable ... write] hook attached
-  # to the myProtocolStatus variable. Set myStatusVar.
-  method Writestatus {args} {
+  # to the O(myProtocolStatus) variable. Set O(myStatusVar).
+  proc Writestatus {me args} {
+    upvar #0 $me O
     set protocolstatus Done
-    if {[llength $myProtocolStatus] > 0} {
-      foreach {nWaiting nProgress nPercent} $myProtocolStatus break
+    if {[llength $O(myProtocolStatus)] > 0} {
+      foreach {nWaiting nProgress nPercent} $O(myProtocolStatus) break
       set protocolstatus "$nWaiting waiting, $nProgress progress  ($nPercent%)"
     }
-    set myStatusVar "$protocolstatus    $myFrameStatus"
+    set O(myStatusVar) "$protocolstatus    $O(myFrameStatus)"
   }
 
-  method ProtocolStatusChanged {args} {
-    $self pendingcmd [llength $myProtocolStatus]
-    $self Writestatus
+  proc ProtocolStatusChanged {me args} {
+    upvar #0 $me O
+    $me pendingcmd [llength $O(myProtocolStatus)]
+    $me Writestatus
   }
 
-  method set_frame_status {text} {
-    set myFrameStatus $text
+  proc set_frame_status {me text} {
+    upvar #0 $me O
+    set O(myFrameStatus) $text
   }
 
-  # The widget may be in one of two states - "pending" or "not pending".
-  # "pending" state is when the browser is still waiting for one or more
-  # downloads to finish before the document is correctly displayed. In
-  # this mode the default cursor is an hourglass and the stop-button
-  # widget is in normal state (stop button is clickable).
-  #
-  # Otherwise the default cursor is "" (system default) and the stop-button
-  # widget is disabled.
-  #
-  variable myIsPending 0
-
-  method pendingcmd {isPending} {
-    if {$options(-stopbutton) ne "" && $myIsPending != $isPending} {
+  proc pendingcmd {me isPending} {
+    upvar #0 $me O
+    if {$O(-stopbutton) ne "" && $O(myIsPending) != $isPending} {
       if {$isPending} { 
-        $hull configure -cursor watch
-        $options(-stopbutton) configure        \
-            -command [list $myMainFrame stop]  \
+        $O(hull) configure -cursor watch
+        $O(-stopbutton) configure        \
+            -command [list $O(myMainFrame) stop]  \
             -image hv3_stopimg                 \
             -tooltip "Stop Current Download"
       } else {
-        $hull configure -cursor ""
-        $options(-stopbutton) configure        \
+        $O(hull) configure -cursor ""
+        $O(-stopbutton) configure        \
             -command [list gui_current reload] \
             -image hv3_reloadimg               \
             -tooltip "Reload Current Document"
       }
     }
-    set myIsPending $isPending
+    set O(myIsPending) $isPending
   }
 
-  method Configurestopbutton {option value} {
-    set options(-stopbutton) $value
-    set val $myIsPending
-    set myIsPending -1
-    $self pendingcmd $val
+  proc configure-stopbutton {me} {
+    upvar #0 $me O
+    set val $O(myIsPending)
+    set O(myIsPending) -1
+    $me pendingcmd $val
   }
 
   # Escape --
@@ -745,15 +776,17 @@ snit::widget ::hv3::browser {
   #     This method is called when the <Escape> key sequence is seen.
   #     Get rid of the "find-text" widget, if it is currently visible.
   #
-  method escape {} {
+  proc escape {me } {
+    upvar #0 $me O
     catch {
-      destroy ${win}.findwidget
+      destroy $O(win).findwidget
     }
   }
 
-  method packwidget {w} {
-    pack $w -before $myMainFrame -side bottom -fill x -expand false
-    bind $w <Destroy> [list catch [list focus [[$myMainFrame hv3] html]]]
+  proc packwidget {me w} {
+    upvar #0 $me O
+    pack $w -before $O(myMainFrame) -side bottom -fill x -expand false
+    bind $w <Destroy> [list catch [list focus [[$O(myMainFrame) hv3] html]]]
   }
 
   # Find --
@@ -765,18 +798,19 @@ snit::widget ::hv3::browser {
   #         * Presses "/", or
   #         * Selects the "Edit->Find Text" pull-down menu command.
   #
-  method Find {} {
+  proc Find {me } {
+    upvar #0 $me O
 
-    set fdname ${win}.findwidget
+    set fdname $O(win).findwidget
     set initval ""
     if {[llength [info commands $fdname]] > 0} {
       set initval [${fdname}.entry get]
       destroy $fdname
     }
   
-    ::hv3::findwidget $fdname $self
+    ::hv3::findwidget $fdname $me
 
-    $self packwidget $fdname
+    $me packwidget $fdname
     $fdname configure -borderwidth 1 -relief raised
 
     # Bind up, down, next and prior key-press events to scroll the
@@ -784,7 +818,7 @@ snit::widget ::hv3::browser {
     # window (vertically) without shifting focus from the 
     # find-as-you-type box.
     #
-    set hv3 [$self hv3]
+    set hv3 [$me hv3]
     bind ${fdname} <KeyPress-Up>    [list $hv3 yview scroll -1 units]
     bind ${fdname} <KeyPress-Down>  [list $hv3 yview scroll  1 units]
     bind ${fdname} <KeyPress-Next>  [list $hv3 yview scroll  1 pages]
@@ -807,8 +841,9 @@ snit::widget ::hv3::browser {
   #       "hide"            (hide gui)
   #       "toggle"          (display if hidden, hide if displayed)
   #
-  method ProtocolGui {cmd} {
-    set name ${win}.protocolgui
+  proc ProtocolGui {me cmd} {
+    upvar #0 $me O
+    set name $O(win).protocolgui
     set exists [winfo exists $name]
 
     switch -- $cmd {
@@ -825,54 +860,62 @@ snit::widget ::hv3::browser {
     if {$cmd eq "hide"} {
       destroy $name
     } else {
-      $myProtocol gui $name
-      $self packwidget $name
+      $O(myProtocol) gui $name
+      $me packwidget $name
     }
   }
 
-  method history {} {
-    return $myHistory
+  proc history {me } {
+    upvar #0 $me O
+    return $O(myHistory)
   }
 
-  method reload {} {
-    $myHistory reload
+  proc reload {me } {
+    upvar #0 $me O
+    $O(myHistory) reload
   }
 
-  option -enablejavascript                         \
-      -default 0                                   \
-      -configuremethod ConfigureEnableJavascript   \
-      -cgetmethod      CgetEnableJavascript
-
-  method ConfigureEnableJavascript {option value} {
-    $myDom configure -enable $value
+  proc configure-enablejavascript {me} {
+    upvar #0 $me O
+    $O(myDom) configure -enable $value
     set dom ""
-    if {$value} { set dom $myDom }
-    foreach f $myFrames {
+    if {$value} { set dom $O(myDom) }
+    foreach f $O(myFrames) {
       $f configure -dom $dom
     }
   }
-  method CgetEnableJavascript {option} {
-    $myDom cget -enable
+
+  proc populate_history_menu {me args} {
+    upvar #0 $me O
+    eval $O(myHistory) populate_menu $args
+  }
+  proc populatehistorymenu {me args} {
+    upvar #0 $me O
+    eval $O(myHistory) populatehistorymenu $args
+  }
+  proc locationvar {me args} {
+    upvar #0 $me O
+    eval $O(myHistory) locationvar $args
+  }
+  proc debug_cookies {me args} {
+    upvar #0 $me O
+    eval $O(myProtocol) debug_cookies $args
   }
 
-  delegate method populate_history_menu to myHistory as populate_menu
+  set DelegateOption(-backbutton)    myHistory
+  set DelegateOption(-forwardbutton) myHistory
+  set DelegateOption(-locationentry) myHistory
+  set DelegateOption(*) myMainFrame
 
-  option -stopbutton -default "" -configuremethod Configurestopbutton
-
-  option -unsafe -default 0
-
-  delegate option -backbutton    to myHistory
-  delegate option -forwardbutton to myHistory
-  delegate option -locationentry to myHistory
-
-  delegate method locationvar to myHistory
-  delegate method populatehistorymenu to myHistory
-
-  delegate method debug_cookies to myProtocol
-
-  delegate option * to myMainFrame
-  delegate method * to myMainFrame
+  proc unknown {method me args} {
+    # puts "UNKNOWN: $me $method $args"
+    upvar #0 $me O
+    uplevel 3 [list eval $O(myMainFrame) $method $args]
+  }
+  namespace unknown unknown
 }
+
+::hv3::make_constructor ::hv3::browser
 
 set ::hv3::maindir [file dirname [info script]] 
 

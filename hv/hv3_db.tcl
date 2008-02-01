@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.22 2008/01/24 10:29:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_db.tcl,v 1.23 2008/02/01 07:54:52 danielk1977 Exp $)} 1 }
 
 # Class ::hv3::visiteddb
 #
@@ -375,7 +375,7 @@ proc ::hv3::dbinit {} {
   if {![info exists ::hv3::statefile]} {set ::hv3::statefile ""}
 
   sqlite3 ::hv3::sqlitedb $::hv3::statefile
-  ::hv3::profile::instrument ::hv3::sqlitedb
+  catch {::hv3::profile::instrument ::hv3::sqlitedb}
   ::hv3::sqlitedb eval {PRAGMA synchronous = OFF}
   ::hv3::sqlitedb timeout 2000
   ::hv3::sqlitedb function result_transform ::hv3::bookmarks::result_transform
