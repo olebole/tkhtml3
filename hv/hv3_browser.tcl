@@ -135,7 +135,7 @@ namespace eval ::hv3::browser_frame {
     catch {$me ConfigureName -name ""}
     # Remove this object from the $theFrames list.
     catch {$O(myBrowser) del_frame $O(win)}
-    catch {destroy $O(win).hyperlinkmenu}
+    catch {::destroy $O(win).hyperlinkmenu}
   }
 
   proc set_browser {me browser} {
@@ -632,7 +632,11 @@ namespace eval ::hv3::browser {
     $O(myHistory) configure -gotocmd [list $me goto]
 
     $O(myMainFrame) configure -requestcmd [list $O(myProtocol) requestcmd]
-    pack $O(myMainFrame) -expand true -fill both -side top
+
+    # pack $O(myMainFrame) -expand true -fill both -side top
+    grid $O(myMainFrame) -sticky nsew
+    grid rowconfigure $O(win) 0 -weight 1
+    grid columnconfigure $O(win) 0 -weight 1
 
     eval $me configure $args
   }
@@ -776,16 +780,14 @@ namespace eval ::hv3::browser {
   #     This method is called when the <Escape> key sequence is seen.
   #     Get rid of the "find-text" widget, if it is currently visible.
   #
-  proc escape {me } {
+  proc escape {me} {
     upvar #0 $me O
-    catch {
-      destroy $O(win).findwidget
-    }
+    catch { ::destroy $O(win).findwidget }
   }
 
-  proc packwidget {me w} {
+  proc packwidget {me w {row 1}} {
     upvar #0 $me O
-    pack $w -before $O(myMainFrame) -side bottom -fill x -expand false
+    grid $w -column 0 -row $row -sticky nsew
     bind $w <Destroy> [list catch [list focus [[$O(myMainFrame) hv3] html]]]
   }
 
@@ -805,7 +807,7 @@ namespace eval ::hv3::browser {
     set initval ""
     if {[llength [info commands $fdname]] > 0} {
       set initval [${fdname}.entry get]
-      destroy $fdname
+      ::destroy $fdname
     }
   
     ::hv3::findwidget $fdname $me
@@ -858,10 +860,10 @@ namespace eval ::hv3::browser {
     }
 
     if {$cmd eq "hide"} {
-      destroy $name
+      ::destroy $name
     } else {
       $O(myProtocol) gui $name
-      $me packwidget $name
+      $me packwidget $name 2
     }
   }
 

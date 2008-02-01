@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.66 2008/01/06 08:45:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_prop.tcl,v 1.67 2008/02/01 08:35:30 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_prop.tcl --
@@ -25,10 +25,10 @@ package require Tk
 # related to it.
 #
 namespace eval ::HtmlDebug {
-  proc browse {HTML {node ""}} {
-    set name ${HTML}.debug
+  proc browse {hv3 {node ""}} {
+    set name [$hv3 html].debug
     if {![winfo exists $name]} {
-      HtmlDebug $name $HTML
+      HtmlDebug $name $hv3
     }
     return [$name browseNode $node]
   }
@@ -132,7 +132,7 @@ snit::widget ::hv3::debug::tree {
     } elseif {[regexp {::tkhtml::node([1234567890]+)} $selector X int]} {
       set mySearchResults [list "::tkhtml::node${int}"]
     } elseif {$selector ne ""} {
-      set mySearchResults [$myHtml search $selector]
+      set mySearchResults [$myHtml html search $selector]
     }
 
     if {[llength $mySearchResults] > 0} {
@@ -228,7 +228,7 @@ snit::widget ::hv3::debug::tree {
     set XINCR [expr $IWIDTH + 2]
     set YINCR [expr $IHEIGHT + 5]
 
-    set tree $myCanvas
+    set tree [$myCanvas widget]
 
     set label [prop_nodeToLabel $node]
     if {$label == ""} {return 0}
