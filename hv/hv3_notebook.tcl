@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.8 2008/01/20 05:59:13 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.9 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of three snit widgets:
 #
@@ -502,4 +502,6 @@ snit::widgetadaptor ::hv3::tabset {
 
   method current {} { $hull select }
   method tabs    {} { $hull tabs }
+
+  delegate method select to hull
 }

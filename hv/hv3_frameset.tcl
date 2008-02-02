@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.17 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_frameset.tcl,v 1.18 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
 
 # This file contains code for implementing HTML frameset documents in Hv3. 
 #
@@ -23,8 +23,8 @@ namespace eval hv3 {
   # Create a window name to use for a replaced object for node $node.
   # The first argument is the name of an ::hv3::browser_frame widget.
   #
-  proc create_widget_name {browser_frame node} {
-    return [[$browser_frame hv3] html].[string map {: _} $node]
+  proc create_widget_name {node} {
+    return [$node html].[string map {: _} $node]
   }
 
   proc multilength_to_list {multilength} {
@@ -49,7 +49,7 @@ namespace eval hv3 {
       if {[$N tag] eq "frameset"} return
     }
 
-    set win [create_widget_name $browser_frame $node]
+    set win [create_widget_name $node]
     ::hv3::frameset $win $browser_frame $node
 
     # The 'display' property of <frameset> elements is set to "none" by
@@ -75,7 +75,7 @@ namespace eval hv3 {
     set hv3 [$browser_frame hv3]
 
     # Create an ::hv3::browser_frame to display the resource.
-    set panel [create_widget_name $browser_frame $node]
+    set panel [create_widget_name $node]
     ::hv3::browser_frame $panel [$browser_frame browser]
     [[$panel hv3] html] configure -shrink 1
 
@@ -301,7 +301,7 @@ snit::widget ::hv3::frameset {
 	  # For a frameset, we need to create the equivalent HTML document.
           set doc "<html>[::hv3::get_markup $pnode]</html>"
           $phv3 seturi [$myHv3 resolve_uri "internal"]
-          $phv3 parse -final $doc
+          $phv3 html parse -final $doc
         }
       }
     }

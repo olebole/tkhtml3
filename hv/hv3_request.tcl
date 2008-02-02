@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.26 2008/01/27 07:30:46 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.27 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -168,6 +168,7 @@ namespace eval ::hv3::request {
     # The binary data returned by the protocol implementation is 
     # accumulated in this variable.
     set O(myRaw) {}
+    set O(myRawMode) 0
   
     # If this variable is non-zero, then the first $myRawPos bytes of
     # $myRaw have already been passed to Hv3 via the -incrscript 
@@ -209,6 +210,11 @@ namespace eval ::hv3::request {
   proc rawdata {me} {
     upvar $me O
     return $O(myRaw)
+  }
+  proc set_rawmode {me} {
+    upvar $me O
+    set O(myRawMode) 1
+    set O(myRaw) ""
   }
 
   # Increment the object refcount.
@@ -288,11 +294,18 @@ namespace eval ::hv3::request {
   # Interface for returning data.
   proc append {me raw} {
     upvar $me O
+
+    if {$O(myRawMode)} {
+      eval [linsert $O(-incrscript) end $raw]
+      return
+    }
+
     ::append O(myRaw) $raw
 
     if {$O(-incrscript) != ""} {
       # There is an -incrscript callback configured. If enough data is 
       # available, invoke it.
+
       set nLast 0
       foreach zWhite [list " " "\n" "\t"] {
         set n [string last $zWhite $O(myRaw)]
@@ -322,6 +335,15 @@ namespace eval ::hv3::request {
 
     if {$O(myIsFinished)} {error "finish called twice on $me"}
     set O(myIsFinished) 1
+
+    if {$O(myRawMode)} {
+      foreach hook $O(myFinishHookList) {
+        eval $hook
+      }
+      eval [linsert $O(-finscript) end $raw]
+     return
+    }
+
     ::append O(myRaw) $raw
 
     set zDecoded [string range $O(myRaw) $O(myRawPos) end]

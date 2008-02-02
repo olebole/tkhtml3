@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.31 2008/01/31 06:49:53 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.32 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
 
 package require snit
 
@@ -474,7 +474,9 @@ snit::widget ::hv3::locationentry {
     # Create the listbox for the drop-down list. This is a child of
     # the same top-level as the ::hv3::locationentry widget...
     #
-    set myListbox [winfo toplevel $win][string map {. _} ${win}]
+    set top [winfo toplevel $win]
+    if {$top eq "."} {set top ""}
+    set myListbox $top.[string map {. _} ${win}]
     ::hv3::scrolledlistbox $myListbox -takefocus 0
 
     # Any button-press anywhere in the GUI folds up the drop-down menu.
@@ -649,7 +651,14 @@ namespace eval ::hv3::httpcache {
   proc add {me handle} {
     upvar #0 $me O
     lappend O(handles) $handle
-    set O(cache.[$handle cget -uri]) $handle
+
+    set key catch.[$handle cget -uri]
+    if {[info exists O($key)]} {
+      set idx [lsearch $O(handles) $O($key)]
+      set O(handles) [lreplace $O(handles) $idx $idx]
+    }
+    set O($key) $handle
+
     $handle reference
     if {[llength $O(handles)]>=25} {
       foreach h [lrange $O(handles) 0 4] {

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.13 2008/01/24 10:29:21 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.14 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -613,10 +613,10 @@ namespace eval ::hv3::console_commands {
     if {$all_tabs} {
       set data [list]
       foreach browser [.notebook tabs] {
-        eval lappend data [[$browser hv3] _images]
+        eval lappend data [[$browser hv3] html _images]
       }
     } else {
-      set data [hv3 _images]
+      set data [hv3 html _images]
     }
 
     set header [list URL "Tk image" pixmap width height alpha references]

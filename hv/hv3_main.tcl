@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.185 2008/01/27 14:39:24 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.186 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -34,6 +34,99 @@ namespace eval ::hv3 {
   set log_source_option 0
   set reformat_scripts_option 0
 }
+
+# This class is used to create toplevel "sub-window" widgets. Sub-windows
+# are toplevel windows that contain a single [::hv3::browser] object.
+#
+# Sub-windows are different from the main window in several ways:
+#
+#   * There is no menubar.
+#   * There is no "new tab", "home" or "bug report button on the toolbar.
+#   * It is not possible to open new tabs in a sub-window.
+#
+# These restrictions are because Hv3 is a tabbed browser. New views are
+# supposed to live in tabs, not separate toplevel windows. If the user 
+# really wants more than one window, more than one copy of the browser
+# should be started. Sub-windows are provided purely for the benefit of
+# those javascript applications that have UIs that require multiple 
+# windows.
+#
+namespace eval ::hv3::subwindow {
+
+  set counter 1
+
+  proc new {me args} {
+    upvar #0 $me O
+
+    set O(browser)  [::hv3::browser $O(win).browser]
+    set O(label)    [::hv3::label $O(win).label -anchor w -width 1]
+    set O(location) [::hv3::locationentry $O(win).location]
+
+    set O(stop_button) $O(win).stop
+    set O(back_button) $O(win).back
+    set O(next_button) $O(win).next
+
+    ::hv3::toolbutton $O(stop_button) -text {Stop} -tooltip "Stop"
+    ::hv3::toolbutton $O(next_button) -text {Forward} -tooltip "Go Forward"
+    ::hv3::toolbutton $O(back_button) -text {Back} -tooltip "Go Back"
+   
+    grid $O(back_button) $O(next_button) $O(stop_button) 
+    grid $O(location)    -column 3 -row 0 -sticky ew
+    grid $O(browser)     -column 0 -row 1 -sticky nsew -columnspan 4
+    grid $O(label)       -column 0 -row 2 -sticky nsew -columnspan 4
+
+    grid columnconfigure $O(win) 3 -weight 1
+    grid rowconfigure    $O(win) 1 -weight 1
+
+    $O(back_button) configure -image hv3_previmg
+    $O(next_button) configure -image hv3_nextimg
+    $O(stop_button) configure -image hv3_reloadimg
+
+    $O(label)    configure -textvar       [$O(browser) statusvar] 
+    $O(browser)  configure -stopbutton    $O(stop_button)
+    $O(browser)  configure -forwardbutton $O(next_button)
+    $O(browser)  configure -backbutton    $O(back_button)
+    $O(browser)  configure -locationentry $O(location)
+    $O(location) configure -command       [list $me GotoLocation]
+
+    $O(browser) configure -width 600 -height 400
+
+    set O(titlevarname)    [$O(browser) titlevar]
+    set O(locationvarname) [$O(browser) locationvar]
+
+    # Set up traces on the browser title and location. Use these to
+    # set the title of the toplevel window.
+    trace add variable $O(titlevarname)    write [list $me SetTitle]
+    trace add variable $O(locationvarname) write [list $me SetTitle]
+  }
+
+  proc SetTitle {me args} {
+    upvar #0 $me O
+    set T [set [$O(browser) titlevar]]
+    if {$T eq ""} {
+      set T [set [$O(browser) locationvar]]
+    }
+    wm title $O(win) $T
+  }
+
+  proc destroy {me} {
+    upvar #0 $me O
+    trace remove variable $O(titlevarname)    write [list $me SetTitle]
+    trace remove variable $O(locationvarname) write [list $me SetTitle]
+  }
+
+  proc goto {me uri} {
+    upvar #0 $me O
+    $O(browser) goto $uri
+  }
+
+  proc GotoLocation {me} {
+    upvar #0 $me O
+    set uri [$O(location) get]
+    $O(browser) goto $uri
+  }
+}
+::hv3::make_constructor ::hv3::subwindow toplevel
 
 # ::hv3::config
 #
@@ -424,9 +517,10 @@ snit::type ::hv3::file_menu {
       "Open Tab"      [list $::hv3::G(notebook) add]                    t  \
       "Open Location" [list gui_openlocation $::hv3::G(location_entry)] l  \
       "-----"         ""                                                "" \
-      "Bookmark Page" [list ::hv3::gui_bookmark]                        b  \
+      "Bookmark This Page" [list ::hv3::gui_bookmark]                   b  \
       "-----"         ""                                                "" \
       "Downloads..."  [list ::hv3::the_download_manager show]           "" \
+      "Bookmarks..."  [list gui_current goto home://bookmarks/]         "" \
       "-----"         ""                                                "" \
       "Close Tab"     [list $::hv3::G(notebook) close]                  "" \
       "Exit"          exit                                              q  \
@@ -487,6 +581,7 @@ snit::type ::hv3::debug_menu {
       "Tree Browser..."      [list gui_current browse]                    "" \
       "Debugging Console..." [list ::hv3::launch_console]                 d  \
       "-----"                [list]                                       "" \
+      "Sub-Window..."        gui_subwindow                                "" \
       "Exec firefox -remote" [list gui_firefox_remote]                    "" \
       "-----"                   [list]                                    "" \
       "Reset Profiling Data..." [list ::hv3::profile::zero]               "" \
@@ -559,7 +654,6 @@ snit::type ::hv3::debug_menu {
 #
 #     gui_build
 #     gui_menu
-#       gui_load_tkcon
 #       create_fontsize_menu
 #       create_fontscale_menu
 #
@@ -667,26 +761,6 @@ proc gui_build {widget_array} {
 proc goto_gui_location {browser entry args} {
   set location [$entry get]
   $browser goto $location
-}
-
-# A helper function for gui_menu.
-#
-# This procedure attempts to load the tkcon package. An error is raised
-# if the package cannot be loaded. On success, an empty string is returned.
-#
-proc gui_load_tkcon {} {
-  foreach f [list \
-    [file join $::tcl_library .. .. bin tkcon] \
-    [file join $::tcl_library .. .. bin tkcon.tcl]
-  ] {
-    if {[file exists $f]} {
-      uplevel #0 "source $f"
-      package require tkcon
-      return 
-    }
-  }
-  error "Failed to load Tkcon"
-  return ""
 }
 
 proc gui_openlocation {location_entry} {
@@ -966,6 +1040,17 @@ proc gui_set_memstatus {widget_array} {
   }
 }
 
+# Launch a new sub-window.
+#
+proc gui_subwindow {{uri ""}} {
+  set name ".subwindow_[incr ::hv3::subwindow::counter]"
+  ::hv3::subwindow $name
+  if {$uri eq ""} {
+    set uri [[gui_current hv3] uri get]
+  }
+  $name goto $uri
+}
+
 # Override the [exit] command to check if the widget code leaked memory
 # or not before exiting.
 #
@@ -975,11 +1060,6 @@ proc exit {args} {
   catch {destroy .prop.hv3}
   catch {::tkhtml::htmlalloc}
   eval [concat tcl_exit $args]
-}
-
-proc JS {args} {
-  set script [join $args " "]
-  [[gui_current hv3] dom] javascript $script
 }
 
 #--------------------------------------------------------------------------

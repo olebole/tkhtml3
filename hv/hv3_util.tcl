@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.8 2008/01/27 14:39:24 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_util.tcl,v 1.9 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
 
 
 namespace eval hv3 {
@@ -434,8 +434,9 @@ namespace eval ::hv3 {
   proc handle_destroy {me obj win} {
     if {$obj eq $win} {
       upvar #0 $me O
-      rename $O(cmd) ""
+      set cmd $O(cmd)
       $me destroy
+      rename $cmd ""
     }
   }
   proc handle_rename {me oldname newname op} {

@@ -18,6 +18,7 @@ source [sourcefile hv3.tcl]
 source [sourcefile hv3_prop.tcl]
 source [sourcefile hv3_log.tcl]
 source [sourcefile hv3_http.tcl]
+source [sourcefile hv3_download.tcl]
 source [sourcefile hv3_frameset.tcl]
 source [sourcefile hv3_polipo.tcl]
 source [sourcefile hv3_icons.tcl]
@@ -67,6 +68,7 @@ namespace eval ::hv3::browser_frame {
     # The name of this frame (as specified by the "name" attribute of 
     # the <frame> element).
     set O(-name) ""
+    set O(oldname) ""
 
     # If this [::hv3::browser_frame] is used as a replacement object
     # for an <iframe> element, then this option is set to the Tkhtml3
@@ -96,7 +98,6 @@ namespace eval ::hv3::browser_frame {
     ::hv3::the_visited_db init $O(myHv3)
 
     catch {$O(myHv3) configure -fonttable $::hv3::fontsize_table}
-    $O(myHv3) configure -downloadcmd {::hv3::the_download_manager savehandle}
 
     # Create bindings for motion, right-click and middle-click.
     $O(myHv3) Subscribe motion [list $me motion]
@@ -134,23 +135,12 @@ namespace eval ::hv3::browser_frame {
     upvar #0 $me O
     catch {$me ConfigureName -name ""}
     # Remove this object from the $theFrames list.
-    catch {$O(myBrowser) del_frame $O(win)}
+    catch {$O(myBrowser) del_frame $O(win)} msg
     catch {::destroy $O(win).hyperlinkmenu}
-  }
-
-  proc set_browser {me browser} {
-    upvar #0 $me O
-    if {$O(myBrowser) ne ""} {
-      error "Invalid call to set_browser"
-    }
-    set O(myBrowser) $browser
-    $O(myBrowser) add_frame $O(win)
   }
 
   proc configure-name {me} {
     upvar #0 $me O
-puts "TODODODODODOD"
-return
 
     # This method is called when the "name" of attribute of this
     # frame is modified. If javascript is enabled we have to update
@@ -161,16 +151,17 @@ return
       if {$parent ne ""} {
         set parent_window [list ::hv3::DOM::Window $dom [$parent hv3]]
         set this_win [list ::hv3::DOM::Window $dom $O(myHv3)]
-        if {$O(-name) ne ""} {
-          $dom set_object_property $parent_window $O(-name) undefined
+        if {$O(oldname) ne ""} {
+          $dom set_object_property $parent_window $O(oldname) undefined
         }
-        if {$value ne ""} {
-          $dom set_object_property $parent_window $value [list object $this_win]
+        if {$O(-name) ne ""} {
+          set val [list object $this_win]
+          $dom set_object_property $parent_window $O(-name) $val
         }
       }
     }
 
-    set O(-name) $value
+    set O(oldname) $O(-name)
   }
 
   proc Targetcmd {me node} {
@@ -533,15 +524,16 @@ return
   }
 
   set DelegateOption(-forcefontmetrics) myHv3
-  set DelegateOption(-fonttable) myHv3
-  set DelegateOption(-fontscale) myHv3
-  set DelegateOption(-zoom) myHv3
-  set DelegateOption(-enableimages) myHv3
-  set DelegateOption(-dom) myHv3
-  set DelegateOption(-width) myHv3
-  set DelegateOption(-height) myHv3
-  set DelegateOption(-requestcmd) myHv3
-  set DelegateOption(-resetcmd) myHv3
+  set DelegateOption(-fonttable)        myHv3
+  set DelegateOption(-fontscale)        myHv3
+  set DelegateOption(-zoom)             myHv3
+  set DelegateOption(-enableimages)     myHv3
+  set DelegateOption(-dom)              myHv3
+  set DelegateOption(-width)            myHv3
+  set DelegateOption(-height)           myHv3
+  set DelegateOption(-requestcmd)       myHv3
+  set DelegateOption(-resetcmd)         myHv3
+  set DelegateOption(-downloadcmd)      myHv3
 
   proc stop {me args} {
     upvar #0 $me O
@@ -594,13 +586,13 @@ namespace eval ::hv3::browser {
 
     set O(myDom) [::hv3::dom %AUTO% $me]
 
+    # Create the protocol object.
+    set O(myProtocol) [::hv3::protocol %AUTO%]
+
     # The main browser frame (always present).
     set O(myHistory) ""
     set O(myMainFrame) [::hv3::browser_frame $O(win).frame $me]
     #set O(myMainFrame) $O(hull)
-
-    # Create the protocol object.
-    set O(myProtocol) [::hv3::protocol %AUTO%]
 
     # The history sub-system.
     set hv3 [$O(myMainFrame) hv3]
@@ -660,13 +652,15 @@ namespace eval ::hv3::browser {
   # the specified URI ($uri) to the local file-system.
   #
   proc saveuri {me uri} {
+    upvar #0 $me O
+
     set handle [::hv3::request %AUTO%              \
         -uri         $uri                           \
         -mimetype    application/gzip               \
     ]
     $handle configure \
-        -incrscript [list ::hv3::the_download_manager savehandle $handle] \
-        -finscript  [list ::hv3::the_download_manager savehandle $handle]
+        -incrscript [list ::hv3::the_download_manager savehandle "" $handle] \
+        -finscript  [list ::hv3::the_download_manager savehandle "" $handle]
 
     $O(myProtocol) requestcmd $handle
   }
@@ -675,6 +669,7 @@ namespace eval ::hv3::browser {
   #
   proc add_frame {me frame} {
     upvar #0 $me O
+
     lappend O(myFrames) $frame
     if {$O(myHistory) ne ""} {
       $O(myHistory) add_hv3 [$frame hv3]
@@ -686,6 +681,10 @@ namespace eval ::hv3::browser {
     if {[$O(myDom) cget -enable]} {
       $frame configure -dom $O(myDom)
     }
+
+    set cmd [list ::hv3::the_download_manager savehandle $O(myProtocol)]
+    $frame configure -downloadcmd $cmd
+
     catch {$::hv3::G(config) configureframe $frame}
   }
   proc del_frame {me frame} {
@@ -760,7 +759,7 @@ namespace eval ::hv3::browser {
       } else {
         $O(hull) configure -cursor ""
         $O(-stopbutton) configure        \
-            -command [list gui_current reload] \
+            -command [list $me reload] \
             -image hv3_reloadimg               \
             -tooltip "Reload Current Document"
       }
@@ -879,9 +878,9 @@ namespace eval ::hv3::browser {
 
   proc configure-enablejavascript {me} {
     upvar #0 $me O
-    $O(myDom) configure -enable $value
+    $O(myDom) configure -enable $O(-enablejavascript)
     set dom ""
-    if {$value} { set dom $O(myDom) }
+    if {$O(-enablejavascript)} { set dom $O(myDom) }
     foreach f $O(myFrames) {
       $f configure -dom $dom
     }

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.57 2008/01/27 08:00:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.58 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -113,7 +113,8 @@ namespace eval ::hv3 {
       $myButton configure -relief flat -overrelief raised
     }
     set top [winfo toplevel $myButton]
-    set myPopup ${top}[string map {. _} $myButton]
+    if {$top eq "."} {set top ""}
+    set myPopup ${top}.[string map {. _} $myButton]
     set myPopupLabel ${myPopup}.label
     frame $myPopup -bg black
     ::label $myPopupLabel -fg black -bg white
@@ -392,7 +393,7 @@ snit::widget ::hv3::findwidget {
     set ntop    [expr ([lindex $nodebbox 1].0 - 30.0) / $docheight]
     set nbottom [expr ([lindex $nodebbox 3].0 + 30.0) / $docheight]
  
-    set sheight [expr [winfo height $hv3].0 / $docheight]
+    set sheight [expr [winfo height [$hv3 html]].0 / $docheight]
     set stop    [lindex [$hv3 yview] 0]
     set sbottom [expr $stop + $sheight]
 
