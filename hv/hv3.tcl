@@ -1234,6 +1234,9 @@ namespace eval ::hv3::hv3 {
       after cancel $O(myRefreshEventId)
       set O(myRefreshEventId) ""
     }
+
+    unset $me
+    rename $me {}
   }
 
   proc VisibilityChange {me state} {
@@ -1799,10 +1802,6 @@ namespace eval ::hv3::hv3 {
         }
       }
 
-      $O(myUri) load [$handle cget -uri]
-      $O(myBase) load [$O(myUri) get]
-      $me SetLocationVar
-
       # If there is a "Location" or "Refresh" header, handle it now.
       set refreshheader ""
       foreach {name value} [$handle cget -header] {
@@ -1815,16 +1814,10 @@ namespace eval ::hv3::hv3 {
           }
         }
       }
-      if {$refreshheader ne ""} {
-	if {[$me Refresh $refreshheader]} {
-	  # Immediate refresh is requested.
-	  # No need to parse body.
-	  $handle release
-	  return
-        }
-      }
+
+      set isImmediateRefresh [$me Refresh $refreshheader]
   
-      if {$O(myMimetype) eq ""} {
+      if {!$isImmediateRefresh && $O(myMimetype) eq ""} {
         # Neither text nor an image. This is the upper layers problem.
         if {$O(-downloadcmd) ne ""} {
           # Remove the download handle from the list of handles to cancel
@@ -1837,6 +1830,15 @@ namespace eval ::hv3::hv3 {
           set sheepish "Don't know how to handle \"$mimetype\""
           tk_dialog .apology "Sheepish apology" $sheepish 0 OK
         }
+        return
+      }
+
+      $O(myUri)  load [$handle cget -uri]
+      $O(myBase) load [$O(myUri) get]
+      $me SetLocationVar
+
+      if {$isImmediateRefresh} {
+        $handle release
         return
       }
 
