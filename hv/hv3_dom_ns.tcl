@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.40 2008/02/03 11:06:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.41 2008/02/03 11:19:58 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -326,7 +326,7 @@ namespace eval ::hv3::DOM {
   -- window does not have a parent, then a reference to the window
   -- itself is returned.
   dom_get parent {
-    set frame [winfo parent $myHv3]
+    set frame [$myHv3 cget -frame]
     set parent [$frame parent_frame]
     if {$parent eq ""} {set parent $frame}
     list object [$myDom hv3_to_window [$parent hv3]]
@@ -336,7 +336,7 @@ namespace eval ::hv3::DOM {
   -- HTML documents (not framesets) this property is set to a reference
   -- to this object (same as the <I>window</I> and <I>self</I> properties).
   dom_get top { 
-    set frame [winfo parent $myHv3]
+    set frame [$myHv3 cget -frame]
     set top [$frame top_frame]
     list object [$myDom hv3_to_window [$top hv3]]
   }
@@ -350,7 +350,7 @@ namespace eval ::hv3::DOM {
   -- Set to a container of type [Ref FramesList] containing the sub-frames
   -- of this window.
   dom_get frames {
-    list object [list ::hv3::DOM::FramesList $myDom [winfo parent $myHv3]]
+    list object [list ::hv3::DOM::FramesList $myDom [$myHv3 cget -frame]]
   }
 
   -- Pop up a modal dialog box with a single button - \"OK\". The <i>msg</i>
@@ -383,7 +383,7 @@ namespace eval ::hv3::DOM {
   -- [Ref http://developer.mozilla.org/en/docs/DOM:window.innerHeight]
   -- [Ref http://tkhtml.tcl.tk/cvstrac/tktview?tn=175]
   -- [Ref http://www.howtocreate.co.uk/tutorials/javascript/browserwindow]
-  dom_get innerHeight { list number [winfo height $myHv3] }
+  dom_get innerHeight { list number [winfo height [$myHv3 win]] }
 
   -- The current width of the browser window in pixels (the area 
   -- available for displaying HTML documents), including the vertical 
@@ -391,14 +391,14 @@ namespace eval ::hv3::DOM {
   --
   -- <P class=refs>
   -- [Ref http://developer.mozilla.org/en/docs/DOM:window.innerWidth]
-  dom_get innerWidth  { list number [winfo width $myHv3] }
+  dom_get innerWidth  { list number [winfo width [$myHv3 win]] }
 
   dom_events { list }
 
   -- Shift keyboard focus to this window. This is mainly useful in frameset
   -- documents.
   dom_call focus {THIS} {
-    focus $myHv3
+    focus [$myHv3 win]
   }
 
   -- This function is only available if the -unsafe option on the
@@ -463,13 +463,13 @@ if 0 {
 ::hv3::dom2::stateless Screen {
   dom_parameter myHv3
 
-  dom_get colorDepth  { list number [winfo screendepth $myHv3] }
-  dom_get pixelDepth  { list number [winfo screendepth $myHv3] }
+  dom_get colorDepth  { list number [winfo screendepth  [$myHv3 win]] }
+  dom_get pixelDepth  { list number [winfo screendepth  [$myHv3 win]] }
 
-  dom_get width       { list number [winfo screenwidth $myHv3] }
-  dom_get height      { list number [winfo screenheight $myHv3] }
-  dom_get availWidth  { list number [winfo screenwidth $myHv3] }
-  dom_get availHeight { list number [winfo screenheight $myHv3] }
+  dom_get width       { list number [winfo screenwidth  [$myHv3 win]] }
+  dom_get height      { list number [winfo screenheight [$myHv3 win]] }
+  dom_get availWidth  { list number [winfo screenwidth  [$myHv3 win]] }
+  dom_get availHeight { list number [winfo screenheight [$myHv3 win]] }
 
   dom_get availTop    { list number 0}
   dom_get availLeft   { list number 0}
