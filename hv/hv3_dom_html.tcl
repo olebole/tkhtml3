@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.46 2007/11/25 18:29:15 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.47 2008/02/03 11:06:56 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -110,7 +110,7 @@ set BaseList {DocumentEvent}
   dom_call -string getElementById {THIS elementId} {
     set elementId [string map [list "\x22" "\x5C\x22"] $elementId]
     set selector [subst -nocommands {[id="$elementId"]}]
-    set node [$myHv3 search $selector -index 0]
+    set node [$myHv3 html search $selector -index 0]
     if {$node ne ""} {
       return [list object [::hv3::dom::wrapWidgetNode $myDom $node]]
     }
@@ -199,7 +199,7 @@ set BaseList {DocumentEvent}
     }]
  
     foreach selector [list $nameselector $idselector] {
-      set node [$myHv3 search $selector -index 0]
+      set node [$myHv3 html search $selector -index 0]
       if {$node ne ""} {
         return [list object [::hv3::dom::wrapWidgetNode $myDom $node]]
       }

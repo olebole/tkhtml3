@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.38 2007/11/11 11:00:47 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_core.tcl,v 1.39 2008/02/03 11:06:56 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Core
@@ -212,7 +212,7 @@ set ::hv3::dom::code::DOCUMENT {
   #     createEntityReference()      (todo)
   #
   dom_call -string createElement {THIS tagname} {
-    set node [$myHv3 fragment "<$tagname>"]
+    set node [$myHv3 html fragment "<$tagname>"]
     if {$node eq ""} {error "DOMException NOT_SUPPORTED_ERR"}
     list object [::hv3::dom::wrapWidgetNode $myDom $node]
   }
@@ -221,11 +221,11 @@ set ::hv3::dom::code::DOCUMENT {
       # Special case - The [fragment] API usually parses an empty string
       # to an empty fragment. So create a text node with text "X", then 
       # set the text to an empty string.
-      set node [$myHv3 fragment X]
+      set node [$myHv3 html fragment X]
       $node text set ""
     } else {
       set escaped [string map {< &lt; > &gt;} $data]
-      set node [$myHv3 fragment $escaped]
+      set node [$myHv3 html fragment $escaped]
     }
     list object [::hv3::dom::wrapWidgetNode $myDom $node]
   }

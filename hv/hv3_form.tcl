@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.96 2008/01/27 06:01:35 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.97 2008/02/03 11:06:56 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -407,7 +407,7 @@ proc ::hv3::control_to_form {node} {
   # Reset the state of the control.
   #
   method reset {} {
-    puts "TODO: ::hv3::forms::radio reset"
+    #puts "TODO: ::hv3::forms::radio reset"
   }
 
   # TODO: The sole purpose of this is to return a linebox offset...
@@ -1748,7 +1748,7 @@ snit::type ::hv3::formmanager {
   }
 
   method dumpforms {} {
-    foreach node [$myHv3 search form] {
+    foreach node [$myHv3 html search form] {
       set form [$node replace]
       puts [$form dump]
     }

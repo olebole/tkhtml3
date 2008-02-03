@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.93 2008/01/06 08:45:28 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.94 2008/02/03 11:06:56 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -184,8 +184,9 @@ return
   # If scripting is not enabled in this browser, this method is a no-op.
   #
   method script {hv3 attr script} {
+
     if {$mySee ne ""} {
-      $hv3 write wait
+      $hv3 html write wait
       array set a $attr
       if {[info exists a(src)]} {
         set fulluri [$hv3 resolve_uri $a(src)]
@@ -221,7 +222,7 @@ return
     if {$mySee ne ""} {
       return ""
     } else {
-      [$hv3 html] write text $script
+      $hv3 html write text $script
     }
   }
   
@@ -261,7 +262,7 @@ return
     set rc [catch {$mySee eval -window $w -noresult -file $name $script} msg]
 
     $self Log $title $name $script $rc $msg
-    $hv3 write continue
+    $hv3 html write continue
   }
 
   method javascript {hv3 script} {
@@ -417,12 +418,11 @@ return
   # ::hv3::hv3 object. i.e. the owner of the node-handle.
   #
   method node_to_hv3 {node} {
-    set html [$node html]
-    winfo parent [winfo parent $html]
+    [winfo parent [$node html]] hv3 me
   }
 
   method node_to_frame {node} {
-    winfo parent [$self node_to_hv3 $node]
+    [winfo parent [$node html]] me
   }
 
   # Given a Tkhtml3 node-handle, return the javascript wrapper 
@@ -455,7 +455,7 @@ return
     #
     # Also, reset the debugging gui here.
     #
-    if {$mySee ne ""} {
+    if {0 && $mySee ne ""} {
       set frame [winfo parent $hv3]
       if {$frame eq [$frame top_frame]} {
         foreach win [array names myWindows] {

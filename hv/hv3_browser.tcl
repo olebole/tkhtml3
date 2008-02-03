@@ -94,6 +94,7 @@ namespace eval ::hv3::browser_frame {
     #set O(myHv3)      [::hv3::hv3 $O(win).hv3]
     #pack $O(myHv3) -expand true -fill both
     set O(myHv3) $O(hull)
+    $O(myHv3) configure -frame me
 
     ::hv3::the_visited_db init $O(myHv3)
 
@@ -489,9 +490,10 @@ namespace eval ::hv3::browser_frame {
     ::HtmlDebug::browse $O(myHv3) [$O(myHv3) node]
   }
 
-  proc hv3 {me} { 
+  proc hv3 {me args} { 
     upvar #0 $me O
-    return $O(myHv3) 
+    if {[llength $args] == 0} {return $O(myHv3)}
+    eval $O(myHv3) $args
   }
   proc browser {me} {
     upvar #0 $me O
@@ -550,6 +552,10 @@ namespace eval ::hv3::browser_frame {
   proc javascriptlog {me args} {
     upvar #0 $me O
     eval $O(myHv3) javascriptlog $args
+  }
+
+  proc me {me} {
+    return $me
   }
 }
 ::hv3::make_constructor ::hv3::browser_frame ::hv3::hv3

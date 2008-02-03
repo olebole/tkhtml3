@@ -1094,6 +1094,8 @@ namespace eval ::hv3::hv3 {
     set O(-downloadcmd) ""
     set O(-requestcmd) ""
 
+    set O(-frame) ""
+
     # Full text of referrer URI, if any.
     #
     # Note that the DOM attribute HTMLDocument.referrer has a double-r,
@@ -2235,6 +2237,7 @@ namespace eval ::hv3::hv3 {
     upvar #0 $me O
     return $O(win)
   }
+  proc me {me} { return $me }
 
   proc yview {me args} {
     upvar #0 $me O
