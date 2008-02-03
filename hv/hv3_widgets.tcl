@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.58 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_widgets.tcl,v 1.59 2008/02/03 17:53:26 danielk1977 Exp $)} 1 }
 
 package require snit
 package require Tk
@@ -45,7 +45,7 @@ namespace eval ::hv3 {
 
   
     # WARNING: Horrible, horrible action at a distance...
-    catch {.notebook.notebook Redraw}
+    catch {.notebook.header Redraw}
   }
 
   SetFont {-size 10}

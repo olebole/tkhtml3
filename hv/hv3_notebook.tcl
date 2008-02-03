@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.9 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.10 2008/02/03 17:53:26 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of three snit widgets:
 #
@@ -45,8 +45,6 @@ snit::widget ::hv3::notebook_header {
   # Map from current identifiers to display titles.
   variable myIdMap -array [list]
 
-  variable myTabHeight 0
-
   proc init_bitmaps {} {
 
     # Set up the two images used for the "close tab" buttons positioned
@@ -73,8 +71,6 @@ snit::widget ::hv3::notebook_header {
     ${win}.tabs configure -selectborderwidth 0
 
     init_bitmaps
-
-    set myTabHeight [expr [font metrics Hv3DefaultFont -linespace] * 1.5]
 
     $self configurelist $args
 
@@ -178,7 +174,9 @@ snit::widget ::hv3::notebook_header {
       $hull configure -height 1
       return
     }
-    $hull configure -height $myTabHeight
+
+    set tab_height [expr [font metrics Hv3DefaultFont -linespace] * 1.5]
+    $hull configure -height $tab_height
 
     set font Hv3DefaultFont
 
@@ -199,7 +197,7 @@ snit::widget ::hv3::notebook_header {
     set iRemainingTabs [llength $myIdList]
     set iRemainingPixels $iCanvasWidth
 
-    set yt [expr 0.5 * ($myTabHeight + [font metrics $font -linespace])]
+    set yt [expr 0.5 * ($tab_height + [font metrics $font -linespace])]
     set x 1
     foreach ident $myIdList {
 
@@ -226,12 +224,12 @@ snit::widget ::hv3::notebook_header {
       set x3 [expr $x + $iTabWidth - $iDiagonal - 1]
       set x4 [expr $x + $iTabWidth - 1]
 
-      set y1 [expr $myTabHeight - 0]
+      set y1 [expr $tab_height - 0]
       set y2 [expr $iDiagonal + 1]
       set y3 1
 
       set ximg [expr $x + $iTabWidth - $iDiagonal - $iButton - 1]
-      set yimg [expr 1 + ($myTabHeight - $iButton) / 2]
+      set yimg [expr 1 + ($tab_height - $iButton) / 2]
 
       ${win}.tabs create polygon \
           $x $y1 $x $y2 $x2 $y3 $x3 $y3 $x4 $y2 $x4 $y1 -tags $ident
