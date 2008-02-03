@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.27 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_request.tcl,v 1.28 2008/02/03 06:29:39 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # This file contains the implementation of two types used by hv3:
@@ -189,12 +189,17 @@ namespace eval ::hv3::request {
     # Destroy-hook scripts configured using the [finish_hook] method.
     set O(myFinishHookList) [list]
 
+    set O(myDestroying) 0
+
     eval configure $me $args
   }
 
   proc destroy {me} {
     upvar $me O
-    foreach hook $O(myFinishHookList) { eval $hook }
+    set O(myDestroying) 1
+    foreach hook $O(myFinishHookList) {
+      eval $hook 
+    }
     rename $me {}
     array unset $me
   }
@@ -230,7 +235,7 @@ namespace eval ::hv3::request {
     upvar $me O
     incr O(myRefCount) -1
     if {$O(myRefCount) == 0} {
-      destroy $me
+      $me destroy
     }
   }
 
@@ -295,6 +300,7 @@ namespace eval ::hv3::request {
   proc append {me raw} {
     upvar $me O
 
+    if {$O(myDestroying)} {return}
     if {$O(myRawMode)} {
       eval [linsert $O(-incrscript) end $raw]
       return
@@ -333,6 +339,7 @@ namespace eval ::hv3::request {
   proc finish {me {raw ""}} {
     upvar $me O
 
+    if {$O(myDestroying)} {return}
     if {$O(myIsFinished)} {error "finish called twice on $me"}
     set O(myIsFinished) 1
 
@@ -341,7 +348,7 @@ namespace eval ::hv3::request {
         eval $hook
       }
       eval [linsert $O(-finscript) end $raw]
-     return
+      return
     }
 
     ::append O(myRaw) $raw

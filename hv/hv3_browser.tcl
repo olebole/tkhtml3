@@ -263,7 +263,7 @@ namespace eval ::hv3::browser_frame {
 
           set O(myPositionId) [linsert $O(myPositionId) 0 "${b}.${a}"]
         }
-        if {$class eq "Hv3" && $O(myPositionId) eq ""} {
+        if {$class eq "Html" && $O(myPositionId) eq ""} {
           set node $O(-iframe)
           set idx [lsearch [$p search iframe] $node]
           set O(myPositionId) [linsert $O(myPositionId) 0 iframe.${idx}]

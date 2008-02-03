@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.32 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.33 2008/02/03 06:29:39 danielk1977 Exp $)} 1 }
 
 package require snit
 
@@ -223,7 +223,7 @@ snit::type ::hv3::history {
       $state clear_frameurilist
       foreach frame [$myBrowser get_frames] {
         set fhv3 [$frame hv3]
-        set pos [$frame positionid]
+        set pos  [$frame positionid]
         $state set_framestate $pos   \
             [$fhv3 uri get]          \
             [lindex [$fhv3 xview] 0] \
@@ -652,7 +652,7 @@ namespace eval ::hv3::httpcache {
     upvar #0 $me O
     lappend O(handles) $handle
 
-    set key catch.[$handle cget -uri]
+    set key cache.[$handle cget -uri]
     if {[info exists O($key)]} {
       set idx [lsearch $O(handles) $O($key)]
       set O(handles) [lreplace $O(handles) $idx $idx]

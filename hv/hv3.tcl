@@ -2127,7 +2127,9 @@ namespace eval ::hv3::hv3 {
     upvar #0 $me O
 
     foreach dl $O(myActiveHandles) { 
-      if {$dl eq $O(myDocumentHandle)} {set O(myDocumentHandle) ""}
+      if {$dl eq $O(myDocumentHandle)} {
+        set O(myDocumentHandle) ""
+      }
       $dl release 
     }
 
