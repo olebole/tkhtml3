@@ -1057,6 +1057,23 @@ namespace eval ::hv3::hv3 {
     eval $O(mySelectionManager) selected $args
   }
 
+  set TextWrapper {
+    <html>
+      <style>
+        body {background-color: #c3c3c3}
+        pre  {
+          margin: 20px 30px; 
+          background-color: #d9d9d9; 
+          background-color: white;
+          padding: 5px;
+          border: 1px solid;
+          border-color: #828282 #ffffff #ffffff #828282;
+        }
+      </style>
+    <h1>Plain Text File:</h1>
+    <pre>
+  }
+
   proc new {me args} {
     upvar #0 $me O
     set win $O(win)
@@ -1794,7 +1811,12 @@ namespace eval ::hv3::hv3 {
             if {$isXHTML} { $O(myHtml) configure -parsemode xhtml } \
             else          { $O(myHtml) configure -parsemode html }
             set O(myMimetype) html
-          }
+          } else {
+            # Plain text mode.
+            $me reset $savestate
+            $O(myHtml) parse $::hv3::hv3::TextWrapper
+            set O(myMimetype) text
+	  }
         }
   
         image {
@@ -1861,6 +1883,7 @@ namespace eval ::hv3::hv3 {
     }
 
     switch -- $O(myMimetype) {
+      text  {$me TextCallback $handle $final $data}
       html  {$me HtmlCallback $handle $final $data}
       image {$me ImageCallback $handle $final $data}
     }
@@ -1872,6 +1895,16 @@ namespace eval ::hv3::hv3 {
         eval $O(-storevisitedcmd) 1
       }
       $me MightBeComplete
+    }
+  }
+
+  proc TextCallback {me handle isFinal data} {
+    upvar #0 $me O
+    set z [string map {< &lt; > &gt;} $data]
+    if {$isFinal} {
+	$O(myHtml) parse -final $data
+    } else {
+	$O(myHtml) parse $data
     }
   }
 
