@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_download.tcl,v 1.1 2008/02/02 17:17:31 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_download.tcl,v 1.2 2008/02/04 04:42:10 danielk1977 Exp $)} 1 }
 
 # ::hv3::filedownload
 #
@@ -343,7 +343,7 @@ namespace eval ::hv3::downloadmanager {
 
   proc manage {me filedownload} {
     upvar #0 $me O
-    lappend O(downloads) $filedownload
+    set O(downloads) [linsert $O(downloads) 0 $filedownload]
     $me ReloadAllGuis
   }
 
