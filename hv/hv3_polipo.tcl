@@ -1,5 +1,5 @@
 
-namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.16 2008/01/22 06:17:27 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_polipo.tcl,v 1.17 2008/02/09 18:14:20 danielk1977 Exp $)} 1 }
 
 # This file contains code to control a single instance of the 
 # external program "hv3_polipo" that may be optionally used by
@@ -257,6 +257,116 @@ namespace eval ::hv3::polipo {
     } 
   }
 }
+
+namespace eval ::hv3::polipoclient {
+
+  set N 0
+
+  proc new {me args} {
+    upvar #0 $me O
+
+    set O(socket) [socket localhost [::http::config -proxyport]]
+
+    fconfigure $O(socket)   \
+        -blocking 0         \
+        -encoding binary    \
+        -translation binary \
+        -buffering full     \
+        -buffersize 8192
+
+    fileevent $O(socket) readable [list $me ReadEvent]
+
+    # State is always one of:
+    # 
+    #     "ready" 
+    #     "waiting"
+    #     "progress"
+    #     "finished"
+    #
+    set O(state) ready
+
+    set O(requesthandle) ""
+    set O(protocol) ""
+
+    set O(response) ""
+    set O(headers) ""
+    set O(data) ""
+
+    incr ::hv3::polipoclient::N
+    #puts "$::hv3::polipoclient::N requests outstanding"
+  }
+
+  proc destroy {me} {
+    upvar #0 $me O
+    catch {close $O(socket)}
+    unset $me
+    rename $me {}
+    incr ::hv3::polipoclient::N -1
+    #puts "$::hv3::polipoclient::N requests outstanding"
+  }
+
+  proc GET {me protocol requesthandle} {
+    upvar #0 $me O
+    if {$O(state) ne "ready"} { error "polipoclient state error" }
+
+    set R $requesthandle
+    set O(requesthandle) $R
+    set O(protocol) $protocol
+
+    # Make the GET request:
+    #
+    puts $O(socket)   "GET [$R cget -uri] HTTP/1.0"
+    puts $O(socket)   "Accept: */*"
+    puts $O(socket)   "User-Agent: [::http::config -useragent]"
+    foreach {k v} [$R cget -requestheader] {
+      puts $O(socket) "$k: $v"
+    }
+    puts $O(socket)   ""
+
+    set O(state) "waiting"
+    flush $O(socket)
+  }
+
+  proc ReadEvent {me args} {
+    upvar #0 $me O
+
+    append data [read $O(socket)]
+
+    if {$O(state) eq "waiting"} {
+      set iStart [expr { [string first "\x0D\x0A" $data]         + 2}]
+      set iEnd   [expr { [string first "\x0D\x0A\x0D\x0A" $data] - 1}]
+      if {$iStart>=0} {
+        set O(response) [string range $data 0 [expr {$iStart - 3}]]
+      }
+      if {$iEnd>=0} {
+        set O(state) progress
+        set header ""
+        foreach line [split [string range $data $iStart $iEnd] "\x0D\x0A"] {
+          if {$line eq ""} continue
+          set i [string first : $line]
+          if {$i>=0} {
+            lappend header [string trim [string range $line 0 [expr {$i-1}]]]
+            lappend header [string trim [string range $line [expr {$i+1}] end]]
+          }
+        }
+        $O(requesthandle) configure -header $header
+        $O(protocol) AddToProgressList $O(requesthandle)
+
+        set data [string range $data $iEnd+5 end]
+      }
+    }
+
+    $O(requesthandle) append $data
+    $O(protocol) BytesReceived $O(requesthandle) [string length $data]
+
+    #puts "read [string length [read $O(socket)]] bytes"
+    if {[eof $O(socket)]} {
+      close $O(socket)
+      $O(requesthandle) finish $data
+    }
+  }
+}
+::hv3::make_constructor ::hv3::polipoclient
 
 ::hv3::polipo::init
 ::hv3::polipo::restart

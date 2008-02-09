@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.14 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.15 2008/02/09 18:14:20 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -70,6 +70,8 @@ namespace eval ::hv3 {
 
       $pan add $myCodeViewer
       $pan add $myOutputWindow
+
+      set myCodeViewer [$myCodeViewer widget]
 
       set b [frame ${win}.b]
       ::hv3::button ${b}.viewindex         \
@@ -314,7 +316,7 @@ namespace eval ::hv3 {
     method OutputWindowLink {text command} {
       set tag "link[expr rand()]"
       lappend myOutputWindowLinks $tag
-      set ow $myOutputWindow
+      set ow [$myOutputWindow widget]
       $ow tag configure $tag -underline 1 -foreground darkblue
       $ow tag bind $tag <1> $command
       $ow tag bind $tag <Enter> [list $ow configure -cursor hand2]

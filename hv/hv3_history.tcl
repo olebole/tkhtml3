@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.33 2008/02/03 06:29:39 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_history.tcl,v 1.34 2008/02/09 18:14:20 danielk1977 Exp $)} 1 }
 
 package require snit
 
@@ -116,7 +116,6 @@ snit::type ::hv3::history {
   variable myTitleVarName ""
 
   variable myHv3 ""
-  variable myProtocol ""
   variable myBrowser ""
 
   # The following two variables store the history list
@@ -158,7 +157,6 @@ snit::type ::hv3::history {
 
     set myTitleVarName [$hv3 titlevar]
     set myHv3 $hv3
-    set myProtocol $protocol
     set myBrowser $browser
 
     bind [$hv3 win] <<Location>>  +[list $self Locvarcmd]

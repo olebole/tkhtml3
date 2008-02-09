@@ -1313,9 +1313,10 @@ namespace eval ::hv3::hv3 {
     set cmd [concat $O(-requestcmd) [list $downloadHandle]]
     set rc [catch $cmd errmsg]
     if {$rc} {
-      set einfo $::errorInfo
+      #set einfo $::errorInfo
+      #error $errmsg $einfo
+      puts "Error in -requestcmd [$downloadHandle cget -uri]: $errmsg"
       catch {$downloadHandle destroy}
-      error $errmsg $einfo
     }
   }
 

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_icons.tcl,v 1.7 2008/01/24 08:05:54 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_icons.tcl,v 1.8 2008/02/09 18:14:20 danielk1977 Exp $)} 1 }
 
 # Define the icons used for tool-buttons:
 #
@@ -12,6 +12,9 @@ namespace eval hv3 { set {version($Id: hv3_icons.tcl,v 1.7 2008/01/24 08:05:54 d
 #
 
 namespace eval ::hv3 {
+  proc default_icons {} {
+    if {[catch color_icons32]} grey_icons
+  }
   proc grey_icons {} {
 
   image create photo hv3_previmg -data {

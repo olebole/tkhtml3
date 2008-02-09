@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.65 2008/02/02 17:15:02 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.66 2008/02/09 18:14:20 danielk1977 Exp $)} 1 }
 
 #
 # This file contains implementations of the -requestcmd script used with 
@@ -41,6 +41,8 @@ namespace eval ::hv3::protocol {
     # Lists of waiting and in-progress http URI download-handles.
     set O(myWaitingHandles)    [list]
     set O(myInProgressHandles) [list]
+
+    set O(myQueue)             [list]
 
     # If not set to an empty string, contains the name of a global
     # variable to set to a short string describing the state of
@@ -141,20 +143,14 @@ namespace eval ::hv3::protocol {
   #
   proc request_http {me downloadHandle} {
     upvar $me O
-    
+    #puts "REQUEST: [$downloadHandle cget -uri]"
+
     #$downloadHandle finish
     #return
 
     set uri       [$downloadHandle cget -uri]
     set postdata  [$downloadHandle cget -postdata]
     set enctype   [$downloadHandle cget -enctype]
-    set authority [$downloadHandle authority]
-
-    # Knock any #fragment off the end of the URI.
-    set obj [::tkhtml::uri $uri]
-    set uri [$obj get_no_fragment]
-set uri [::tkhtml::escape_uri -query $uri]
-    $obj destroy
 
     if {[$downloadHandle cget -cachecontrol] eq "relax-transparency" 
      && [$downloadHandle cget -cacheable]
@@ -198,6 +194,18 @@ set uri [::tkhtml::escape_uri -query $uri]
       lappend headers Cache-Control relax-transparency=1
     }
 
+    # if {0 || ($::hv3::polipo::g(binary) ne "" 
+    #  && $postdata eq "" 
+    #  && ![string match -nocase https* $uri])
+    # } {
+    #   $me AddToWaitingList $downloadHandle
+    #   set p [::hv3::polipoclient %AUTO%]
+    #   $downloadHandle finish_hook [list $p destroy]
+    #   $downloadHandle finish_hook [list $me FinishRequest $downloadHandle]
+    #   $p GET $me $downloadHandle
+    #   return
+    # }
+
     # Fire off a request via the http package.
     # Always uses -binary mode.
     set geturl [list ::http::geturl $uri                     \
@@ -217,6 +225,28 @@ set uri [::tkhtml::escape_uri -query $uri]
     $me AddToWaitingList $downloadHandle
     $downloadHandle finish_hook [list ::http::reset $token]
 #puts "REQUEST $geturl -> $token"
+  }
+
+  proc BytesReceived {me downloadHandle nByte} {
+    upvar $me O
+    set nExpected [$downloadHandle cget -expectedsize]
+    if {$nExpected ne ""} {
+      incr O(myBytesReceived) $nByte
+    }
+    $me Updatestatusvar
+  }
+  proc AddToProgressList {me downloadHandle} {
+    upvar $me O
+    set i [lsearch $O(myWaitingHandles) $downloadHandle]
+    set O(myWaitingHandles) [lreplace $O(myWaitingHandles) $i $i]
+    lappend O(myInProgressHandles) $downloadHandle
+
+    set nExpected [$downloadHandle cget -expectedsize]
+    if {$nExpected ne ""} {
+      incr O(myBytesExpected) $nExpected
+    }
+
+    $me Updatestatusvar
   }
 
   proc AddToWaitingList {me downloadHandle} {
@@ -288,22 +318,40 @@ set uri [::tkhtml::escape_uri -query $uri]
       # waiting for the SSL connection to be established. 
       close $fd
     } else {
-      set theWaitingSocket [::tls::import $fd]
+      set theWaitingSocket $fd
       $me request_http $downloadHandle
     }
   }
   proc SSocketProxyReady {me fd downloadHandle} {
     upvar $me O
+    fileevent $fd readable ""
 
     set str [gets $fd line]
     if {$line ne ""} {
       if {! [regexp {^HTTP/.* 200} $line]} {
         puts "ERRRORR!: $line"
         close $fd
+        $downloadHandle finish [::hv3::string::htmlize $line]
         return
       } 
       while {[gets $fd r] > 0} {}
-      $me SSocketReady $fd $downloadHandle
+      set fd [::tls::import $fd]
+      fconfigure $fd -blocking 0
+
+      set cmd [list $me SSocketReady $fd $downloadHandle] 
+      SIfHandshake $fd $downloadHandle $cmd
+      # $me SSocketReady $fd $downloadHandle
+    }
+  }
+  proc SIfHandshake {fd downloadHandle script} {
+    if {[ catch { set done [::tls::handshake $fd] } msg]} {
+      $downloadHandle finish [::hv3::string::htmlize $msg]
+      return
+    }
+    if {$done} {
+      eval $script
+    } else {
+      after 100 [list ::hv3::protocol::SIfHandshake $fd $downloadHandle $script]
     }
   }
 
@@ -370,6 +418,9 @@ set uri [::tkhtml::escape_uri -query $uri]
     }
     if {[set idx [lsearch $O(myWaitingHandles) $downloadHandle]] >= 0} {
       set O(myWaitingHandles) [lreplace $O(myWaitingHandles) $idx $idx]
+    }
+    if {[set idx [lsearch $O(myQueue) $downloadHandle]] >= 0} {
+      set O(myQueue) [lreplace $O(myQueue) $idx $idx]
     }
     if {[llength $O(myWaitingHandles)]==0 && [llength $O(myInProgressHandles)]==0} {
       set O(myBytesExpected) 0

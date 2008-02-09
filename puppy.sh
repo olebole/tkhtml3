@@ -2,7 +2,7 @@
 # Script to build puppy linux package.
 #
 
-if test "${VERSION}" = "" ; then VERSION=15 ; fi
+if test "${VERSION}" = "" ; then VERSION=16 ; fi
 if test "${BUILD}" = ""   ; then BUILD=/home/dan/work/tkhtml/bld ; fi
 if test "${SRC}" = ""     ; then SRC=/home/dan/work/tkhtml/htmlwidget ; fi
 
