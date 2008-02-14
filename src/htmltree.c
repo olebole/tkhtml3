@@ -36,7 +36,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-static const char rcsid[] = "$Id: htmltree.c,v 1.160 2007/12/08 15:36:01 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmltree.c,v 1.161 2008/02/14 08:39:14 danielk1977 Exp $";
 
 #include "html.h"
 #include "swproc.h"
@@ -72,6 +72,8 @@ struct HtmlFragmentContext {
     (eTag==Html_TD)    ? 1 :       \
     (eTag==Html_TH)    ? 1 : 0     \
 )
+
+static void treeCloseFosterTree(HtmlTree *);
 
 /*
  *---------------------------------------------------------------------------
@@ -501,6 +503,10 @@ nodeHandlerCallbacks(pTree, pNode)
     
     if (!HtmlNodeIsText(pNode)) {
         /* HtmlElementNormalize(HtmlNodeAsElement(pNode)); */
+    }
+
+    if (!isFragment && TAG_TO_TABLELEVEL(eTag) > 0) {
+        treeCloseFosterTree(pTree);
     }
 
     /* Execute the node-handler script for node pNode, if one exists. */
