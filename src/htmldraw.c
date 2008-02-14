@@ -30,7 +30,7 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
 */
-static const char rcsid[] = "$Id: htmldraw.c,v 1.207 2008/02/02 17:15:02 danielk1977 Exp $";
+static const char rcsid[] = "$Id: htmldraw.c,v 1.208 2008/02/14 08:43:49 danielk1977 Exp $";
 
 #include "html.h"
 #include <assert.h>
@@ -4418,6 +4418,7 @@ HtmlWidgetRepair(pTree, x, y, w, h, windowsrepair)
     int windowsrepair;
 {
     /* if( !pTree->options.enablelayout ) return; */
+    if (!Tk_IsMapped(pTree->tkwin)) return;
 
     /* Make sure the widget main window exists before painting anything */
     Tk_MakeWindowExist(pTree->tkwin);
