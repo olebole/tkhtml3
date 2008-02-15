@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.47 2008/02/03 11:06:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_html.tcl,v 1.48 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # DOM Level 1 Html
@@ -373,9 +373,6 @@ set ::hv3::dom::code::HTMLELEMENT {
     }
     return $R
   }
-  dom_scope {
-    list [$myDom node_to_window $myNode]
-  }
 }
 
 ::hv3::dom2::stateless HTMLElement $HTMLElement
@@ -732,9 +729,8 @@ namespace eval ::hv3::DOM {
     }
   }
   proc HTMLElement_control_scope {dom node} {
-    set w [$dom node_to_window $node]
     set scope [list \
-      [::hv3::dom::wrapWidgetNode $dom $node] $w [node_to_document $dom $node]
+      [::hv3::dom::wrapWidgetNode $dom $node] [node_to_document $node]
     ]
 
     set f [lindex [::hv3::get_form_nodes $node] 0]
@@ -1212,7 +1208,7 @@ namespace eval ::hv3::DOM {
       if {$myNode eq [[$myNode html] node]} {
         # TODO: Maybe this is not quite cacheable... But caching it saves
         # calling this code for every single event propagation....
-        list cache object [node_to_document $myDom $myNode]
+        list cache object [node_to_document $myNode]
       } else {
         list null
       }

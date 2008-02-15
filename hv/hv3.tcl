@@ -1070,7 +1070,6 @@ namespace eval ::hv3::hv3 {
           border-color: #828282 #ffffff #ffffff #828282;
         }
       </style>
-    <h1>Plain Text File:</h1>
     <pre>
   }
 
@@ -1096,7 +1095,6 @@ namespace eval ::hv3::hv3 {
     set O(myFormManager)      [::hv3::formmanager %AUTO% $me]
     set O(myFrameLog)         [framelog           %AUTO% $me]
 
-    set O(-dom) ""
     set O(-storevisitedcmd) ""
 
     set O(myStorevisitedDone) 0
@@ -1104,6 +1102,21 @@ namespace eval ::hv3::hv3 {
 
     # The option to display images (default true).
     set O(-enableimages) 1
+
+    # The option to execute javascript (default false). 
+    #
+    # When javascript is enabled, the O(myDom) variable is set to the name of
+    # an object of type [::hv3::dom]. When it is not enabled, O(myDom) is
+    # an empty string.
+    #
+    # When the -enablejavascript option is changed from true to false,
+    # the O(myDom) object is deleted (and O(myDom) set to the empty 
+    # string). But the dom object is not created immediately when 
+    # -enablejavascript is changed from false to true. Instead, we
+    # wait until the next time the hv3 widget is reset.
+    #
+    set O(-enablejavascript) 0
+    set O(myDom) ""
 
     set O(-scrollbarpolicy) auto
 
@@ -1243,10 +1256,7 @@ namespace eval ::hv3::hv3 {
     catch { $O(myFormManager)      destroy }
     catch { $O(myMouseManager)     destroy }
     catch { $O(myBase)             destroy }
-
-    # Tell the DOM implementation that any Window object created for
-    # this widget is no longer required.
-    catch { $O(-dom) delete_window $me }
+    catch { $O(myDom)              destroy }
 
     # Cancel any refresh-event that may be pending.
     if {$O(myRefreshEventId) ne ""} {
@@ -1287,6 +1297,7 @@ namespace eval ::hv3::hv3 {
   # Return the referrer URI of the widget.
   #
   proc referrer {me} { 
+    upvar #0 $me O
     return $O(myReferrer) 
   }
 
@@ -1338,15 +1349,15 @@ namespace eval ::hv3::hv3 {
 
       # There are no outstanding HTTP transactions. So fire
       # the DOM "onload" event.
-      if {$O(-dom) ne "" && !$O(myOnloadFired)} {
+      if {$O(myDom) ne "" && !$O(myOnloadFired)} {
+        set O(myOnloadFired) 1
         set bodynode [$O(myHtml) search body]
 	# Workaround. Currently meta reload causes empty completion.
 	# XXX: Check this again!
 	if {[llength $bodynode]} {
-	    $O(-dom) event load [lindex $bodynode 0]
+          $O(myDom) event load [lindex $bodynode 0]
 	}
       }
-      set O(myOnloadFired) 1
     }
   }
 
@@ -1942,8 +1953,9 @@ namespace eval ::hv3::hv3 {
 
   proc Formcmd2 {me method uri querytype encdata} {
     upvar #0 $me O
-    # puts "Formcmd $method $uri $querytype $encdata"
-    set full_uri [$me resolve_uri $uri]
+    puts "Formcmd $method $uri $querytype $encdata"
+
+    set uri_obj [::tkhtml::uri [$me resolve_uri $uri]]
 
     event generate $O(win) <<Goto>>
 
@@ -1956,13 +1968,15 @@ namespace eval ::hv3::hv3 {
         -requestheader [list Referer $referer]              \
 
     if {$method eq "post"} {
-      $handle configure -uri $full_uri -postdata $encdata
+      $handle configure -uri [$uri_obj get] -postdata $encdata
       $handle configure -enctype $querytype
       $handle configure -cachecontrol normal
     } else {
-      $handle configure -uri "${full_uri}?${encdata}"
+      $uri_obj load "?$encdata"
+      $handle configure -uri [$uri_obj get]
       $handle configure -cachecontrol $O(myCacheControl)
     }
+    $uri_obj destroy
     $me makerequest $handle
 
     # Grab the keyboard focus for this widget. This is so that after
@@ -1990,10 +2004,10 @@ namespace eval ::hv3::hv3 {
   #     hull                N/A
   #   
 
-  proc dom {me } { 
+  proc dom {me} { 
     upvar #0 $me O
-    if {$O(-dom) eq ""} { return ::hv3::ignore_script }
-    return $O(-dom)
+    if {$O(myDom) eq ""} { return ::hv3::ignore_script }
+    return $O(myDom)
   }
 
   #--------------------------------------------------------------------
@@ -2057,8 +2071,8 @@ namespace eval ::hv3::hv3 {
     # pass it to the current running DOM implementation instead of loading
     # anything into the current browser.
     if {[string match -nocase javascript:* $uri]} {
-      if {$O(-dom) ne ""} {
-        $O(-dom) javascript $me [string range $uri 11 end]
+      if {$O(myDom) ne ""} {
+        $O(myDom) javascript [string range $uri 11 end]
       }
       return
     }
@@ -2189,9 +2203,17 @@ namespace eval ::hv3::hv3 {
     $O(html) reset
     $O(myHtml) configure -scrollbarpolicy $O(-scrollbarpolicy)
 
-    if {$O(-dom) ne ""} {
-      $O(-dom) clear_window $me
+    catch {$O(myDom) destroy}
+    if {$O(-enablejavascript)} {
+      set O(myDom) [::hv3::dom %AUTO% $me]
+      $O(myHtml) handler script script   [list $O(myDom) script]
+      $O(myHtml) handler script noscript ::hv3::ignore_script
+    } else {
+      set O(myDom) ""
+      $O(myHtml) handler script script   ::hv3::ignore_script
+      $O(myHtml) handler script noscript {}
     }
+    $O(myMouseManager) configure -dom $O(myDom)
   }
 
   proc reset {me isSaveState} {
@@ -2237,17 +2259,14 @@ namespace eval ::hv3::hv3 {
     }
   }
 
-  proc configure-dom {me} {
+  proc configure-enablejavascript {me} {
     upvar #0 $me O
-
-    $O(myMouseManager) configure -dom $O(-dom)
-    if {$O(-dom) ne ""} {
-      $O(myHtml) handler script script   [list $O(-dom) script $me]
-      $O(myHtml) handler script noscript [list $O(-dom) noscript $me]
-      $O(-dom) make_window $me
-    } else {
+    if {!$O(-enablejavascript)} {
+      catch {$O(myDom) destroy}
+      set O(myDom) ""
       $O(myHtml) handler script script   ::hv3::ignore_script
       $O(myHtml) handler script noscript {}
+      $O(myMouseManager) configure -dom ""
     }
   }
 

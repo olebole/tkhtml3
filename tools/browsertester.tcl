@@ -28,7 +28,7 @@ Cache-Control: no-cache
       document.getElementById("testform").submit()
     }
 
-    window.onload = runtest
+    onload = runtest
   </SCRIPT>
 
   %TESTBODY%

@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.15 2008/02/09 18:14:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.16 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -80,7 +80,7 @@ namespace eval ::hv3 {
       set myLabel [::hv3::label ${b}.label -anchor w]
       pack ${b}.viewindex -side left
 
-      ::hv3::button ${b}.reorient -text Reorient -command [list $self Reorient]
+      ::hv3::button ${b}.reorient -text Resize -command [list $self Reorient]
       ::hv3::button ${b}.increasefont -text "+" -command [list $self font +2]
       ::hv3::button ${b}.decreasefont -text "-" -command [list $self font -2]
       pack ${b}.reorient -side right
@@ -151,10 +151,14 @@ namespace eval ::hv3 {
     }
 
     method Reorient {} {
-      switch -- [${win}.pan cget -orient] {
-        vertical   {${win}.pan configure -orient horizontal}
-        horizontal {${win}.pan configure -orient vertical}
+      set y [lindex [${win}.pan sash coord 0] 1]
+      set h [winfo height ${win}.pan]
+      if {$y > $h/2} {
+        set y [expr {int($h*0.1)}]
+      } else {
+        set y [expr {int($h*0.9)}]
       }
+      ${win}.pan sash place 0 0 $y
     }
 
 
@@ -190,7 +194,7 @@ namespace eval ::hv3 {
             $myOutputWindow insert end "    Javascript is not enabled\n" error
           } else {
             set dom [[gui_current hv3] dom]
-            set result [$dom javascript "" $cmd]
+            set result [$dom javascript $cmd]
             set result [string map {"\n" "\n    "} $result]
             if {[lindex $result 0] eq "JS_ERROR"} {
               $myOutputWindow insert end "    $result\n" error
@@ -343,7 +347,8 @@ namespace eval ::hv3 {
       $myCodeViewer yview -pickplace "$iLine.0"
     }
 
-    proc getlogscript {dom name} {
+    proc getlogscript {name} {
+      foreach {dom idx} [split $name .] {}
       foreach logscript [$dom GetLog] {
         if {[$logscript cget -name] eq $name} {return $logscript}
       }
@@ -386,7 +391,7 @@ namespace eval ::hv3 {
           }
 
           foreach {zFile iLine zType zName} [lrange $r 3 end] {
-            set target [getlogscript $dom $zFile]
+            set target [getlogscript $zFile]
             if {$target ne ""} {
               $myOutputWindow insert end "    "
               set cmd [list $self DisplayJavascriptError $idx $target $iLine]
@@ -491,29 +496,6 @@ namespace eval ::hv3 {
         return
       }
       $self DisplayResources $top 2
-
-      # Links for each loaded javascript file.
-      #
-      set dom [[gui_current hv3] dom]
-      set ii 0
-      foreach logscript [$dom GetLog] {
-        if {[$logscript cget -isevent]} continue
-        incr ii
-        set cmd [list $self Display javascript [list $ii $logscript]]
-        $myCodeViewer insert end "$ii. Javascript: [$logscript cget -heading]  "
-        if {[$logscript cget -rc]} {
-          set tag [$self CreateCodeViewerLink "(Failed)" [
-              list $self Errors javascript [list $ii $dom $logscript]
-          ]]
-          $myCodeViewer tag configure $tag -foreground red
-          $myCodeViewer insert end "  "
-        } else {
-          $myCodeViewer insert end "(Ok)  "
-        }
-        $self CreateCodeViewerLink "View Source" $cmd
-        set nLine [llength [split [$logscript cget -script] "\n"]]
-        $myCodeViewer insert end " ($nLine lines)\n"
-      }
     }
 
     method DisplayResources {frame iIndent} {
@@ -549,6 +531,30 @@ namespace eval ::hv3 {
         set cmd [list $self Display css [list $frame $id]]
         $self CreateCodeViewerLink "View Source" $cmd
         $myCodeViewer insert end "\n"
+      }
+
+      # Links for each javascript file.
+      #
+      set dom [$hv3 dom]
+      set ii 0
+      foreach logscript [$dom GetLog] {
+        if {[$logscript cget -isevent]} continue
+        incr ii
+        set cmd [list $self Display javascript [list $ii $logscript]]
+        $myCodeViewer insert end $zIndent
+        $myCodeViewer insert end "  Javascript: [$logscript cget -heading]  "
+        if {[$logscript cget -rc]} {
+          set tag [$self CreateCodeViewerLink "(Failed)" [
+              list $self Errors javascript [list $ii $dom $logscript]
+          ]]
+          $myCodeViewer tag configure $tag -foreground red
+          $myCodeViewer insert end "  "
+        } else {
+          $myCodeViewer insert end "(Ok)  "
+        }
+        $self CreateCodeViewerLink "View Source" $cmd
+        set nLine [llength [split [$logscript cget -script] "\n"]]
+        $myCodeViewer insert end " ($nLine lines)\n"
       }
 
       $myCodeViewer insert end "\n"

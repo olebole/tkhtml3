@@ -156,6 +156,32 @@ getEventList(interp, pObj)
     return 0;
 }
 
+static void
+objectCall(pInterp, pObj, pThis, argc, argv, pRes)
+    struct SEE_interpreter *pInterp;
+    struct SEE_object *pObj;
+    struct SEE_object *pThis;
+    int argc;
+    struct SEE_value **argv;
+    struct SEE_value *pRes;
+{
+#if 1
+    SEE_OBJECT_CALL(pInterp, pObj, pThis, argc, argv, pRes);
+#else
+    SEE_try_context_t try_ctxt;
+    SEE_TRY(pInterp, try_ctxt) {
+        SEE_OBJECT_CALL(pInterp, pObj, pThis, argc, argv, pRes);
+    }
+    if (SEE_CAUGHT(try_ctxt)) {
+        struct SEE_value str;
+        SEE_ToString(pInterp, SEE_CAUGHT(try_ctxt), &str);
+        printf("Error in event-handler: ");
+        SEE_PrintValue(pInterp, &str, stdout);
+        printf("\n");
+    } 
+#endif
+}
+
 /*
  *---------------------------------------------------------------------------
  *
@@ -211,7 +237,7 @@ runEvent(interp, pTarget, pEvent, zType, isCapture)
         for (pL = (pET ? pET->pListenerList: 0); rc && pL; pL = pL->pNext) {
             if (pL->isCapture == isCapture) {
                 struct SEE_value r;
-                SEE_OBJECT_CALL(interp, pL->pListener, pTarget, 1, &pEvent, &r);
+                objectCall(interp, pL->pListener, pTarget, 1, &pEvent, &r);
                 setBooleanFlag(interp, pEvent->u.object, CALLED_LISTENER, 1);
             }
         }
@@ -233,7 +259,7 @@ runEvent(interp, pTarget, pEvent, zType, isCapture)
         if (SEE_VALUE_GET_TYPE(&val) == SEE_OBJECT) {
             struct SEE_object *pE = pEvent->u.object;
             struct SEE_value res;
-            SEE_OBJECT_CALL(interp, val.u.object, pTarget, 1, &pEvent, &res);
+            objectCall(interp, val.u.object, pTarget, 1, &pEvent, &res);
             setBooleanFlag(interp, pE, CALLED_LISTENER, 1);
             rc = valueToBoolean(interp, &res, 1);
             if (!rc) {

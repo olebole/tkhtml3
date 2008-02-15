@@ -94,7 +94,7 @@ namespace eval ::hv3::browser_frame {
     #set O(myHv3)      [::hv3::hv3 $O(win).hv3]
     #pack $O(myHv3) -expand true -fill both
     set O(myHv3) $O(hull)
-    $O(myHv3) configure -frame me
+    $O(myHv3) configure -frame $me
 
     ::hv3::the_visited_db init $O(myHv3)
 
@@ -141,23 +141,25 @@ namespace eval ::hv3::browser_frame {
   }
 
   proc configure-name {me} {
+    update_parent_dom $me [[$me hv3 dom] see] 
+  }
+  proc update_parent_dom {me my_see} {
     upvar #0 $me O
 
     # This method is called when the "name" of attribute of this
     # frame is modified. If javascript is enabled we have to update
     # the properties on the parent window object (if any).
-    set dom [$me cget -dom]
-    if {$dom ne "" && [$dom cget -enable]} {
-      set parent [$me parent_frame]
-      if {$parent ne ""} {
-        set parent_window [list ::hv3::DOM::Window $dom [$parent hv3]]
-        set this_win [list ::hv3::DOM::Window $dom $O(myHv3)]
+
+    set parent [$me parent_frame]
+    if {$parent ne ""} {
+      set parent_see [[$parent hv3 dom] see] 
+
+      if {$parent_see ne ""} { 
         if {$O(oldname) ne ""} {
-          $dom set_object_property $parent_window $O(oldname) undefined
+          $parent_see global $O(oldname) undefined
         }
-        if {$O(-name) ne ""} {
-          set val [list object $this_win]
-          $dom set_object_property $parent_window $O(-name) $val
+        if {$my_see ne ""} {
+          $parent_see global $O(-name) [list bridge $my_see]
         }
       }
     }
@@ -224,7 +226,7 @@ namespace eval ::hv3::browser_frame {
     return $widget
   }
 
-  proc parent_frame {me } {
+  proc parent_frame {me} {
     upvar #0 $me O
     set frames [$O(myBrowser) get_frames]
     set w [winfo parent $O(win)]
@@ -530,6 +532,7 @@ namespace eval ::hv3::browser_frame {
   set DelegateOption(-fontscale)        myHv3
   set DelegateOption(-zoom)             myHv3
   set DelegateOption(-enableimages)     myHv3
+  set DelegateOption(-enablejavascript) myHv3
   set DelegateOption(-dom)              myHv3
   set DelegateOption(-width)            myHv3
   set DelegateOption(-height)           myHv3
@@ -575,7 +578,6 @@ namespace eval ::hv3::browser {
 
     set O(-stopbutton) ""
     set O(-unsafe) 0
-    set O(-enablejavascript) 0
 
     # Variables passed to [$myProtocol configure -statusvar] and
     # the same option of $myMainFrame. Used to create the value for 
@@ -589,8 +591,6 @@ namespace eval ::hv3::browser {
     # List of all ::hv3::browser_frame objects using this object as
     # their toplevel browser. 
     set O(myFrames) [list]
-
-    set O(myDom) [::hv3::dom %AUTO% $me]
 
     # Create the protocol object.
     set O(myProtocol) [::hv3::protocol %AUTO%]
@@ -643,7 +643,6 @@ namespace eval ::hv3::browser {
     upvar #0 $me O
     if {$O(myProtocol) ne ""} { $O(myProtocol) destroy }
     if {$O(myHistory) ne ""}  { $O(myHistory) destroy }
-    if {$O(myDom) ne ""}      { $O(myDom) destroy }
   }
 
   proc statusvar {me} { 
@@ -684,9 +683,6 @@ namespace eval ::hv3::browser {
     bind $HTML <1>               [list focus %W]
     bind $HTML <KeyPress-slash>  [list $me Find]
     bindtags $HTML [concat Hv3HotKeys $me [bindtags $HTML]]
-    if {[$O(myDom) cget -enable]} {
-      $frame configure -dom $O(myDom)
-    }
 
     set cmd [list ::hv3::the_download_manager savehandle $O(myProtocol)]
     $frame configure -downloadcmd $cmd
@@ -880,16 +876,6 @@ namespace eval ::hv3::browser {
   proc reload {me } {
     upvar #0 $me O
     $O(myHistory) reload
-  }
-
-  proc configure-enablejavascript {me} {
-    upvar #0 $me O
-    $O(myDom) configure -enable $O(-enablejavascript)
-    set dom ""
-    if {$O(-enablejavascript)} { set dom $O(myDom) }
-    foreach f $O(myFrames) {
-      $f configure -dom $dom
-    }
   }
 
   proc populate_history_menu {me args} {

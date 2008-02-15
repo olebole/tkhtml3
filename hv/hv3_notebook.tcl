@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.10 2008/02/03 17:53:26 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.11 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of three snit widgets:
 #
@@ -303,7 +303,7 @@ snit::widget ::hv3::notebook_header {
 snit::widget ::hv3::notebook {
 
   variable myWidgets [list]
-  variable myCurrent 0
+  variable myCurrent -1
 
   delegate option * to hull
 
@@ -337,23 +337,26 @@ snit::widget ::hv3::notebook {
     lappend myWidgets $widget
 
     bind $widget <Destroy> [list $self HandleDestroy $widget %W]
-    lower $widget
-    raise $widget $myHeader
-    if {[llength $myWidgets] == 2} {
-      $self Place [lindex $myWidgets 0]
-    }
-    $self Place $widget
 
     if {$update} update
     $myHeader add_tab $widget
     $myHeader title $widget $zTitle
     if {[llength $myWidgets] == 1} {
       $myHeader select $widget
+      $self Place $widget
     }
   }
 
   method Place {w} {
+    lower $w
     grid $w -row 1 -column 0 -sticky nsew
+    update
+    update
+    update
+    foreach slave [grid slaves $win -row 1 -column 0] {
+      if {$w eq $slave} continue
+      grid forget $slave
+    } 
   }
 
   method HandleDestroy {widget w} {
@@ -382,7 +385,7 @@ snit::widget ::hv3::notebook {
     }
     if {$myCurrent >= 0} {
       set w [lindex $myWidgets $myCurrent]
-      raise $w
+      $self Place $w
       $myHeader select $w
     }
 
@@ -405,7 +408,8 @@ snit::widget ::hv3::notebook {
         $myHeader select $widget
         after cancel [list event generate $win <<NotebookTabChanged>>]
         after idle   [list event generate $win <<NotebookTabChanged>>]
-        raise $widget
+        # raise $widget
+        $self Place $widget
       }
     }
     return [lindex $myWidgets $myCurrent]

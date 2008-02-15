@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.17 2007/12/17 04:43:07 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_xmlhttp.tcl,v 1.18 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
 
 ::hv3::dom2::stateless Document {
   %NODE%
@@ -261,7 +261,6 @@ namespace eval ::hv3::DOM {
 
 set ::hv3::dom::next_xmlhttp_id 0
 proc ::hv3::dom::newXMLHttpRequest {dom hv3} {
-  set see [$dom see]
 
   # Name of the state-array for the new object.
   set statevar "::hv3::DOM::xmlhttprequest_[incr ::hv3::dom::next_xmlhttp_id]"

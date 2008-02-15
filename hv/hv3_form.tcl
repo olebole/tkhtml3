@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.97 2008/02/03 11:06:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.98 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -856,7 +856,7 @@ snit::widgetadaptor ::hv3::forms::select {
     focus [winfo parent $win]
 
     # Fire the "onchange" dom event.
-    [$myHv3 dom] event onchange $myNode
+    [$myHv3 dom] event change $myNode
   }
 
   # This is called by the DOM module whenever the tree-structure 

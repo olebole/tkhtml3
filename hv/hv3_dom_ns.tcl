@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.41 2008/02/03 11:19:58 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.42 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
 
 #---------------------------------
 # List of DOM objects in this file:
@@ -229,7 +229,7 @@ namespace eval hv3 { set {version($Id: hv3_dom_ns.tcl,v 1.41 2008/02/03 11:19:58
 }
 namespace eval ::hv3::DOM {
   proc Location_assign {hv3 loc} {
-    set f [winfo parent $hv3]
+    set f [$hv3 cget -frame]
 
     # TODO: When assigning a URI from javascript, resolve it relative 
     # to the top-level document... This has got to be wrong... Maybe
@@ -329,16 +329,17 @@ namespace eval ::hv3::DOM {
     set frame [$myHv3 cget -frame]
     set parent [$frame parent_frame]
     if {$parent eq ""} {set parent $frame}
-    list object [$myDom hv3_to_window [$parent hv3]]
+    set see [[$parent hv3 dom] see]
+    list bridge $see
   }
 
   -- A reference to the outermost window in the frameset. For ordinary
   -- HTML documents (not framesets) this property is set to a reference
   -- to this object (same as the <I>window</I> and <I>self</I> properties).
   dom_get top { 
-    set frame [$myHv3 cget -frame]
-    set top [$frame top_frame]
-    list object [$myDom hv3_to_window [$top hv3]]
+    set topframe [[$myHv3 cget -frame] top_frame]
+    set see [[$topframe hv3 dom] see]
+    list bridge $see
   }
 
   -- A reference to this object.

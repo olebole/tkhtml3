@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.187 2008/02/09 18:14:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.188 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -409,6 +409,7 @@ snit::type ::hv3::config {
         -zoom             options(-zoom)             \
         -forcefontmetrics options(-forcefontmetrics) \
         -enableimages     options(-enableimages)     \
+        -enablejavascript options(-enablejavascript) \
     ] {
       if {[$b cget $option] ne [set $var]} {
         $b configure $option [set $var]

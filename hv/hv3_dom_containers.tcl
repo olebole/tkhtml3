@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.10 2007/11/12 10:16:20 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom_containers.tcl,v 1.11 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of the two DOM specific
 # container objects:
@@ -355,12 +355,12 @@ namespace eval ::hv3::DOM {
     if {[string is integer $property]} {
       set f [lindex $frames [expr {int($property)}]]
       if {$f eq ""} return ""
-      return [list object [$myDom hv3_to_window [$f hv3]]]
+      return [list bridge [[$f hv3 dom] see]]
     }
 
     foreach f $frames {
       if {$property eq [$f cget -name]} {
-        return [list object [$myDom hv3_to_window [$f hv3]]]
+        return [list bridge [[$f hv3 dom] see]]
       }
     }
 

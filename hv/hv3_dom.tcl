@@ -1,16 +1,10 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.94 2008/02/03 11:06:56 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.95 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
 #
 #     ::hv3::dom                       -- One object per js interpreter. 
-#     ::hv3::dom::logdata              -- Data for js debugger
-#     ::hv3::dom::logwin               -- Js debugger GUI
-#
-# Special widgets used in the ::hv3::dom::logwin GUI:
-#
-#     ::hv3::dom::stacktrace           -- Debugger "Stack" tab
-#     ::hv3::dom::searchbox            -- Debugger "Search" tab
+#     ::hv3::dom::logscript            -- Logging data for debugging.
 #
 
 package require snit
@@ -18,15 +12,18 @@ package require snit
 #-------------------------------------------------------------------------
 # Class ::hv3::dom
 #
+#   A single instance of this class is created for each javascript
+#   enabled ::hv3::hv3 widget. The javascript module.
+#
 # SYNOPSYS
 #
 #     set dom [::hv3::dom %AUTO% $hv3]
 #
-#     $dom script   HV3 ATTR SCRIPT
-#     $dom noscript HV3 ATTR SCRIPT
+#     $dom script ATTR SCRIPT
 #
 #     $dom javascript SCRIPT
 #     $dom event EVENT NODE
+#     $dom set_object_property {object property value}
 #     $dom reset
 #
 #     $dom destroy
@@ -37,57 +34,41 @@ package require snit
 #
 # DESCRIPTION
 #
-#   Each DOM browsing context (in Hv3, each tab), creates an instance
-#   of this class.
-#
 snit::type ::hv3::dom {
+
+  # Javascript interpreter.
   variable mySee ""
 
-  # Boolean option. Enable this DOM implementation or not.
-  option -enable -default 0 -configuremethod SetEnable
+  # Instance of [::hv3::hv3] that contains the window used as the
+  # global object by this interpreter.
+  variable myHv3 ""
 
   # Logging command.
   option -logcmd -default "" -configuremethod ConfigureLogcmd
-
-  # Instance of [::hv3::browser] associated with this object.
-  variable myBrowser ""
 
   # Used to assign unique ids to each block of script evaluated. 
   # This is used by the script debugging gui.
   variable myNextCodeblockNumber 1
 
-  constructor {browser args} {
-    set myBrowser $browser
-    set myLogData [::hv3::dom::logdata %AUTO% $self]
+  constructor {hv3 args} {
+
+    # Call [::hv3::enable_javascript] to make sure the hv3_dom_XXX.tcl
+    # files have been loaded.
+    ::hv3::enable_javascript
+
+    set myHv3 $hv3
+    set mySee [::see::interp [list ::hv3::DOM::Window $self $hv3]]
+
     $self configurelist $args
-  }
 
-  method browser {} {
-    return $myBrowser
-  }
-
-  method SetEnable {option value} {
-    set options($option) $value
-    if {$value} ::hv3::enable_javascript
-    if {$mySee ne "" && ![$self HaveScripting]} {
-      foreach win [array names myWindows] {
-        $mySee make_transient [list ::hv3::DOM::Window $self $win]
-      }
-      $mySee destroy
-      set mySee ""
-    }
-    if {$mySee eq "" && [$self HaveScripting]} {
-      set mySee [::see::interp]
-      ::hv3::profile::instrument $mySee
-      foreach win [array names myWindows] {
-        $mySee window [list ::hv3::DOM::Window $self $win]
-      }
+    set frame [$myHv3 cget -frame]
+    if {$frame ne ""} {
+      $frame update_parent_dom $mySee
     }
   }
 
   destructor { 
     catch { $mySee destroy }
-    catch { $myLogData destroy }
   }
 
   # Invoked to set the value of the -logcmd option
@@ -96,12 +77,6 @@ snit::type ::hv3::dom {
     if {$mySee ne ""} {
       $mySee log $value
     }
-  }
-
-  # Return true if the Tclsee extension is available and 
-  # the user has foolishly enabled it.
-  method HaveScripting {} {
-    return [expr {$options(-enable) && [info commands ::see::interp] ne ""}]
   }
 
   method InitWindowEvents {body} {
@@ -114,64 +89,11 @@ snit::type ::hv3::dom {
         }]
       }
     }
-    $mySee eval -window [$self node_to_window $body] -noresult $script
-  }
-
-  method set_object_property {object property value} {
-    if {$mySee eq ""} {
-      error "set_object_property before SEE was initialized"
-    }
-    $mySee set $object $property $value
-  }
-
-  # Delete any allocated interpreter and objects. This is called in
-  # two circumstances: when deleting this object and from within
-  # the [reset] method.
-  #
-  method clear {} {
-    # Delete the old interpreter and the various objects, if they exist.
-    # They may not exist, if this is being called from within the
-    # object constructor or scripting is disabled.
-    # if {$mySee ne ""} {
-    #   $mySee make_transient [$self window]
-    #   $mySee destroy
-    #   set mySee ""
-    # }
-  }
-
-  method reset {} {
-return
-
-    $self clear
-
-    if {[$self HaveScripting]} {
-
-      # Set up the new interpreter with the global "Window" object.
-      set mySee [::see::interp]
-      $mySee window [$self window]
-      set myWindowInitEvents 0
-
-      $mySee log $options(-logcmd)
-
-      # Reset the debugger.
-      $self LogReset
-    }
-
-    # Reset the counter used to name blobs of code. This way, if
-    # a page is reloaded the names are the same, which makes it
-    # possible to set breakpoints in the debugger before reloading
-    # a page. 
-    #
-    # Of course, the network might deliver external scripts
-    # in a different order. Maybe there should be a debugging option
-    # to block while downloading all scripts, even if the "defer"
-    # attribute is set.
-    #
-    set myNextCodeblockNumber 1
+    $mySee eval -noresult $script
   }
 
   method NewFilename {} {
-    return "blob[incr myNextCodeblockNumber]"
+    return "$self.[incr myNextCodeblockNumber]"
   }
   
   # This method is called as a Tkhtml3 "script handler" for elements
@@ -183,59 +105,39 @@ return
   # This is done externally, not by code within this type definition.
   # If scripting is not enabled in this browser, this method is a no-op.
   #
-  method script {hv3 attr script} {
-
-    if {$mySee ne ""} {
-      $hv3 html write wait
-      array set a $attr
-      if {[info exists a(src)]} {
-        set fulluri [$hv3 resolve_uri $a(src)]
-        set handle [::hv3::request %AUTO%             \
-            -uri         $fulluri                      \
-            -mimetype    text/javascript               \
-            -cachecontrol normal                       \
-        ]
-        if {[$hv3 encoding] ne ""} {
-          # puts "load script $fulluri encoding [$hv3 encoding]"
-          $handle configure -encoding [$hv3 encoding]
-        }
-	  
-        set fin [mymethod scriptCallback $hv3 $attr $handle]
-        $handle configure -finscript $fin
-        $hv3 makerequest $handle
-        # $self Log "Dispatched script request - $handle" "" "" ""
-      } else {
-        # return [$self scriptCallback $hv3 $attr "" $script]
-        return [$self scriptCallback $hv3 $attr "" $script]
+  method script {attr script} {
+    $myHv3 html write wait
+    array set a $attr
+    if {[info exists a(src)]} {
+      set fulluri [$myHv3 resolve_uri $a(src)]
+      set handle [::hv3::request %AUTO%              \
+          -uri         $fulluri                      \
+          -mimetype    text/javascript               \
+          -cachecontrol normal                       \
+      ]
+      if {[$myHv3 encoding] ne ""} {
+        $handle configure -encoding [$myHv3 encoding]
       }
+	  
+      set fin [mymethod ScriptCallback $attr $handle]
+      $handle configure -finscript $fin
+      $myHv3 makerequest $handle
+    } else {
+      return [$self ScriptCallback $attr "" $script]
     }
     return ""
-  }
-
-  # Script handler for <noscript> elements. If javascript is enabled,
-  # do nothing (meaning don't process the contents of the <noscript>
-  # block). On the other hand, if js is disabled, feed the contents
-  # of the <noscript> block back to the parser using the same
-  # Tcl interface used for document.write().
-  #
-  method noscript {hv3 attr script} {
-    if {$mySee ne ""} {
-      return ""
-    } else {
-      $hv3 html write text $script
-    }
   }
   
   # If a <SCRIPT> element has a "src" attribute, then the [script]
   # method will have issued a GET request for it. This is the 
   # successful callback.
   #
-  method scriptCallback {hv3 attr downloadHandle script} {
+  method ScriptCallback {attr downloadHandle script} {
     set title ""
     if {$downloadHandle ne ""} { 
       # Handle an HTTP redirect or a Location header:
       #
-      if {[$hv3 HandleLocation $downloadHandle]} return
+      if {[$myHv3 HandleLocation $downloadHandle]} return
       set title [$downloadHandle cget -uri]
       $downloadHandle release 
     }
@@ -258,21 +160,16 @@ return
     }
 
     set name [$self NewFilename]
-    set w [list ::hv3::DOM::Window $self $hv3]
-    set rc [catch {$mySee eval -window $w -noresult -file $name $script} msg]
+    set rc [catch {$mySee eval -noresult -file $name $script} msg]
+    if {$rc} {puts "MSG: $msg"}
 
     $self Log $title $name $script $rc $msg
-    $hv3 html write continue
+    $myHv3 html write continue
   }
 
-  method javascript {hv3 script} {
-    set msg ""
-    if {$mySee ne ""} {
-      set name [$self NewFilename]
-      if {$hv3 eq ""} {set hv3 [$myBrowser hv3]}
-      set w [$self hv3_to_window $hv3]
-      set rc [catch {$mySee eval -window $w -file $name $script} msg]
-    }
+  method javascript {script} {
+    set name [$self NewFilename]
+    set rc [catch {$mySee eval -file $name $script} msg]
     return $msg
   }
 
@@ -307,7 +204,7 @@ return
       }
       $self InitWindowEvents $node
 
-      set js_obj [$self node_to_window $node]
+      set js_obj [::hv3::DOM::node_to_window $node]
     } else {
       set js_obj [::hv3::dom::wrapWidgetNode $self $node]
     }
@@ -351,12 +248,16 @@ return
   }
 
   method DoFramesetLoadEvents {node} {
-    set frame [$self node_to_frame $node]
+    set frame [[winfo parent [$node html]] me]
 
     # If $frame is a replacement object for an <IFRAME> element, 
     # then fire the load event on the <IFRAME> element.
     if {[$frame cget -iframe] ne ""} {
-      $self DispatchHtmlEvent load [::hv3::dom::wrapWidgetNode $self [$frame cget -iframe]]
+      set iframe [$frame cget -iframe]
+      set hv3 [[winfo parent [$iframe html]] hv3 me]
+
+      set js_obj [::hv3::dom::wrapWidgetNode [$hv3 dom] $iframe]
+      $hv3 dom DispatchHtmlEvent load $js_obj
       return
     }
 
@@ -364,10 +265,12 @@ return
     if {$p eq ""} return
     
     foreach c [$p child_frames] {
-      if {0 == [[$c hv3] onload_fired]} return
+      if {0 == [[$c hv3] onload_fired]} {
+        return
+      }
     }
 
-    set js_obj [$self hv3_to_window [$p hv3]]
+    set js_obj [::hv3::DOM::hv3_to_window [$p hv3]]
 
     # Dispatch the event.
     $self DispatchHtmlEvent load $js_obj
@@ -413,83 +316,7 @@ return
     set msg
   }
 
-  #----------------------------------------------------------------
-  # Given an html-widget node-handle, return the corresponding 
-  # ::hv3::hv3 object. i.e. the owner of the node-handle.
-  #
-  method node_to_hv3 {node} {
-    [winfo parent [$node html]] hv3 me
-  }
-
-  method node_to_frame {node} {
-    [winfo parent [$node html]] me
-  }
-
-  # Given a Tkhtml3 node-handle, return the javascript wrapper 
-  # for the containing window. 
-  #
-  method node_to_window {node} {
-    set hv3 [$self node_to_hv3 $node]
-    list ::hv3::DOM::Window $self $hv3
-  }
-
-  method hv3_to_window {hv3} {
-    list ::hv3::DOM::Window $self $hv3
-  }
-
-  # The following methods:
-  #
-  #     [make_window]
-  #     [clear_window]
-  #     [delete_window]
-  #
-  # are used to manage the life-time of DOM Window objects.
-  #
-  method clear_window {hv3} {
-    catch {$mySee clear [list ::hv3::DOM::Window $self $hv3]}
-
-    # If javascript is enabled and Window object being cleared
-    # is the top-level frame, delete and recreated the SEE interpreter.
-    # This is necessary, in case the previous URI was in the 
-    # "home://" namespace.
-    #
-    # Also, reset the debugging gui here.
-    #
-    if {0 && $mySee ne ""} {
-      set frame [winfo parent $hv3]
-      if {$frame eq [$frame top_frame]} {
-        foreach win [array names myWindows] {
-          $mySee make_transient [list ::hv3::DOM::Window $self $hv3]
-        }
-        $self LogReset
-        $mySee destroy
-        set mySee ""
-
-        array unset myWindows
-        set myWindows($hv3) 1
-        if {[$self HaveScripting]} {
-          set mySee [::see::interp]
-          ::hv3::profile::instrument $mySee
-          $mySee log $options(-logcmd)
-          $mySee window [list ::hv3::DOM::Window $self $hv3]
-        }
-      }
-    }
-  }
-  method make_window {hv3} {
-    set myWindows($hv3) 1
-    if {$mySee ne ""} {
-      $mySee window [list ::hv3::DOM::Window $self $hv3]
-    }
-  }
-  method delete_window {hv3} {
-    catch { unset myWindows($hv3) }
-    catch { $mySee clear          [list ::hv3::DOM::Window $self $hv3] }
-    catch { $mySee make_transient [list ::hv3::DOM::Window $self $hv3] }
-  }
-  variable myWindows -array [list]
-
-  method see    {} { return $mySee }
+  method see {} { return $mySee }
 
   #------------------------------------------------------------------
   # Logging system follows.
@@ -512,6 +339,7 @@ return
     if {![info exists ::hv3::log_source_option]} return
     if {!$::hv3::log_source_option} return
 
+    puts "error: $result"
     set obj [::hv3::dom::logscript %AUTO% -isevent true \
         -rc $rc -heading $heading -script $script -result $result -name $name
     ]
@@ -519,11 +347,6 @@ return
 
     ::hv3::launch_console
     .console.console Errors javascript [list -1 $self $obj]
-  }
-
-  method LogReset {} {
-    set myLogList [list]
-    return
   }
 
   # Called by the tree-browser to get event-listener info for the
@@ -553,746 +376,6 @@ snit::type ::hv3::dom::logscript {
   option -name    -default "" 
   option -isevent -default 0 
 }
-
-snit::type ::hv3::dom::logdata {
-
-  # Handle for associated (owner) ::hv3::dom object.
-  #
-  variable myDom ""
-
-  # Ordered list of ::hv3::dom::logscript objects. The scripts 
-  # that make up the application being debugged.
-  #
-  variable myLogScripts [list]
-
-  # Name of top-level debugging GUI window. At any time, this window
-  # may or may not exist. This object is responsible for creating
-  # it when it is required.
-  #
-  variable myWindow ""
-
-  # Array of breakpoints set in the script. The array key is
-  # "${zFilename}:${iLine}". i.e. to test if there is a breakpoint
-  # in file "blob4" line 10, do:
-  #
-  #     if {[info exists myBreakpoints(blob4:10)]} {
-  #         ... breakpoint processing ...
-  #     }
-  #
-  variable myBreakpoints -array [list]
-
-  variable myInReload 0
-
-  constructor {dom} {
-    set myDom $dom
-    set myWindow ".[string map {: _} $self]_logwindow"
-  }
-
-  method Log {heading name script rc result} {
-    if {![info exists ::hv3::log_source_option]} return
-    if {!$::hv3::log_source_option} return
-    set ls [::hv3::dom::logscript %AUTO% \
-      -rc $rc -name $name -heading $heading -script $script -result $result
-    ]
-    lappend myLogScripts $ls
-  }
-
-  method dom {} {
-    return $myDom
-  }
-
-  method Reset {} {
-    foreach ls $myLogScripts {
-      $ls destroy
-    }
-    set myLogScripts [list]
-
-    if {$myInReload} {
-      if {[llength [array names myBreakpoints]] > 0} {
-        [$myDom see] trace [mymethod SeeTrace]
-      }
-    } else {
-      array unset myBreakpoints
-    }
-  }
-
-  method Popup {} {
-    if {![winfo exists $myWindow]} {
-      ::hv3::dom::logwin $myWindow $self
-    } 
-    wm state $myWindow normal
-    raise $myWindow
-    $myWindow Populate
-  }
-
-  destructor {
-    $self Reset
-  }
-
-
-  method GetList {} {
-    return $myLogScripts
-  }
-
-  method Evaluate {script} {
-    set res [$myDom javascript "" $script]
-    return $res
-  }
-
-  method BrowseToNode {node} {
-    set hv3 [winfo parent [winfo parent [$node html]]]
-    ::HtmlDebug::browse $hv3 $node
-  }
-
-  method SeeTrace {eEvent zFilename iLine} {
-    if {$eEvent eq "statement"} {
-      if {[info exists myBreakpoints(${zFilename}:$iLine)]} {
-        # There is a breakpoint set on this line. Pop up the
-        # debugging GUI and set the breakpoint stack.
-        $self Popup
-        $myWindow Breakpoint $zFilename $iLine
-      }
-    }
-  }
-
-  method breakpoints {} {
-    return [array names myBreakpoints]
-  }
-
-  method add_breakpoint {blobid lineno} {
-    set myBreakpoints(${blobid}:${lineno}) 1
-    [$myDom see] trace [mymethod SeeTrace]
-  }
-
-  method clear_breakpoint {blobid lineno} {
-    unset -nocomplain myBreakpoints(${blobid}:${lineno})
-    if {[llength [$self breakpoints]]==0} {
-      [$myDom see] trace ""
-    }
-  }
-
-  # Called by the GUI when the user issues a "reload" command.
-  # The difference between this and clicking the reload button
-  # in the GUI is that breakpoints are persistent when this
-  # command is issued.
-  #
-  method reload {} {
-    set myInReload 1
-    gui_current reload
-    set myInReload 0
-  }
-}
-
-snit::widget ::hv3::dom::searchbox {
-
-  variable myLogwin 
-
-  constructor {logwin} {
-    ::hv3::label ${win}.label
-    ::hv3::scrolled listbox ${win}.listbox
-
-    set myLogwin $logwin
-
-    pack ${win}.label   -fill x
-    pack ${win}.listbox -fill both -expand true
-
-    ${win}.listbox configure -background white
-    bind ${win}.listbox <<ListboxSelect>> [mymethod Select]
-  }
-
-  method Select {} {
-    set idx  [lindex [${win}.listbox curselection] 0]
-    set link [${win}.listbox get $idx]
-    set link [string range $link 0 [expr [string first : $link] -1]]
-    $myLogwin GotoCmd -silent $link
-    ${win}.listbox selection set $idx
-  }
-
-  method Search {str} {
-    ${win}.listbox delete 0 end
-
-    set nHit 0
-    foreach ls [$myLogwin GetList] {
-      set blobid [$ls cget -name]
-      set iLine 0
-      foreach line [split [$ls cget -script] "\n"] {
-        incr iLine
-        if {[string first $str $line]>=0} {
-          ${win}.listbox insert end "$blobid $iLine: $line"
-          incr nHit
-        }
-      }
-    }
-
-    return $nHit
-  }
-}
-
-snit::widget ::hv3::dom::stacktrace {
-
-  variable myLogwin ""
-
-  constructor {logwin} {
-    ::hv3::label ${win}.label
-    ::hv3::scrolled listbox ${win}.listbox
-
-    set myLogwin $logwin
-
-    pack ${win}.label -fill x
-    pack ${win}.listbox -fill both -expand true
-
-    ${win}.listbox configure -background white
-    bind ${win}.listbox <<ListboxSelect>> [mymethod Select]
-  }
-
-  method Select {} {
-    set idx  [lindex [${win}.listbox curselection] 0]
-    set link [${win}.listbox get $idx]
-    $myLogwin GotoCmd -silent $link
-    ${win}.listbox selection set $idx
-  }
-
-  method Populate {title stacktrace} {
-    ${win}.label configure -text $title
-    ${win}.listbox delete 0 end
-    foreach {blobid lineno calltype callname} $stacktrace {
-      ${win}.listbox insert end "$blobid $lineno"
-    }
-  }
-}
-
-#-------------------------------------------------------------------------
-# ::hv3::dom::logwin --
-#
-#     Top level widget for the debugger window.
-#
-snit::widget ::hv3::dom::logwin {
-  hulltype toplevel
-
-  # Internal widgets from left-hand pane:
-  #
-  variable myFileList ""                            ;# Listbox with file-list
-  variable mySearchbox ""                           ;# Search results
-  variable myStackList ""                           ;# Stack trace widget.
-
-  # The text widget used to display code and the label displayed above it.
-  #
-  variable myCode ""
-  variable myCodeTitle ""
-
-  # The two text widgets: One for input and one for output.
-  #
-  variable myInput ""
-  variable myOutput ""
-
-  # ::hv3::dom::logdata object containing the debugging
-  # data for the DOM environment being debugged.
-  #
-  variable myData
-
-  # Index in [$myData GetList] of the currently displayed file:
-  #
-  variable myCurrentIdx 0
-
-  # Current point in stack trace. Tag this line with "tracepoint"
-  # in the $myCode widget.
-  #
-  variable myTraceFile ""
-  variable myTraceLineno ""
-
-  variable myStack ""
-
-  constructor {data} {
-    
-    set myData $data
-
-    panedwindow ${win}.pan -orient horizontal
-    panedwindow ${win}.pan.right -orient vertical
-
-    set nb [::hv3::notebook ${win}.pan.left]
-    set myFileList [::hv3::scrolled listbox ${win}.pan.left.files]
-
-    set mySearchbox [::hv3::dom::searchbox ${win}.pan.left.search $self]
-    set myStackList [::hv3::dom::stacktrace ${win}.pan.left.stack $self]
-
-    $nb add $myFileList  -text "Files"
-    $nb add $mySearchbox -text "Search"
-    $nb add $myStackList -text "Stack"
-
-    $myFileList configure -bg white
-    bind $myFileList <<ListboxSelect>> [mymethod PopulateText]
-
-    frame ${win}.pan.right.top 
-    set myCode [::hv3::scrolled ::hv3::text ${win}.pan.right.top.code]
-    set myCodeTitle [::hv3::label ${win}.pan.right.top.label -anchor w]
-    pack $myCodeTitle -fill x
-    pack $myCode -fill both -expand 1
-    $myCode configure -bg white
-
-    $myCode tag configure linenumber -foreground darkblue
-    $myCode tag configure tracepoint -background skyblue
-    $myCode tag configure stackline  -background wheat
-    $myCode tag configure breakpoint -background red
-
-    $myCode tag bind linenumber <1> [mymethod ToggleBreakpoint %x %y]
-
-    frame ${win}.pan.right.bottom 
-    set myOutput [::hv3::scrolled ::hv3::text ${win}.pan.right.bottom.output]
-    set myInput  [::hv3::text ${win}.pan.right.bottom.input -height 3]
-    $myInput configure -bg white
-    $myOutput configure -bg white -state disabled -wrap none
-    $myOutput tag configure commandtext -foreground darkblue
-    $myOutput tag configure commandalert -foreground darkred
-
-    # Set up key bindings for the input window:
-    #bind $myInput <Return> [list after idle [mymethod Evaluate]]
-    bind $myInput <Return> [mymethod Evaluate]
-    bind $myInput <Up>     [list after idle [mymethod HistoryBack]]
-    bind $myInput <Down>   [list after idle [mymethod HistoryForward]]
-
-    pack $myInput -fill x -side bottom
-    pack $myOutput -fill both -expand 1
-
-    ${win}.pan add ${win}.pan.left -width 200
-    ${win}.pan add ${win}.pan.right
-
-    ${win}.pan.right add ${win}.pan.right.top  -height 200 -width 600
-    ${win}.pan.right add ${win}.pan.right.bottom -height 350
-
-    pack ${win}.pan -fill both -expand 1
-
-    bind ${win} <Escape> [list destroy ${win}]
-
-    focus $myInput
-    $myInput insert end "help"
-    $self Evaluate
-  }
-
-  method GetList {} { return [$myData GetList] }
-
-  method Populate {} {
-    $myFileList delete 0 end
-
-    # Populate the "Files" list-box.
-    #
-    foreach ls [$myData GetList] {
-      set name    [$ls cget -name] 
-      set heading [$ls cget -heading] 
-      set rc   [$ls cget -rc] 
-
-      $myFileList insert end "$name - $heading"
-
-      if {$name eq $myTraceFile} {
-        $myFileList selection set end
-      }
-  
-      if {$rc} {
-        $myFileList itemconfigure end -foreground red -selectforeground red
-      }
-    }
-  }
-
-  method PopulateText {} {
-    $myCode configure -state normal
-    $myCode delete 0.0 end
-    set idx [lindex [$myFileList curselection] 0]
-    if {$idx ne ""} {
-      set ls [lindex [$myData GetList] $idx]
-      $myCodeTitle configure -text [$ls cget -heading]
-
-      set name [$ls cget -name]
-      set stacklines [list]
-      foreach {n l X Y} $myStack {
-        if {$n eq $name} { lappend stacklines $l }
-      }
-
-      set script [$ls cget -script]
-      set N 1
-      foreach line [split $script "\n"] {
-        $myCode insert end [format "% 5d   " $N] linenumber
-        if {[$ls cget -name] eq $myTraceFile && $N == $myTraceLineno} {
-          $myCode insert end "$line\n" tracepoint
-        } elseif {[lsearch $stacklines $N] >= 0} {
-          $myCode insert end "$line\n" stackline
-        } else {
-          $myCode insert end "$line\n"
-        }
-        incr N
-      }
-      set myCurrentIdx $idx
-    }
-
-    # The following line throws an error if no chars are tagged "tracepoint".
-    catch { $myCode yview -pickplace tracepoint.first }
-    $myCode configure -state disabled
-    $self PopulateBreakpointTag
-  }
-
-  # This proc is called after either:
-  #
-  #     * The contents of the code window change, or
-  #     * A breakpoint is added or cleared from the debugger.
-  #
-  # It ensures the "breakpoint" tag is set on the line-number
-  # of any line that has a breakpoint set.
-  #
-  method PopulateBreakpointTag {} {
-    set ls     [lindex [$myData GetList] $myCurrentIdx]
-    set blobid [$ls cget -name]
-
-    $myCode tag remove breakpoint 0.0 end
-    foreach key [$myData breakpoints] {
-      foreach {b i} [split $key :] {}
-      if {$b eq $blobid} {
-        $myCode tag add breakpoint ${i}.0 ${i}.5
-      }
-    }
-  }
-
-  method ToggleBreakpoint {x y} {
-    set ls     [lindex [$myData GetList] $myCurrentIdx]
-    set lineno [lindex [split [$myCode index @${x},${y}] .] 0]
-    set blobid [$ls cget -name]
-
-    if {[lsearch [$myData breakpoints] "${blobid}:${lineno}"]>=0} {
-      $myData clear_breakpoint ${blobid} ${lineno}
-    } else {
-      $myData add_breakpoint ${blobid} ${lineno}
-    }
-    $self PopulateBreakpointTag
-  }
-
-  # This is called when the user issues a [result] command.
-  #
-  method ResultCmd {cmd} {
-    # The (optional) argument is one of the blob names. If
-    # it is not specified, use the currently displayed js blob 
-    # as a default.
-    #
-    set arg [lindex $cmd 0]
-    if {$arg eq ""} {
-      set idx $myCurrentIdx
-      if {$idx eq ""} {set idx [llength [$myData GetList]]}
-    } else {
-      set idx 0
-      foreach ls [$myData GetList] {
-        if {[$ls cget -name] eq $arg} break
-        incr idx
-      }
-    }
-    set ls [lindex [$myData GetList] $idx]
-    if {$ls eq ""} {
-      error "No such file: \"$arg\""
-    }
-
-    # Echo the command to the output panel.
-    #
-    $myOutput insert end "result: [$ls cget -name]\n" commandtext
-
-    $myOutput insert end "   rc       : " commandtext
-    $myOutput insert end "[$ls cget -rc]\n"
-    if {[$ls cget -rc] && [lindex [$ls cget -result] 0] eq "JS_ERROR"} {
-      set res [$ls cget -result]
-      set msg        [lindex $res 1]
-      set zErrorInfo [lindex $res 2]
-      set stacktrace [lrange $res 3 end]
-      set stack ""
-      foreach {file lineno a b} $stacktrace {
-        set stack "-> $file:$lineno $stack"
-      }
-      $myOutput insert end "   result   : " commandtext
-      $myOutput insert end "$msg\n"
-      $myOutput insert end "   stack    : " commandtext
-      $myOutput insert end "[string range $stack 3 end]\n"
-      $myOutput insert end "   errorInfo: " commandtext
-      $myOutput insert end "$zErrorInfo\n"
-
-      set blobid ""
-      set r [$ls cget -result]
-      regexp {(blob[[:digit:]]*):([[:digit:]]*):} $r X blobid lineno
-
-      if {$blobid ne ""} {
-        set stacktrace [linsert $stacktrace 0 $blobid $lineno "" ""]
-      }
-
-      if {[llength $stacktrace] > 0} {
-        set blobid [lindex $stacktrace 0]
-        set lineno [lindex $stacktrace 1]
-        set myStack $stacktrace
-        $myStackList Populate "Result of [$ls cget -name]:" $stacktrace
-        [winfo parent $myStackList] select $myStackList
-      }
-
-      if {$blobid ne ""} {
-        $self GotoCmd -silent [list $blobid $lineno]
-      }
-      
-    } else {
-      $myOutput insert end "   result: [$ls cget -result]\n"
-    }
-  }
- 
-  # This is called when the user issues a [clear] command.
-  #
-  method ClearCmd {cmd} {
-    $myOutput delete 0.0 end
-  }
-
-  # This is called when the user issues a [javascript] command.
-  #
-  method JavascriptCmd {cmd} {
-    set js [string trim $cmd]
-    set res [$myData Evaluate $js]
-    $myOutput insert end "javascript: $js\n" commandtext
-    if {[lindex $res 0] eq "object" && [llength $res] == 2} {
-      $self PrintObject [lindex $res 1]
-    } else {
-      $myOutput insert end "    [string trim $res]\n"
-    }
-  }
-
-  method PrintObject {obj} {
-    set state [$myOutput cget -state]
-    if {$state eq "disabled"} {
-      $myOutput configure -state normal
-    }
-   
-    $myOutput insert end "    object $obj\n"
-
-    set nMax 0
-    set propertylist [lsort [eval $obj List]]
-    foreach property $propertylist {
-      if {[string length $property] > $nMax} {
-        set nMax [string length $property]
-      }
-    }
-    incr nMax 2
-    foreach property $propertylist {
-      set value [eval $obj Get $property]
-      $myOutput insert end [format "        %-${nMax}s" $property]
-      if {[lindex $value 0] eq "object" && [llength $value] == 2} {
-        set tag [string map [list " " _ ":" _] $value]
- 
-        set classname [lindex $value 1 0]
-        set classname [
-          string range $classname [expr {[string last : $classname]+1}] end
-        ]
-       
-        $myOutput insert end "object "
-        $myOutput insert end $classname $tag
-
-        $myOutput tag bind $tag <1> [list $self PrintObject [lindex $value 1]]
-        $myOutput tag bind $tag <Enter> [list $myOutput configure -cursor hand2]
-        $myOutput tag bind $tag <Leave> [list $myOutput configure -cursor ""]
-        $myOutput tag configure $tag -underline 1 -foreground darkblue
-      } else {
-        $myOutput insert end $value
-      }
-      $myOutput insert end "\n"
-    }
-    $myOutput yview -pickplace end
-    $myOutput configure -state $state
-  }
-
-  method GotoCmd {cmd {cmd2 ""}} {
-    if {$cmd2 ne ""} {set cmd $cmd2}
-    set blobid [lindex $cmd 0]
-    set lineno [lindex $cmd 1]
-    if {$lineno eq ""} {
-      set lineno 1
-    }
-
-    if {$cmd2 eq ""} {
-      $myOutput insert end "goto: $blobid $lineno\n" commandtext
-    }
-
-    set idx 0
-    set ok 0
-    foreach ls [$myData GetList] {
-      if {[$ls cget -name] eq $blobid} {set ok 1 ; break}
-      incr idx
-    }
-
-    if {!$ok} {
-      $myOutput insert end "        No such blob: $blobid"
-      return
-    }
-
-    set myTraceFile $blobid
-    set myTraceLineno $lineno
-    if {$cmd2 eq ""} {
-      $self Populate
-    } else {
-      $myFileList selection clear 0 end
-      $myFileList selection set $idx
-    }
-    $self PopulateText
-  }
-
-  method ErrorCmd {cmd} {
-  }
-
-  method SearchCmd {cmd} {
-    set n [$mySearchbox Search $cmd]
-    ${win}.pan.left select $mySearchbox
-    $myOutput insert end "search: $cmd\n" commandtext
-    $myOutput insert end "    $n hits.\n"
-  }
-
-  method TreeCmd {node} {
-    $myOutput insert end "tree: $node\n" commandtext
-    $myData BrowseToNode $node
-  }
-
-  method TclCmd {args} {
-    $myOutput insert end "tcl: $args\n" commandtext
-    set res [eval uplevel #0 $args]
-    $myOutput insert end "    $res\n" 
-  }
-
-  method ReloadCmd {args} {
-    $myData reload
-  }
-
-  method DebugCmd {args} {
-    $myOutput insert end "debug: $args\n" commandtext
-    set see [[$myData dom] see] 
-    switch -- [lindex $args 0] {
-
-      alloc {
-        set data [eval $see debug $args]
-        foreach {key value} $data {
-          set key [format "    % -30s" $key]
-          $myOutput insert end $key commandtext 
-          $myOutput insert end ": $value\n"
-        }
-      }
-
-      default {
-        set objlist [eval [[$myData dom] see] debug $args]
-        foreach obj $objlist {
-          $myOutput insert end "    $obj\n"
-        }
-      }
-    }
-  }
-
-  method Evaluate {} {
-    set script [string trim [$myInput get 0.0 end]]
-    $myInput delete 0.0 end
-    $myInput mark set insert 0.0
-
-    set idx [string first " " $script]
-    if {$idx < 0} {
-      set idx [string length $script]
-    }
-    set zWord [string range $script 0 [expr $idx-1]]
-    set nWord [string length $zWord]
-
-    $myOutput configure -state normal
-
-    set cmdlist [list \
-      clear      2 ""                     ClearCmd      \
-      cont       2 ""                     ContCmd       \
-      goto       1 "BLOBID ?LINE-NUMBER?" GotoCmd       \
-      js         1 "JAVASCRIPT..."        JavascriptCmd \
-      debug      1 "SUB-COMMAND"          DebugCmd      \
-      reload     2 ""                     ReloadCmd     \
-      result     1 "BLOBID"               ResultCmd     \
-      search     1 "STRING"               SearchCmd     \
-      tree       2 "NODE"                 TreeCmd       \
-      tcl        2 "TCL-SCRIPT"           TclCmd        \
-    ]
-    set done 0
-    foreach {cmd nMin NOTUSED method} $cmdlist {
-      if {$nWord>=$nMin && [string first $zWord $cmd]==0} {
-        $self $method [string trim [string range $script $nWord end]]
-        set done 1
-        break
-      }
-    }
-    
-    if {!$done} {
-        # An unknown command (or "help"). Print a summary of debugger commands.
-        #
-        $myOutput insert end "help:\n" commandtext
-        foreach {cmd NOTUSED help NOTUSED} $cmdlist {
-        $myOutput insert end "          $cmd $help\n"
-      }
-      set x "Unambiguous prefixes of the above commands are also accepted.\n"
-      $myOutput insert end "        $x"
-    }
-
-    $myOutput yview -pickplace end
-    $myOutput insert end "\n"
-    $myOutput configure -state disabled
-
-    $self HistoryAdd $script
-  }
-
-
-  # History list for input box. Interface is:
-  #
-  #     $self HistoryAdd $script       (add command to end of history list)
-  #     $self HistoryBack              (bind to <back> key>)
-  #     $self HistoryForward           (bind to <forward> key)
-  #
-  variable myHistory [list]
-  variable myHistoryIdx 0
-  method HistoryAdd {script} {
-    lappend myHistory $script
-    set myHistoryIdx [llength $myHistory]
-  }
-  method HistoryBack {} {
-    if {$myHistoryIdx==0} return
-    incr myHistoryIdx -1
-    $myInput delete 0.0 end
-    $myInput insert end [lindex $myHistory $myHistoryIdx]
-  }
-  method HistoryForward {} {
-    if {$myHistoryIdx==[llength $myHistory]} return
-    incr myHistoryIdx
-    $myInput delete 0.0 end
-    $myInput insert end [lindex $myHistory $myHistoryIdx]
-  }
-  #
-  # End of history list for input box.
-
-
-  # Variable used for breakpoint code.
-  variable myBreakpointVwait
-  method ContCmd {args} { 
-    $myOutput insert end "cont:\n" commandtext
-    set myBreakpointVwait 1 
-
-    set myTraceFile ""
-    set myTraceLineno ""
-    set myStack ""
-    $myStackList Populate "" $myStack
-    $myCode tag remove tracepoint 0.0 end
-    $myCode tag remove stackline 0.0 end
-  }
-
-  # This is called when the SEE interpreter has been stopped at
-  # a breakpoint. Js execution will continue after this method 
-  # returns.
-  #
-  method Breakpoint {zBlobid iLine} {
-    set myBreakpointVwait 0
-
-    set myStack [list $zBlobid $iLine "" ""]
-    $myStackList Populate "Breakpoint $zBlobid $iLine" $myStack
-    [winfo parent $myStackList] select $myStackList
-    $self GotoCmd -silent [list $zBlobid $iLine]
-
-    $myOutput configure -state normal
-    $myOutput insert end "breakpoint: $zBlobid $iLine\n\n" commandalert
-    $myOutput configure -state disabled
-
-    vwait [myvar myBreakpointVwait]
-  }
-}
-#-----------------------------------------------------------------------
 
 #-----------------------------------------------------------------------
 # Pull in the object definitions.
@@ -1352,9 +435,18 @@ namespace eval ::hv3::DOM {
   # the Node.ownerDocument javascript property of an HTMLElement or
   # Text Node.
   #
-  proc node_to_document {dom node} {
-    list ::hv3::DOM::HTMLDocument \
-        $dom [winfo parent [winfo parent [$node html]]]
+  proc node_to_document {node} {
+    set hv3 [[winfo parent [$node html]] hv3 me]
+    list ::hv3::DOM::HTMLDocument [$hv3 dom] $hv3
+  }
+
+  proc node_to_window {node} {
+    set hv3 [[winfo parent [$node html]] hv3 me]
+    list ::hv3::DOM::Window [$hv3 dom] $hv3
+  }
+
+  proc hv3_to_window {hv3} {
+    list ::hv3::DOM::Window [$hv3 dom] $hv3
   }
 }
 

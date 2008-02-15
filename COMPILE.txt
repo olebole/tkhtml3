@@ -115,7 +115,7 @@ This file has two sections:
     If Boehm GC is not in the various paths, need to set CFLAGS, LDFLAGS and
     LD_LIBRARY_PATH before running configure:
 
-      INSTALL_PATH=/home/dan/javascript/install
+      INSTALL_PATH=/home/dan/work/tkhtml/js/
       export CFLAGS="-I${INSTALL_PATH}/include/ -O2 -DNDEBUG"
       export LDFLAGS=-L${INSTALL_PATH}/lib/
       export LD_LIBRARY_PATH=${INSTALL_PATH}/lib/
