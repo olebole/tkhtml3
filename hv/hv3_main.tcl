@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.188 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.189 2008/02/15 18:54:58 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -26,9 +26,6 @@ if {[catch { package require Img } errmsg]} {
 }
 
 source [sourcefile hv3_browser.tcl]
-# if {![llength [info procs ::console]]} {
-#     source [sourcefile hv3_console.tcl]
-# }
 
 namespace eval ::hv3 {
   set log_source_option 0
