@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.95 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_dom.tcl,v 1.96 2008/02/15 19:01:46 danielk1977 Exp $)} 1 }
 
 #--------------------------------------------------------------------------
 # Snit types in this file:
@@ -359,14 +359,10 @@ snit::type ::hv3::dom {
 }
 
 #-----------------------------------------------------------------------
-# ::hv3::dom::logdata
 # ::hv3::dom::logscript
 #
-#     Javascript debugger state.
-#
-# ::hv3::dom::logwin
-#
-#     Toplevel window widget that implements the javascript debugger.
+#     An object type to store the results of executing a block of
+#     javascript or firing a javascript event.
 #
 snit::type ::hv3::dom::logscript {
   option -rc      -default ""
