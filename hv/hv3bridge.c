@@ -1,17 +1,41 @@
 
+/*
+ * OVERVIEW:
+ *
+ *   This file contains the implementation of the "bridge" object. A bridge
+ *   object is used when one SEE interpreter needs to access an object that
+ *   was created by another SEE interpreter.
+ *  
+ *     struct SEE_interpreter *pInterp1 = <....>;
+ *     struct SEE_interpreter *pInterp2 = <....>;
+ *     struct SEE_object *pObj;
+ *     BridgeObject *pBridge; 
+ *  
+ *     pObj = (struct SEE_object *)SEE_native_new(pInterp1);
+ *     pBridge = createBridgeObject(pInterp2, pInterp1, pObj);
+ *  
+ *   After running the above fragment, object pObj may only be used by
+ *   interpreter pInterp1. Object pBridge, which behaves the same way
+ *   in all respects, may be accessed by interpreter pInterp2.
+ *
+ *   This file is part of the Hv3 web-browser. But it is really generic
+ *   code that can be used by any program that needs to share objects
+ *   between SEE interpreters.
+ */
+
 typedef struct BridgeObject BridgeObject;
 typedef struct BridgeEnum BridgeEnum;
 
 struct BridgeObject {
-  struct SEE_object object;
-  struct SEE_interpreter *i;
-  struct SEE_object *pObj;
+    struct SEE_object object;
+    struct SEE_interpreter *i;
+    struct SEE_object *pObj;
 };
 
 struct BridgeEnum {
-  struct SEE_enum base;
-  struct SEE_interpreter *i;
-  struct SEE_enum *pEnum;
+    struct SEE_enum base;
+    struct SEE_interpreter *i;
+    struct SEE_enum *pEnum;
 };
 
 static struct SEE_objectclass *getBridgeVtbl();
@@ -22,14 +46,15 @@ static struct SEE_enumclass *getBridgeEnumVtbl();
  *
  * createBridgeObject --
  *
- *   This is the only public interface in this file. Return a pointer to
- *   a wrapper (bridge) object that can be used in interpreter pInterp
- *   to access an object pForiegnObj that was created in interpreter
- *   pForiegnInterp.
+ *   This is the only public interface in this file. Create a a wrapper
+ *   (bridge) object that can be used in interpreter pInterp to access an
+ *   object pForiegnObj that was created in interpreter pForiegnInterp.
  *
  * Results:
+ *   Pointer to new heap allocated bridge object.
  *
  * Side effects:
+ *   None.
  *
  *---------------------------------------------------------------------------
  */
@@ -52,8 +77,21 @@ createBridgeObject(pInterp, pForiegnInterp, pForiegnObj)
     return (struct SEE_object *)p;
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * bridgeCopyValue --
+ *
+ *   This function is used to transfer SEE values between interpreters.
+ *
+ * Results:
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
 static void
-copyBridgeValue(pInterp, pValue, pForiegnInterp, pForiegnValue)
+bridgeCopyValue(pInterp, pValue, pForiegnInterp, pForiegnValue)
     struct SEE_interpreter *pInterp;              /* Source interpreter */
     struct SEE_value *pValue;                     /* Destination value */
     struct SEE_interpreter *pForiegnInterp;       /* Source interpreter */
@@ -70,8 +108,19 @@ copyBridgeValue(pInterp, pValue, pForiegnInterp, pForiegnValue)
     }
 }
 
+/*
+ *---------------------------------------------------------------------------
+ *
+ * bridgeHandleException --
+ *
+ * Results:
+ *
+ * Side effects:
+ *
+ *---------------------------------------------------------------------------
+ */
 static void
-handleBridgeException(pInterp, pForiegnInterp, pForiegnTry)
+bridgeHandleException(pInterp, pForiegnInterp, pForiegnTry)
     struct SEE_interpreter *pInterp;
     struct SEE_interpreter *pForiegnInterp;
     SEE_try_context_t *pForiegnTry;
@@ -80,7 +129,7 @@ handleBridgeException(pInterp, pForiegnInterp, pForiegnTry)
     if (pForiegnVal) {
         struct SEE_value exception;
         struct SEE_traceback *pTrace;
-#if 1
+#if 0
 printf("throw: ");
 SEE_PrintValue(pForiegnInterp, pForiegnVal, stdout);
 printf("\n");
@@ -96,7 +145,7 @@ printf("\n");
             }
         }
 #endif
-        copyBridgeValue(pInterp, &exception, pForiegnInterp, pForiegnVal);
+        bridgeCopyValue(pInterp, &exception, pForiegnInterp, pForiegnVal);
         pInterp->try_location = pForiegnInterp->try_location;
         SEE_THROW(pInterp, &exception);
     }
@@ -120,9 +169,9 @@ Bridge_Get(pInterp, pObj, pProp, pRes)
         pProp = SEE_intern(p->i, pProp);
         SEE_TRY(p->i, try_ctxt) {
             SEE_OBJECT_GET(p->i, p->pObj, pProp, &val);
-            copyBridgeValue(pInterp, pRes, p->i, &val);
+            bridgeCopyValue(pInterp, pRes, p->i, &val);
         }
-        handleBridgeException(pInterp, p->i, &try_ctxt);
+        bridgeHandleException(pInterp, p->i, &try_ctxt);
     }
 }
 
@@ -142,12 +191,12 @@ Bridge_Put(pInterp, pObj, pProp, pValue, flags)
         SEE_try_context_t try_ctxt;
         struct SEE_value val;
         pProp = SEE_intern(p->i, pProp);
-        copyBridgeValue(p->i, &val, pInterp, pValue);
+        bridgeCopyValue(p->i, &val, pInterp, pValue);
 
         SEE_TRY(p->i, try_ctxt) {
             SEE_OBJECT_PUT(p->i, p->pObj, pProp, &val, flags);
         }
-        handleBridgeException(pInterp, p->i, &try_ctxt);
+        bridgeHandleException(pInterp, p->i, &try_ctxt);
     }
 }
 
@@ -189,7 +238,7 @@ Bridge_Delete(pInterp, pObj, pProp)
         SEE_TRY(p->i, try_ctxt) {
             ret = SEE_OBJECT_DELETE(p->i, p->pObj, pProp);
         }
-        handleBridgeException(pInterp, p->i, &try_ctxt);
+        bridgeHandleException(pInterp, p->i, &try_ctxt);
         return ret;
     }
 }
@@ -204,7 +253,7 @@ Bridge_DefaultValue(pInterp, pObj, pHint, pRes)
     BridgeObject *p = (BridgeObject *)pObj;
     struct SEE_value val;
     SEE_OBJECT_DEFAULTVALUE(p->i, p->pObj, pHint, &val);
-    copyBridgeValue(pInterp, pRes, p->i, &val);
+    bridgeCopyValue(pInterp, pRes, p->i, &val);
 }
 
 static struct SEE_enum *
@@ -254,7 +303,7 @@ bridgeCallOrConstruct(pInterp, pObj, pThis, argc, argv, pRes, isConstruct)
         aValue = SEE_malloc(pInterp, nByte);
         apValue = (struct SEE_value **)&aValue[argc];
         for(i = 0; i < argc; i++){
-            copyBridgeValue(p->i, &aValue[i], pInterp, argv[i]);
+            bridgeCopyValue(p->i, &aValue[i], pInterp, argv[i]);
             apValue[i] = &aValue[i];
         }
         pThis = createBridgeObject(p->i, pInterp, pThis);
@@ -265,10 +314,10 @@ bridgeCallOrConstruct(pInterp, pObj, pThis, argc, argv, pRes, isConstruct)
             } else {
                 SEE_OBJECT_CALL(p->i, p->pObj, pThis, argc, apValue, &val);
             }
-	    copyBridgeValue(pInterp, pRes, p->i, &val);
+	    bridgeCopyValue(pInterp, pRes, p->i, &val);
         }
 
-        handleBridgeException(pInterp, p->i, &try_ctxt);
+        bridgeHandleException(pInterp, p->i, &try_ctxt);
     }
 }
 
@@ -304,7 +353,7 @@ Bridge_HasInstance(pInterp, pObj, pInstance)
 {
     BridgeObject *p = (BridgeObject *)pObj;
     struct SEE_value val;
-    copyBridgeValue(p->i, &val, pInterp, pInstance);
+    bridgeCopyValue(p->i, &val, pInterp, pInstance);
     return SEE_OBJECT_HASINSTANCE(p->i, p->pObj, &val);
 }
 
@@ -327,30 +376,31 @@ BridgeEnum_Next(pSeeInterp, pEnum, pFlags)
     return SEE_ENUM_NEXT(p->i, p->pEnum, pFlags);
 }
 
-static struct SEE_objectclass BridgeObjectVtbl = {
-    "Bridge",
-    Bridge_Get,
-    Bridge_Put,
-    Bridge_CanPut,
-    Bridge_HasProperty,
-    Bridge_Delete,
-    Bridge_DefaultValue,
-    Bridge_Enumerator,
-    Bridge_Construct,
-    Bridge_Call,
-    Bridge_HasInstance,
-    Bridge_GetSecDomain
-};
+/* Return a pointer to the bridge object vtbl */
 static struct SEE_objectclass *getBridgeVtbl() {
+    static struct SEE_objectclass BridgeObjectVtbl = {
+        "Bridge",
+        Bridge_Get,
+        Bridge_Put,
+        Bridge_CanPut,
+        Bridge_HasProperty,
+        Bridge_Delete,
+        Bridge_DefaultValue,
+        Bridge_Enumerator,
+        Bridge_Construct,
+        Bridge_Call,
+        Bridge_HasInstance,
+        Bridge_GetSecDomain
+    };
     return &BridgeObjectVtbl;
 }
 
-static struct SEE_enumclass BridgeEnumVtbl = {
-  0,  /* Unused */
-  BridgeEnum_Next
-};
-
+/* Return a pointer to the bridge object enumerator vtbl */
 static struct SEE_enumclass *getBridgeEnumVtbl() {
+    static struct SEE_enumclass BridgeEnumVtbl = {
+        0,  /* Unused */
+        BridgeEnum_Next
+    };
     return &BridgeEnumVtbl;
 }
 
