@@ -1,5 +1,20 @@
-# This file contains the mega-widget hv3::hv3 used by the hv3 demo web 
-# browser. An instance of this widget displays a single HTML frame.
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.247 2008/03/02 14:43:49 danielk1977 Exp $)} 1 }
+
+# This file contains the mega-widget hv3::hv3 that is at the core
+# of the Hv3 web browser implementation. An instance of this widget 
+# displays a single HTML frame. Documentation for the published
+# interface to this widget is found at:
+#
+#   http://tkhtml.tcl.tk/hv3_widget.html
+#
+# Other parts of the interface, used internally and by the Hv3
+# web-browser, are documented in comments in this file. Eventually,
+# the Hv3 web-browser will use the published interface only. But
+# that is not the case yet.
+#
+#-------------------------------------------------------------------
+#
+# 
 #
 # Standard Functionality:
 #

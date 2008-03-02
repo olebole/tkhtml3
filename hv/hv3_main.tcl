@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.189 2008/02/15 18:54:58 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_main.tcl,v 1.190 2008/03/02 14:43:49 danielk1977 Exp $)} 1 }
 
 catch {memory init on}
 
@@ -147,7 +147,7 @@ snit::type ::hv3::config {
     -zoom             1.0                       Double  \
     -fontscale        1.0                       Double  \
     -guifont          11                        Integer \
-    -icons            default_icons             bcons   \
+    -icons            default_icons             Icons   \
     -debuglevel       0                         Integer \
     -fonttable        [list 8 9 10 11 13 15 17] SevenIntegers \
   ] {

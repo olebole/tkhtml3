@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.16 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_debug.tcl,v 1.17 2008/03/02 14:43:49 danielk1977 Exp $)} 1 }
 
 namespace eval ::hv3 {
   ::snit::widget console {
@@ -265,6 +265,14 @@ namespace eval ::hv3 {
       $myOutputWindow configure -state disabled
     }
 
+    # This proc is called to display a page in the "code viewer" pane 
+    # (the top one). Parameter $page must be one of the following: 
+    #
+    #     html
+    #     index
+    #     css
+    #     javascript
+    #
     method Display {page pageid} {
       $myCodeViewer configure -state normal -cursor xterm
 
@@ -279,20 +287,24 @@ namespace eval ::hv3 {
           set hv3 [$pageid hv3]
           $myCodeViewer insert end [$hv3 log get html]
           $myLabel configure -text "HTML Code: [$hv3 uri get]"
+          $myCodeViewer configure -wrap word
         }
 
         index {
           $self DisplayIndex
           $myLabel configure -text ""
+          $myCodeViewer configure -wrap none
         }
 
         css {
           eval $self DisplayCss $pageid
           $myLabel configure -text "CSS Code: [lindex $pageid 1]"
+          $myCodeViewer configure -wrap word
         }
 
         javascript {
           eval $self DisplayJavascript $pageid
+          $myCodeViewer configure -wrap word
         }
 
         default {error "Internal error - bad page \"$page\""}
@@ -308,12 +320,14 @@ namespace eval ::hv3 {
       lappend myCodeViewerLinks $tag
       $myCodeViewer tag configure $tag -underline 1 -foreground darkblue
       $myCodeViewer tag bind $tag <1> $command
-      $myCodeViewer tag bind $tag <Enter> [
-          list $myCodeViewer configure -cursor hand2
-      ]
-      $myCodeViewer tag bind $tag <Leave> [
-          list $myCodeViewer configure -cursor xterm
-      ]
+      $myCodeViewer tag bind $tag <Enter> "
+          $myCodeViewer configure -cursor hand2
+          $myCodeViewer tag configure $tag -background #d9d9d9
+      "
+      $myCodeViewer tag bind $tag <Leave> "
+          $myCodeViewer configure -cursor xterm
+          $myCodeViewer tag configure $tag -background white
+      "
       $myCodeViewer insert end $text $tag
       return $tag
     }
@@ -510,8 +524,8 @@ namespace eval ::hv3 {
       $myCodeViewer insert end "${zIndent}  "
       set cmd1 [list $self Display html $frame]
       set cmd2 [list ::HtmlDebug::browse $hv3 [$hv3 node]]
-      $self CreateCodeViewerLink "View Html Source" $cmd1
-      $myCodeViewer insert end "   "
+      $self CreateCodeViewerLink "View Html" $cmd1
+      $myCodeViewer insert end "         "
       $self CreateCodeViewerLink "Open Tree Browser..." $cmd2
       $myCodeViewer insert end "\n"
 
@@ -520,7 +534,9 @@ namespace eval ::hv3 {
       foreach css [$hv3 log get css] {
         foreach {id filename data errors} $css break
         $myCodeViewer insert end "${zIndent}  "
-        $myCodeViewer insert end "CSS: $filename  "
+        set cmd [list $self Display css [list $frame $id]]
+        $self CreateCodeViewerLink "View CSS" $cmd
+        $myCodeViewer insert end ":         $filename  "
         if {[llength $errors] > 0} {
             set nErr [expr {[llength $errors]/2}]
             set cmd [list $self Errors css [list $frame $id]]
@@ -528,8 +544,6 @@ namespace eval ::hv3 {
             $myCodeViewer tag configure $t -foreground red
             $myCodeViewer insert end "  "
         }
-        set cmd [list $self Display css [list $frame $id]]
-        $self CreateCodeViewerLink "View Source" $cmd
         $myCodeViewer insert end "\n"
       }
 
@@ -541,20 +555,19 @@ namespace eval ::hv3 {
         if {[$logscript cget -isevent]} continue
         incr ii
         set cmd [list $self Display javascript [list $ii $logscript]]
-        $myCodeViewer insert end $zIndent
-        $myCodeViewer insert end "  Javascript: [$logscript cget -heading]  "
+        set nLine [llength [split [$logscript cget -script] "\n"]]
+        $myCodeViewer insert end "$zIndent  "
+        $self CreateCodeViewerLink "View Javascript" $cmd
+        $myCodeViewer insert end ":  [$logscript cget -heading]  "
         if {[$logscript cget -rc]} {
-          set tag [$self CreateCodeViewerLink "(Failed)" [
+          set tag [$self CreateCodeViewerLink "(Failed)  " [
               list $self Errors javascript [list $ii $dom $logscript]
           ]]
           $myCodeViewer tag configure $tag -foreground red
-          $myCodeViewer insert end "  "
         } else {
           $myCodeViewer insert end "(Ok)  "
         }
-        $self CreateCodeViewerLink "View Source" $cmd
-        set nLine [llength [split [$logscript cget -script] "\n"]]
-        $myCodeViewer insert end " ($nLine lines)\n"
+        $myCodeViewer insert end "($nLine lines)\n"
       }
 
       $myCodeViewer insert end "\n"
@@ -589,8 +602,17 @@ namespace eval ::hv3 {
 #
 #     primitives
 #     breakpoints
+#     heapdebug
 #
 namespace eval ::hv3::console_commands {
+
+  proc help {} {
+    return "
+      primitives
+      breakpoints
+      heapdebug
+    "
+  }
 
   proc primitives {} {
     set zRet ""

@@ -128,8 +128,8 @@ bridgeHandleException(pInterp, pForiegnInterp, pForiegnTry)
     struct SEE_value *pForiegnVal = SEE_CAUGHT(*pForiegnTry);
     if (pForiegnVal) {
         struct SEE_value exception;
-        struct SEE_traceback *pTrace;
 #if 0
+struct SEE_traceback *pTrace;
 printf("throw: ");
 SEE_PrintValue(pForiegnInterp, pForiegnVal, stdout);
 printf("\n");

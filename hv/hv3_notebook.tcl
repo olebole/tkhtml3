@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.11 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_notebook.tcl,v 1.12 2008/03/02 14:43:49 danielk1977 Exp $)} 1 }
 
 # This file contains the implementation of three snit widgets:
 #
@@ -326,7 +326,9 @@ snit::widget ::hv3::notebook {
     $self configurelist $args
   }
 
-  destructor { }
+  destructor {
+    after cancel [list event generate $win <<NotebookTabChanged>>]
+  }
 
   # add WIDGET ?TITLE? ?UPDATE?
   # 
