@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3.tcl,v 1.247 2008/03/02 14:43:49 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3.tcl,v 1.248 2008/03/02 15:00:13 danielk1977 Exp $)} 1 }
 
 # This file contains the mega-widget hv3::hv3 that is at the core
 # of the Hv3 web browser implementation. An instance of this widget 
@@ -139,10 +139,14 @@ namespace eval hv3 { set {version($Id: hv3.tcl,v 1.247 2008/03/02 14:43:49 danie
 package require Tkhtml 3.0
 package require snit
 
-source [file join [file dirname [info script]] hv3_encodings.tcl]
-source [file join [file dirname [info script]] hv3_util.tcl]
-source [file join [file dirname [info script]] hv3_form.tcl]
-source [file join [file dirname [info script]] hv3_request.tcl]
+package provide hv3 0.1
+
+if {[info commands ::hv3::make_constructor] eq ""} {
+  source [file join [file dirname [info script]] hv3_encodings.tcl]
+  source [file join [file dirname [info script]] hv3_util.tcl]
+  source [file join [file dirname [info script]] hv3_form.tcl]
+  source [file join [file dirname [info script]] hv3_request.tcl]
+}
 #source [file join [file dirname [info script]] hv3_request.tcl.bak]
 
 #--------------------------------------------------------------------------

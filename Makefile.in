@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.34 2008/01/11 06:22:38 danielk1977 Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.35 2008/03/02 15:00:13 danielk1977 Exp $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -188,9 +188,9 @@ HV3_VERSION = 0.1
 HV3_LIB = hv3-$(HV3_VERSION).tm
 
 HV3_TCL_SOURCE =          \
+  $(srcdir)/hv/hv3_util.tcl         \
   $(srcdir)/hv/hv3.tcl              \
   $(srcdir)/hv/hv3_encodings.tcl    \
-  $(srcdir)/hv/hv3_util.tcl         \
   $(srcdir)/hv/hv3_form.tcl         \
   $(srcdir)/hv/hv3_request.tcl
 
