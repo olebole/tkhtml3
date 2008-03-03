@@ -1,4 +1,4 @@
-namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.98 2008/02/15 18:23:37 danielk1977 Exp $)} 1 }
+namespace eval hv3 { set {version($Id: hv3_form.tcl,v 1.99 2008/03/03 10:29:00 danielk1977 Exp $)} 1 }
 
 ###########################################################################
 # hv3_form.tcl --
@@ -1368,6 +1368,12 @@ snit::type ::hv3::form {
 
   variable myHv3
 
+  # When the onsubmit() event is fired, this boolean variable is set.
+  # If the event handler calls submit() on this form object, it is
+  # submitted immediately, without running the event handler.
+  #
+  variable myInSubmitEvent 0
+
   option -getcmd  -default ""
   option -postcmd -default ""
 
@@ -1413,13 +1419,17 @@ snit::type ::hv3::form {
 
   method submit {submitcontrol} {
 
-    # Before doing anything, execute the onsubmit event 
+    # Before doing anything, execute the onsubmit event
     # handlers, if any. If the submit handler script returns
     # false, do not submit the form. Otherwise, proceed.
     #
-    set rc [[$myHv3 dom] event onsubmit $myFormNode]
-    if {$rc eq "prevent"} return
-    if {$rc eq "error"} return
+    if {!$myInSubmitEvent} {
+      set myInSubmitEvent 1
+      set rc [[$myHv3 dom] event onsubmit $myFormNode]
+      if {$rc eq "prevent"} return
+      if {$rc eq "error"} return
+      set myInSubmitEvent 0
+    }
 
     set SubmitControls [$self SubmitNodes]
     set Controls       [$self ControlNodes]
@@ -1658,13 +1668,11 @@ snit::type ::hv3::formmanager {
     switch -- ${tag}.${type} {
 
       select. {
-        set hv3 [winfo parent [winfo parent $myHtml]]
-        set control [::hv3::forms::select $zWinPath $node $hv3]
+        set control [::hv3::forms::select $zWinPath $node $myHv3]
       }
 
       textarea. {
-        set hv3 [winfo parent [winfo parent $myHtml]]
-        set control [::hv3::forms::textarea $zWinPath $node $hv3]
+        set control [::hv3::forms::textarea $zWinPath $node $myHv3]
       }
 
       input.image {
