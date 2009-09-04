@@ -626,7 +626,7 @@ if 0 {
     upvar 0 $token state
     catch {
       close $state(sock)
-      unset state(sock)
+#      unset state(sock)
     }
     eval [linsert $args 0 ::http::FinishReal $token]
   }
