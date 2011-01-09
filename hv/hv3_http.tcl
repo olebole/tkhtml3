@@ -13,7 +13,7 @@ namespace eval hv3 { set {version($Id: hv3_http.tcl,v 1.66 2008/02/09 18:14:20 d
 
 package require snit
 package require Tk
-package require http
+package require http 2.7
 catch { package require tls }
 
 source [sourcefile hv3_file.tcl]
@@ -609,23 +609,31 @@ snit::widget ::hv3::protocol_gui {
 # Work around a bug in http::Finish
 #
 
-# First, make sure the http package is actually loaded. Do this by 
-# invoking ::http::geturl. The call will fail, since the arguments (none)
-# passed to ::http::geturl are invalid.
-catch {::http::geturl}
+# UPDATE: This bug was a leaking file-descriptor. However, it seems to
+# have been fixed somewhere around version 2.7. So the [package require]
+# at the top of this file has been changed to require at least version
+# 2.7 and the workaround code commented out.
+#
 
-# Declare a wrapper around ::http::Finish
-proc ::hv3::HttpFinish {token args} {
-  upvar 0 $token state
-  catch {
-    close $state(sock)
-    unset state(sock)
+if 0 {
+  # First, make sure the http package is actually loaded. Do this by 
+  # invoking ::http::geturl. The call will fail, since the arguments (none)
+  # passed to ::http::geturl are invalid.
+  catch {::http::geturl}
+  
+  # Declare a wrapper around ::http::Finish
+  proc ::hv3::HttpFinish {token args} {
+    upvar 0 $token state
+    catch {
+      close $state(sock)
+      unset state(sock)
+    }
+    eval [linsert $args 0 ::http::FinishReal $token]
   }
-  eval [linsert $args 0 ::http::FinishReal $token]
+  
+  # Install the wrapper.
+  rename ::http::Finish ::http::FinishReal
+  rename ::hv3::HttpFinish ::http::Finish
 }
-
-# Install the wrapper.
-rename ::http::Finish ::http::FinishReal
-rename ::hv3::HttpFinish ::http::Finish
 #-----------------------------------------------------------------------
 
