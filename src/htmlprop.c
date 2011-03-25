@@ -2045,6 +2045,12 @@ HtmlComputedValuesInit(pTree, pNode, pParent, p)
         memcpy(&p->fontKey, pValues->fFont->pKey, sizeof(HtmlFontKey));
         pValues->mask = 
             (pValues->mask & iCopyMask) | (pParentValues->mask & !iCopyMask);
+        /* inherit background from parent */
+        p->values.cBackgroundColor->nRef++;
+        decrementColorRef(pTree, p->values.cBackgroundColor );
+
+        p->values.cBackgroundColor = 
+	    ((HtmlElementNode *)pParent)->pPropertyValues->cBackgroundColor;
     }
 
     p->values.cColor->nRef++;
