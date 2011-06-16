@@ -1480,14 +1480,12 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     logWidthStage(2, pStageLog, pData->nCol, aWidth);
 
     /* Allocate pixels to explicit width columns */
-    if (iRemaining > 0) {
-        for (ii = 0; ii < pData->nCol; ii++) {
-            if (aReqWidth[ii].eType == CELL_WIDTH_PIXELS) {
-                int iReq = MAX(0, aReqWidth[ii].x.iVal - aWidth[ii]);
-                aWidth[ii] += iReq;
-                iRemaining -= iReq;
-            }
-        }
+    for (ii = 0; ii < pData->nCol; ii++) {
+	if (aReqWidth[ii].eType == CELL_WIDTH_PIXELS) {
+	    int iReq = MAX(0, aReqWidth[ii].x.iVal - aWidth[ii]);
+	    aWidth[ii] += iReq;
+	    iRemaining -= iReq;
+	}
     }
     logWidthStage(3, pStageLog, pData->nCol, aWidth);
 
@@ -1560,6 +1558,11 @@ tableCalculateCellWidths(pData, availablewidth, isAuto)
     assert(CELL_WIDTH_PERCENT == 2);
     for (jj = 0; iRemaining < 0 && jj < 3; jj++) {
         
+        /* Only reduce columns with CELL_WIDTH_AUTO or CELL_WIDTH_PERCENT */
+        if (jj != CELL_WIDTH_AUTO || jj != CELL_WIDTH_PERCENT )	{
+            continue;
+        };
+
         /* Total allocated, less the total min-content-width, for the cols */
         int iAllocLessMin = 0;
 
