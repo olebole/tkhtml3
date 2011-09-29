@@ -788,7 +788,7 @@ namespace eval ::hv3::hv3::selectionmanager {
 
   # get_selection OFFSET MAXCHARS
   #
-  #     This command is invoked whenever the current selection is selected
+  #     This command is invoked whenever the current selection is requested
   #     while it is owned by the html widget. The text of the selected
   #     region is returned.
   #
@@ -803,6 +803,9 @@ namespace eval ::hv3::hv3::selectionmanager {
 
     set stridx_a [$O(myHv3) html text offset $O(myFromNode) $O(myFromIdx)]
     set stridx_b [$O(myHv3) html text offset $O(myToNode) $O(myToIdx)]
+    if {$stridx_a eq "" || $stridx_b eq ""} {
+      return ""
+    }
     if {$stridx_a > $stridx_b} {
       foreach {stridx_a stridx_b} [list $stridx_b $stridx_a] {}
     }
