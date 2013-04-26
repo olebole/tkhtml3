@@ -913,6 +913,7 @@ void HtmlTreeAddText(HtmlTree *, HtmlTextNode *, int);
 void HtmlTreeAddClosingTag(HtmlTree *, int, const char *, int);
 
 void HtmlInitTree(HtmlTree *);
+void HtmlInitTreeNodeCmd(HtmlTree *);
 
 void HtmlHashInit(void *, int);
 HtmlTokenMap * HtmlHashLookup(void *, const char *zType);

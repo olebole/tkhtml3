@@ -997,9 +997,22 @@ HtmlInitTree(pTree)
          * document is the current node. 
          */
         pTree->state.pCurrent = HtmlNodeChild(pTree->pRoot, 1);
-        assert(HtmlNodeTagType(pTree->state.pCurrent) == Html_BODY);
     }
 }
+
+void
+HtmlInitTreeNodeCmd(pTree)
+    HtmlTree *pTree;
+{
+    if (pTree->pRoot
+     && !pTree->state.pCurrent) {
+        /* If there is no current node, then the <body> node of the 
+         * document is the current node. 
+         */
+        pTree->state.pCurrent = HtmlNodeChild(pTree->pRoot, 1);
+    }
+}
+
 
 static HtmlNode *
 findFosterParent(pTree, ppTable)

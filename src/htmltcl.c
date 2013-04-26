@@ -498,6 +498,11 @@ INSTRUMENTED(callbackHandler, HTML_INSTRUMENT_CALLBACK)
         HtmlNodeComputedValues(pTree->pRoot) ||
         pTree->cb.pRestyle==pTree->pRoot
     );
+
+    while( pTree->cb.inProgress ) {
+	usleep( 2000 );
+    }
+    
     HtmlCheckRestylePoint(pTree);
 
     HtmlLog(pTree, "CALLBACK", 
@@ -668,14 +673,17 @@ HtmlCallbackForce(pTree)
         (!pTree->cb.inProgress) 
     ) {
         ClientData clientData = (ClientData)pTree;
-        assert(!pTree->cb.isForce);
-        pTree->cb.isForce++;
-        callbackHandler(clientData);
-        pTree->cb.isForce--;
-        assert(pTree->cb.isForce >= 0);
-        if (pTree->cb.flags == 0) {
-            Tcl_CancelIdleCall(callbackHandler, clientData);
-        }
+	if( !pTree->cb.isForce )
+	{
+	    pTree->cb.isForce++;
+            callbackHandler(clientData);
+            pTree->cb.isForce--;
+            assert(pTree->cb.isForce >= 0);
+
+    	    if (pTree->cb.flags == 0) {
+    	        Tcl_CancelIdleCall(callbackHandler, clientData);
+        	}
+	};
     }
 }
 
@@ -2430,7 +2438,7 @@ nodeCmd(clientData, interp, objc, objv)
     int objc;                          /* Number of arguments. */
     Tcl_Obj *CONST objv[];             /* Argument strings. */
 {
-    HtmlInitTree((HtmlTree *)clientData);
+    HtmlInitTreeNodeCmd((HtmlTree *)clientData);
     return HtmlLayoutNode(clientData, interp, objc, objv);
 }
 static int 
