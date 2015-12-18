@@ -202,7 +202,7 @@ instCommand(clientData, interp, objc, objv)
 
     token = Tcl_GetCommandFromObj(interp, objv[2]);
     if (!token) {
-        Tcl_AppendResult(interp, "no such command: ", Tcl_GetString(objv[2]),0);
+        Tcl_AppendResult(interp, "no such command: ", Tcl_GetString(objv[2]),NULL);
         return TCL_ERROR;
     }
 

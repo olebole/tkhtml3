@@ -2086,8 +2086,7 @@ nodeInsertCmd(pNode, objc, objv)
         if (iBefore < 0) {
             Tcl_ResetResult(pTree->interp);
             Tcl_AppendResult(pTree->interp, Tcl_GetString(objv[3]), 
-                " is not a child node of ", Tcl_GetString(objv[0]), 0
-            );
+                " is not a child node of ", Tcl_GetString(objv[0]), NULL);
             return TCL_ERROR;
         }
         if (0 == strcmp(Tcl_GetString(objv[2]), "-after")) {
@@ -2456,7 +2455,7 @@ nodeCommand(clientData, interp, objc, objv)
                 zAttr = HtmlNodeAttr(pNode, zAttrName);
                 zAttr = (zAttr ? zAttr : zDefault);
                 if (zAttr==0) {
-                    Tcl_AppendResult(interp, "No such attr: ", zAttrName, 0);
+                    Tcl_AppendResult(interp, "No such attr: ", zAttrName, NULL);
                     return TCL_ERROR;
                 }
                 Tcl_SetResult(interp, (char *)zAttr, TCL_VOLATILE);
@@ -2482,7 +2481,7 @@ node_attr_usage:
             Tcl_AppendResult(interp, "Usage: ",
                 Tcl_GetString(objv[0]), " ",
                 Tcl_GetString(objv[1]), " ",
-                "? ?-default DEFAULT-VALUE? ATTR-NAME ?NEW-VAL??", 0);
+                "? ?-default DEFAULT-VALUE? ATTR-NAME ?NEW-VAL??", NULL);
             return TCL_ERROR;
         }
 
@@ -2757,7 +2756,7 @@ node_attr_usage:
                 }
                 if (!mask) {
                     Tcl_AppendResult(interp, 
-                        "Unsupported dynamic CSS flag: ", zArg2, 0);
+                        "Unsupported dynamic CSS flag: ", zArg2, NULL);
                     return TCL_ERROR;
                 }
             }
@@ -3093,7 +3092,7 @@ HtmlNodeGetPointer(pTree, zCmd)
 
     rc = Tcl_GetCommandInfo(interp, zCmd, &info);
     if (rc == 0 || info.objProc != nodeCommand){ 
-        Tcl_AppendResult(interp, "no such node: ", zCmd, 0);
+        Tcl_AppendResult(interp, "no such node: ", zCmd, NULL);
         return 0;
     }
     return (HtmlNode *)info.objClientData;

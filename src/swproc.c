@@ -120,15 +120,15 @@ SwprocRt(interp, objc, objv, aConf, apObj)
     return TCL_OK;
 
 error_insufficient_args:
-    Tcl_AppendResult(interp, "Insufficient args", 0);
+    Tcl_AppendResult(interp, "Insufficient args", NULL);
     goto error_out;
 
 error_no_such_option:
-    Tcl_AppendResult(interp, "No such option: ", zSwitch, 0);
+    Tcl_AppendResult(interp, "No such option: ", zSwitch, NULL);
     goto error_out;
 
 error_option_requires_arg:
-    Tcl_AppendResult(interp, "Option \"", zSwitch, "\"requires an argument", 0);
+    Tcl_AppendResult(interp, "Option \"", zSwitch, "\"requires an argument", NULL);
     goto error_out;
 
 error_out:

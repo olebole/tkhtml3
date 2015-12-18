@@ -247,7 +247,7 @@ int HtmlParseCmd(clientData, interp, objc, objv)
         arg2 = Tcl_GetString(objv[i + 1]);
         if ((!strcmp(arg1, "-insert")) && htmlPtr->LOendPtr) {
             if (HtmlGetIndex(htmlPtr, arg2, &iStart.p, &iStart.i) != 0) {
-                Tcl_AppendResult(interp, "malformed index: \"", arg2, "\"", 0);
+                Tcl_AppendResult(interp, "malformed index: \"", arg2, "\"", NULL);
                 return TCL_ERROR;
             }
             if (iStart.p) {
@@ -653,7 +653,7 @@ HtmlSelectionSetCmd(clientData, interp, argc, argv)
     HtmlLock(htmlPtr);
     if (HtmlGetIndex(htmlPtr, argv[3], &selBegin.p, &selBegin.i)) {
         if (!HtmlUnlock(htmlPtr)) {
-            Tcl_AppendResult(interp, "malformed index: \"", argv[3], "\"", 0);
+            Tcl_AppendResult(interp, "malformed index: \"", argv[3], "\"", NULL);
         }
         return TCL_ERROR;
     }
@@ -661,7 +661,7 @@ HtmlSelectionSetCmd(clientData, interp, argc, argv)
         return TCL_OK;
     if (HtmlGetIndex(htmlPtr, argv[4], &selEnd.p, &selEnd.i)) {
         if (!HtmlUnlock(htmlPtr)) {
-            Tcl_AppendResult(interp, "malformed index: \"", argv[4], "\"", 0);
+            Tcl_AppendResult(interp, "malformed index: \"", argv[4], "\"", NULL);
         }
         return TCL_ERROR;
     }
@@ -747,7 +747,7 @@ HtmlTokenHandlerCmd(clientData, interp, argc, argv)
     HtmlWidget *htmlPtr = (HtmlWidget *) clientData;
     int type = HtmlNameToType(htmlPtr, argv[3]);
     if (type == Html_Unknown) {
-        Tcl_AppendResult(interp, "unknown tag: \"", argv[3], "\"", 0);
+        Tcl_AppendResult(interp, "unknown tag: \"", argv[3], "\"", NULL);
         return TCL_ERROR;
     }
     if (argc == 4) {
@@ -784,7 +784,7 @@ HtmlIndexCmd(clientData, interp, argc, argv)
     HtmlLock(htmlPtr);
     if (HtmlGetIndex(htmlPtr, argv[2], &p, &i) != 0) {
         if (!HtmlUnlock(htmlPtr)) {
-            Tcl_AppendResult(interp, "malformed index: \"", argv[2], "\"", 0);
+            Tcl_AppendResult(interp, "malformed index: \"", argv[2], "\"", NULL);
         }
         return TCL_ERROR;
     }
@@ -847,11 +847,11 @@ HtmlDebugDumpCmd(clientData, interp, argc, argv)
     int i;
 
     if (HtmlGetIndex(htmlPtr, argv[3], &pStart, &i) != 0) {
-        Tcl_AppendResult(interp, "malformed index: \"", argv[3], "\"", 0);
+        Tcl_AppendResult(interp, "malformed index: \"", argv[3], "\"", NULL);
         return TCL_ERROR;
     }
     if (HtmlGetIndex(htmlPtr, argv[4], &pEnd, &i) != 0) {
-        Tcl_AppendResult(interp, "malformed index: \"", argv[4], "\"", 0);
+        Tcl_AppendResult(interp, "malformed index: \"", argv[4], "\"", NULL);
         return TCL_ERROR;
     }
     if (pStart) {

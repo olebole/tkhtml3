@@ -479,7 +479,7 @@ HtmlImageServerGet(p, zUrl)
             }
             if ((nObj != 1 && nObj != 2) || !img) {
                 Tcl_ResetResult(interp);
-                Tcl_AppendResult(interp,  "-imagecmd returned bad value", 0);
+                Tcl_AppendResult(interp,  "-imagecmd returned bad value", NULL);
                 HtmlFree(pImage);
                 pImage = 0;
                 goto image_get_out;

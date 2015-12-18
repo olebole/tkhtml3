@@ -2296,7 +2296,7 @@ HtmlStyleParse(pTree, pStyleText, pId, pImportCmd, pUrlCmd, pErrorVar)
         pStyleId = Tcl_NewStringObj(&zId[6], -1);
     }
     if (!pStyleId) {
-        Tcl_AppendResult(pTree->interp, "Bad style-sheet-id: ", zId, 0);
+        Tcl_AppendResult(pTree->interp, "Bad style-sheet-id: ", zId, NULL);
         return TCL_ERROR;
     }
     Tcl_IncrRefCount(pStyleId);
@@ -4327,7 +4327,7 @@ HtmlCssInlineQuery(interp, pPropertySet, pArg)
             zArg = Tcl_GetStringFromObj(pArg, &nArg);
             eProp = HtmlCssPropertyLookup(nArg, zArg);
             if (eProp < 0) {
-                Tcl_AppendResult(interp, "No such property: ", zArg, 0);
+                Tcl_AppendResult(interp, "No such property: ", zArg, NULL);
                 return TCL_ERROR;
             }
 

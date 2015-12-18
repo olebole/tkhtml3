@@ -50,7 +50,7 @@ static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.207 2008/01/16 06:29:27 dan
 #define LOG if (pTree->options.logcmd)
 
 #define SafeCheck(interp,str) if (Tcl_IsSafe(interp)) { \
-    Tcl_AppendResult(interp, str, " invalid in safe interp", 0); \
+    Tcl_AppendResult(interp, str, " invalid in safe interp", NULL); \
     return TCL_ERROR; \
 }
 
@@ -1431,8 +1431,7 @@ STRING  (timercmd, "timerCmd", "TimerCmd", ""),
                 Tcl_ResetResult(interp);
                 Tcl_AppendResult(interp, 
                     "expected list of 7 integers but got ", 
-                    "\"", Tcl_GetString(pFT), "\"", 0
-                );
+                    "\"", Tcl_GetString(pFT), "\"", NULL);
                 rc = TCL_ERROR;
             } else {
                 memcpy(pTree->aFontSizeTable, aFontSize, sizeof(aFontSize));
@@ -1527,7 +1526,7 @@ static int cgetCmd(clientData, interp, objc, objv)
         Tcl_SetObjResult(interp, pRet);
     } else {
         char * zOpt = Tcl_GetString(objv[2]);
-        Tcl_AppendResult( interp, "unknown option \"", zOpt, "\"", 0);
+        Tcl_AppendResult( interp, "unknown option \"", zOpt, "\"", NULL);
         return TCL_ERROR;
     }
     return TCL_OK;
@@ -1627,8 +1626,7 @@ relayoutCmd(clientData, interp, objc, objv)
             HtmlCallbackRestyle(pTree, pNode);
         } else {
             Tcl_AppendResult(interp, 
-                "Bad option \"", zArg3, "\": must be -layout or -style", 0
-            );
+                "Bad option \"", zArg3, "\": must be -layout or -style", NULL);
             return TCL_ERROR;
         }
     }
@@ -1694,8 +1692,7 @@ parseCmd(clientData, interp, objc, objv)
         Tcl_ResetResult(interp);
         Tcl_AppendResult(interp, 
             "Cannot call [", zWidget, " parse]" 
-            "until after [", zWidget, "] reset", 0
-        );
+            "until after [", zWidget, "] reset", NULL);
         return TCL_ERROR;
     }
 
@@ -1724,7 +1721,7 @@ parseCmd(clientData, interp, objc, objv)
         if (nCount==100){
             Tcl_ResetResult(interp);
             Tcl_AppendResult(interp, "infinite loop: "
-                "caused by node-handler calling [reset], [parse].", 0
+                "caused by node-handler calling [reset], [parse].", NULL
             );
             return TCL_ERROR;
         }
@@ -2098,7 +2095,7 @@ handlerCmd(clientData, interp, objc, objv)
     zTag = Tcl_GetString(objv[3]);
     tag = HtmlNameToType(0, zTag);
     if (tag==Html_Unknown) {
-        Tcl_AppendResult(interp, "Unknown tag type: ", zTag, 0);
+        Tcl_AppendResult(interp, "Unknown tag type: ", zTag, NULL);
         return TCL_ERROR;
     }
 
@@ -2752,7 +2749,7 @@ htmlstyleCmd(clientData, interp, objc, objv)
 
     Tcl_SetResult(interp, HTML_DEFAULT_CSS, TCL_STATIC);
     if (objc == 2) {
-        Tcl_AppendResult(interp, HTML_DEFAULT_QUIRKS, 0);
+        Tcl_AppendResult(interp, HTML_DEFAULT_QUIRKS, NULL);
     }
 
     return TCL_OK;
