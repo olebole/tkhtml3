@@ -91,7 +91,7 @@ namespace eval ::hv3::protocol {
 
     # If the tls package is loaded, we can also support https.
     if {[info commands ::tls::socket] ne ""} {
-      schemehandler $me https [list $me request_https]
+      schemehandler $me https [list $me request_http]
       ::http::register https 443 ::hv3::protocol::SSocket
     }
 
@@ -264,108 +264,12 @@ namespace eval ::hv3::protocol {
     $me Updatestatusvar
   }
 
-  # The following methods:
-  #
-  #     [request_https], 
-  #     [SSocketReady], 
-  #     [SSocketProxyReady], and
-  #     [SSocket], 
-  #
-  # along with the type variable $theWaitingSocket, are part of the
-  # https:// support implementation.
-  # 
-  proc request_https {me downloadHandle} {
-    upvar $me O
-
-    set obj [::tkhtml::uri [$downloadHandle cget -uri]]
-    set host [$obj authority]
-    $obj destroy
-
-    set port 443
-    regexp {^(.*):([0123456789]+)$} $host -> host port
-
-    set proxyhost [::http::config -proxyhost]
-    set proxyport [::http::config -proxyport]
-
-    AddToWaitingList $me $downloadHandle
-
-    if {$proxyhost eq ""} {
-      set fd [socket -async $host $port]
-      fileevent $fd writable [list $me SSocketReady $fd $downloadHandle]
-    } else {
-      set fd [socket $proxyhost $proxyport]
-      fconfigure $fd -blocking 0 -buffering full
-      puts $fd "CONNECT $host:$port HTTP/1.1"
-      puts $fd ""
-      flush $fd
-      fileevent $fd readable [list $me SSocketProxyReady $fd $downloadHandle]
-    }
+  proc SSocket args {
+      set opts [lrange $args 0 end-2]
+      set host [lindex $args end-1]
+      set port [lindex $args end]
+      ::tls::socket -servername $host {*}$opts $host $port
   }
-
-  proc SSocketReady {me fd downloadHandle} {
-    upvar $me O
-    ::variable theWaitingSocket
-
-    # There is now a tcp/ip socket connection to the https server ready 
-    # to use. Invoke ::tls::import to add an SSL layer to the channel
-    # stack. Then call [$me request_http] to format the HTTP request
-    # as for a normal http server.
-    fileevent $fd writable ""
-    fileevent $fd readable ""
-
-    if {[info commands $downloadHandle] eq ""} {
-      # This occurs if the download-handle was cancelled by Hv3 while
-      # waiting for the SSL connection to be established. 
-      close $fd
-    } else {
-      set theWaitingSocket $fd
-      $me request_http $downloadHandle
-    }
-  }
-  proc SSocketProxyReady {me fd downloadHandle} {
-    upvar $me O
-    fileevent $fd readable ""
-
-    set str [gets $fd line]
-    if {$line ne ""} {
-      if {! [regexp {^HTTP/.* 200} $line]} {
-        puts "ERRRORR!: $line"
-        close $fd
-        $downloadHandle finish [::hv3::string::htmlize $line]
-        return
-      } 
-      while {[gets $fd r] > 0} {}
-      set fd [::tls::import $fd]
-      fconfigure $fd -blocking 0
-
-      set cmd [list $me SSocketReady $fd $downloadHandle] 
-      SIfHandshake $fd $downloadHandle $cmd
-      # $me SSocketReady $fd $downloadHandle
-    }
-  }
-  proc SIfHandshake {fd downloadHandle script} {
-    if {[ catch { set done [::tls::handshake $fd] } msg]} {
-      $downloadHandle finish [::hv3::string::htmlize $msg]
-      return
-    }
-    if {$done} {
-      eval $script
-    } else {
-      after 100 [list ::hv3::protocol::SIfHandshake $fd $downloadHandle $script]
-    }
-  }
-
-  # Namespace variable and proc.
-  ::variable theWaitingSocket ""
-  proc SSocket {host port} {
-    ::variable theWaitingSocket
-    set ss $theWaitingSocket
-    set theWaitingSocket ""
-    return $ss
-  }
-
-  # End of code for https://
-  #-------------------------
 
   # Handle a data: URI.
   #
