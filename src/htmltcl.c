@@ -39,6 +39,7 @@ static char const rcsid[] = "@(#) $Id: htmltcl.c,v 1.207 2008/01/16 06:29:27 dan
 #include <fcntl.h>
 #include <errno.h>
 #include <assert.h>
+#include <unistd.h>
 #include "html.h"
 #include "restrack.h"
 #include "swproc.h"
